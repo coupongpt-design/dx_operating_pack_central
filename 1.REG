@@ -1,0 +1,13 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Classes\Python.File\shell\Open with IDLE]
+"Icon"="C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python311\\pythonw.exe,0"
+
+[HKEY_CURRENT_USER\Software\Classes\Python.File\shell\Open with IDLE\command]
+@="\"C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python311\\pythonw.exe\" \"C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\idlelib\\idle.pyw\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\Python.NoConFile\shell\Open with IDLE]
+"Icon"="C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python311\\pythonw.exe,0"
+
+[HKEY_CURRENT_USER\Software\Classes\Python.NoConFile\shell\Open with IDLE\command]
+@="\"C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python311\\pythonw.exe\" \"C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\idlelib\\idle.pyw\" \"%1\""

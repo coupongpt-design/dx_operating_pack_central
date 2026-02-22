@@ -1,0 +1,13 @@
+{
+  "meta": {
+    "version": "1.0",
+    "target_window": "COCMobile",
+    "description": ""
+  },
+  "steps": [
+    {
+      "id": "8f4f6438",
+      "name": "Image Step #1",
+      "type": "image_click",
+      "pre_delay_ms": 0,
+      "png_bytes": 

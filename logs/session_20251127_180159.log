@@ -1,0 +1,6 @@
+[18:01:59] [ERROR] [MacroRunner] Runner exception
+Traceback (most recent call last):
+  File "D:\down\autocording\매크로모듈화\app\core\runner.py", line 183, in run
+    with mss.mss() as sct:
+         ~~~~~~~^^
+TypeError: 'types.SimpleNamespace' object does not support the context manager protocol (missed __exit__ method)

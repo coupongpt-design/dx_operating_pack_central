@@ -1,0 +1,19 @@
+[2026-02-19 12:53:19] [INFO] Smoke suite started (mode=full)
+[2026-02-19 12:53:19] [INFO] Log file: D:\down\autocording\매크로모듈화\logs\smoke_suite_full_20260219_125319_985198.log
+[2026-02-19 12:53:19] [STEP] runtime_core: C:\Users\Admin\AppData\Local\Programs\Python\Python313\python.exe -m pytest -q tests/test_e2e_runtime_orchestration.py tests/test_scheduler_core.py tests/test_trigger_engine_core.py
+.........................
+25 passed in 0.62s
+[2026-02-19 12:53:21] [STEP] runtime_core: exit=0, elapsed=1.43s
+[2026-02-19 12:53:21] [STEP] image_matching_core: C:\Users\Admin\AppData\Local\Programs\Python\Python313\python.exe -m pytest -q tests/test_image_dialog_presets.py tests/test_matcher_quality.py tests/test_stepdata_serialization.py
+......................
+22 passed in 0.40s
+[2026-02-19 12:53:22] [STEP] image_matching_core: exit=0, elapsed=1.02s
+[2026-02-19 12:53:22] [STEP] health_check: C:\Users\Admin\AppData\Local\Programs\Python\Python313\python.exe run_health_check.py
+Running pytest: C:\Users\Admin\AppData\Local\Programs\Python\Python313\python.exe -m pytest tests -q
+............................................................................................................................................................................................................s....................................................................
+=========================== short test summary info ===========================
+SKIPPED [1] tests\test_signal_and_logic.py:134: UI signal check skipped in headless test run.
+272 passed, 1 skipped in 9.46s
+SYSTEM HEALTHY
+[2026-02-19 12:53:32] [STEP] health_check: exit=0, elapsed=10.11s
+[2026-02-19 12:53:32] [PASS] Smoke suite completed successfully

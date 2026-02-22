@@ -1,0 +1,140 @@
+# .cursorrules (Detailed Constitution / Mirror Notes)
+
+## 0) Auto-Synced Normative Block (Read-Only, Source: `AGENTS.md`)
+<!-- SYNC_BLOCK_START -->
+Priority: system/dev/runtime > user > AGENTS.md > .cursorrules
+Session Gate: read PROJECT_STATUS.md -> 2-line current-focus summary -> declare mode
+Mode: compact by default; precision on high-risk triggers; keep precision through validation
+Precision triggers: files>=5, StepData change, serialization change, thread/signal change, runner flow change, unclear repro/scope
+Multi-Agent flow: default Executor->Guardian; precision trigger -> Planner->Executor->Guardian
+Role constraints: Planner no code edits; Guardian read-only PASS/FAIL gate
+Governance: rule-file changes (AGENTS/.cursorrules/rule-guard tests) in dedicated change set
+Thread/UI safety: worker threads never touch UI directly; use pyqtSignal
+State ownership: MainWindow owns steps/UndoStack; dialogs return data only
+Command rule: no direct self.steps CRUD/reorder; use _push_command(...)
+Data integrity: StepData changes require model+serialization+runner+tests; defaults backward-safe
+Quality gate: focused tests for core; full pytest for risky changes; health_check for runtime-sensitive
+Mutation guard: keep tests/test_rule_guard_steps_mutation.py passing
+Sync guard: keep tests/test_rule_docs_sync.py passing
+Docs sync: DEV_LOG.md + PROJECT_STATUS.md + now_spec.md on meaningful behavior changes
+Environment: do not modify backups/
+Sync policy: AGENTS.md canonical; .cursorrules mirrors this block only; direction AGENTS -> .cursorrules
+<!-- SYNC_BLOCK_END -->
+
+## 1) Detailed Mode Guidance
+### 1.1 Compact Mode
+- Use for low/medium tasks:
+  - docs edits
+  - small focused bug fixes
+  - routine test updates
+- Keep context reads minimal.
+- Report only deltas.
+
+### 1.2 Precision Mode
+- Use for high-risk/high-complexity tasks:
+  - multi-module refactor
+  - thread/signal changes
+  - data model/schema changes
+  - runtime orchestration
+  - unclear root cause regressions
+- Expand assumptions/risks/verification scope.
+- Do not exit precision until risk is retired.
+
+## 2) Session Start Checklist (Operational)
+1. Open `PROJECT_STATUS.md` first.
+2. Extract current focus (or nearest equivalent) and summarize in 2 lines.
+3. Declare `Compact`/`Precision` before changing files.
+4. If repro is missing, ask for repro or run conservative precision checks.
+
+## 3) Multi-Agent Operations (Detailed)
+### 3.1 Default (2-Agent)
+1. `Executor` implements with minimal diff.
+2. `Guardian` performs read-only review and decides PASS/FAIL.
+
+### 3.2 Escalated (3-Agent)
+1. `Planner` prepares plan/risk/verification/rollback only.
+2. `Executor` implements Planner scope.
+3. `Guardian` reviews and gates release.
+
+### 3.3 Escalation Trigger
+- Any precision trigger immediately upgrades to 3-Agent flow.
+
+### 3.4 Role Rules
+- Planner:
+  - No code changes.
+  - Must declare mode and risk-driven test plan.
+- Executor:
+  - No architecture drift beyond approved plan.
+  - Must run targeted tests first, then full pytest if risky.
+- Guardian:
+  - Read-only.
+  - Must include exact file/line failures when FAIL.
+
+### 3.5 Prompt Templates
+- Use `MULTI_AGENT_PROTOCOL.md` for copy/paste Planner/Executor/Guardian templates.
+
+## 4) Architecture Iron Rules (Expanded)
+1. Thread safety:
+   - `MacroRunner`/`TriggerWatcher` never update UI directly.
+   - Route UI changes via `pyqtSignal` + main-thread slots.
+2. Single source of truth:
+   - `MainWindow` owns `steps` + `UndoStack`.
+   - Dialogs pass data back only.
+3. Command pattern enforcement:
+   - Use command objects + `self._push_command(...)` for CRUD/reorder.
+   - Avoid ad-hoc list mutation paths.
+4. Branch stability:
+   - Prefer `step_id` over index.
+   - Missing target must fail-safe.
+
+## 5) Token Efficiency Protocol
+1. Delta-first reporting only.
+2. Short progress updates.
+3. Avoid repeated checklist text in one turn.
+4. Run targeted tests first; full suite only when risk requires.
+5. Keep external consultation prompts compact (`CONSULT_TOKEN_TEMPLATE.md`).
+
+## 6) UI/Regression Guard
+1. Hide-all then show-needed for dynamic groups.
+2. Keep `layout.addWidget(...)` paths intact.
+3. Run visibility/state refresh after init/load.
+
+## 7) Data/Runtime Integrity
+1. `StepData` field change requires synchronized updates:
+   - model
+   - load/save/serialization
+   - runner usage
+   - tests
+2. Preserve backward compatibility by default.
+3. No partial production logic edits.
+
+## 8) Quality Gate (Expanded)
+1. Core changes: focused tests immediately.
+2. Risky/cross-cutting: `python -m pytest -q`.
+3. Runtime-sensitive: `python run_health_check.py` when applicable.
+4. Guard tests must stay green:
+   - `tests/test_rule_guard_steps_mutation.py`
+   - `tests/test_rule_docs_sync.py`
+
+## 9) Documentation Sync
+- For meaningful behavior changes, update:
+  - `DEV_LOG.md`
+  - `PROJECT_STATUS.md`
+  - `now_spec.md`
+- Include latest pass counts when changed.
+
+## 10) Environment Notes
+- Workspace root: `d:\down\autocording\매크로모듈화`
+- CMD quoting can be brittle; prefer small commands and minimal pattern complexity.
+- Never modify `backups/`.
+
+## 11) Sync/Conflict Policy
+1. Canonical source: `AGENTS.md`.
+2. Mirror scope in this file:
+   - Only the block between `SYNC_BLOCK_START/END`.
+3. Sync direction:
+   - `AGENTS.md` -> `.cursorrules` only.
+4. Do not back-write `AGENTS.md` from `.cursorrules`.
+5. If mismatch exists:
+   - Treat `AGENTS.md` as authoritative and resync mirror block.
+

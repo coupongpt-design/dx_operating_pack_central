@@ -1,0 +1,65 @@
+[04:48:03] [ERROR] [MacroRunner] Runner exception
+Traceback (most recent call last):
+  File "D:\down\autocording\매크로모듈화\app\core\runner.py", line 208, in run
+    self._window_manager.activate_window(hwnd)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "D:\down\autocording\매크로모듈화\app\core\window_manager.py", line 65, in activate_window
+    win32gui.SetForegroundWindow(hwnd)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+pywintypes.error: (0, 'SetForegroundWindow', 'No error message is available')
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\down\autocording\매크로모듈화\app\core\runner.py", line 214, in run
+    self.logger.exception("Failed to activate target window (continuing)")
+    ^^^^^^^^^^^
+AttributeError: 'MacroRunner' object has no attribute 'logger'. Did you mean: '_logger'?
+[04:48:03] [ERROR] [MacroRunner] Runner exception
+Traceback (most recent call last):
+  File "D:\down\autocording\매크로모듈화\app\core\runner.py", line 208, in run
+    self._window_manager.activate_window(hwnd)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "D:\down\autocording\매크로모듈화\app\core\window_manager.py", line 65, in activate_window
+    win32gui.SetForegroundWindow(hwnd)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+pywintypes.error: (0, 'SetForegroundWindow', 'No error message is available')
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\down\autocording\매크로모듈화\app\core\runner.py", line 214, in run
+    self.logger.exception("Failed to activate target window (continuing)")
+    ^^^^^^^^^^^
+AttributeError: 'MacroRunner' object has no attribute 'logger'. Did you mean: '_logger'?
+[04:48:03] [ERROR] [MacroRunner] Runner exception
+Traceback (most recent call last):
+  File "D:\down\autocording\매크로모듈화\app\core\runner.py", line 208, in run
+    self._window_manager.activate_window(hwnd)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "D:\down\autocording\매크로모듈화\app\core\window_manager.py", line 65, in activate_window
+    win32gui.SetForegroundWindow(hwnd)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+pywintypes.error: (0, 'SetForegroundWindow', 'No error message is available')
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\down\autocording\매크로모듈화\app\core\runner.py", line 214, in run
+    self.logger.exception("Failed to activate target window (continuing)")
+    ^^^^^^^^^^^
+AttributeError: 'MacroRunner' object has no attribute 'logger'. Did you mean: '_logger'?
+[04:48:05] [ERROR] [MacroRunner] Runner exception
+Traceback (most recent call last):
+  File "D:\down\autocording\매크로모듈화\app\core\runner.py", line 210, in run
+    self.logger.warning(
+    ^^^^^^^^^^^
+AttributeError: 'MacroRunner' object has no attribute 'logger'. Did you mean: '_logger'?
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\down\autocording\매크로모듈화\app\core\runner.py", line 214, in run
+    self.logger.exception("Failed to activate target window (continuing)")
+    ^^^^^^^^^^^
+AttributeError: 'MacroRunner' object has no attribute 'logger'. Did you mean: '_logger'?

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "roles": [
+    {
+      "role_id": "planner",
+      "title": "Planner",
+      "objective": "Split the task into practical phases.",
+      "guidance": "Return sequence, assumptions, and done criteria."
+    },
+    {
+      "role_id": "implementer",
+      "title": "Implementer",
+      "objective": "Propose concrete code edits.",
+      "guidance": "List files, edge cases, and rollback notes."
+    },
+    {
+      "role_id": "reviewer",
+      "title": "Reviewer",
+      "objective": "Find regressions and risks.",
+      "guidance": "Prioritize high-severity findings first."
+    }
+  ]
+}

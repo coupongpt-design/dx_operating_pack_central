@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "templates": [
+    {
+      "id": "user_chat_repeater_e643fe75",
+      "title": "채팅 문장 반복 전송1",
+      "summary": "같은 문장을 여러 번 입력하고 전송합니다.",
+      "difficulty": "beginner",
+      "recommended": false,
+      "tags": [
+        "채팅",
+        "입력",
+        "반복"
+      ],
+      "prerequisites": [
+        "입력창에 커서를 먼저 맞추세요."
+      ],
+      "failure_points": [
+        "전송 키가 잘못되면 메시지가 전송되지 않습니다."
+      ],
+      "fields": [
+        {
+          "name": "scenario_name",
+          "label": "시나리오 이름",
+          "type": "str",
+          "default": "채팅 반복 전송"
+        },
+        {
+          "name": "message_text",
+          "label": "보낼 문장",
+          "type": "str",
+          "required": true,
+          "default": ""
+        },
+        {
+          "name": "submit_key",
+          "label": "전송 키",
+          "type": "choice",
+          "options": [
+            {
+              "label": "Enter",
+              "value": "enter"
+            },
+            {
+              "label": "Tab",
+              "value": "tab"
+            },
+            {
+              "label": "Space",
+              "value": "space"
+            }
+          ],
+          "default": "enter"
+        },
+        {
+          "name": "repeat_count",
+          "label": "반복 횟수 (0=무한)",
+          "type": "int",
+          "min": 0,
+          "max": 100000,
+          "default": 10
+        },
+        {
+          "name": "delay_ms",
+          "label": "전송 간격(ms)",
+          "type": "int",
+          "min": 0,
+          "max": 600000,
+          "default": 200
+        }
+      ],
+      "builder": "chat_repeater"
+    }
+  ]
+}

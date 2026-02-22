@@ -1,0 +1,2632 @@
+import sys
+import pyautogui
+import os
+import json
+import time
+import uuid
+import traceback
+import shutil
+import re
+import copy
+from dataclasses import fields
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+    QPushButton, QLabel, QListWidget, QListWidgetItem, QFileDialog, 
+    QMessageBox, QCheckBox, QSpinBox, QDoubleSpinBox, QGroupBox, 
+    QFormLayout, QPlainTextEdit, QTabWidget, QGridLayout, QAction,
+    QMenu, QMenuBar, QShortcut, QInputDialog, QTimeEdit, QTableWidget, QTableWidgetItem,
+    QDialog, QLineEdit, QComboBox
+)
+from PyQt5.QtCore import Qt, QTimer, QSettings, QSize, QEventLoop, QRect, QTime, QStandardPaths
+from PyQt5.QtGui import QKeySequence, QIcon, QPixmap, QPainter, QColor, QFont
+
+from .ui.dialogs import (
+    ImageStepDialog, NotImageDialog, BranchStepDialog, TargetDialog,
+    RecordingSettingsDialog
+)
+from .ui.tabs.manager_tab import ManagerTab
+from .core.models import TriggerData, StepData, RepeatConfig
+from .core.runner import MacroRunner
+from .core.recorder import InputRecorder
+from .core.trigger_engine import TriggerWatcher
+from .core.config import ConfigManager
+from .core.scheduler import MacroScheduler
+from .core.window_manager import WindowManager
+from .core.commands import (
+    UndoStack,
+    AddStepCommand,
+    AddStepsCommand,
+    RemoveStepCommand,
+    EditStepCommand,
+    MoveStepCommand,
+    ReorderStepsCommand,
+)
+from .ui.trigger_dialog import TriggerEditDialog
+from .ui.hotkeys import SystemHotkeys, HotkeySettingsDialog
+from .ui.widgets import StepList
+from .ui.styles import DarkTheme
+from .ui.selectors import ROISelector, CrosshairOverlay
+from .ui.debug_overlay import DebugOverlay
+from .ui.window_selector import WindowSelectorDialog
+from .io.macro_io import MacroIO
+from .utils.common import hk_pretty, hk_to_tuple, hk_normalize, encode_png_bytes
+from .utils.logging_setup import setup_file_logger
+
+def _excepthook(type, value, tback):
+    sys.__excepthook__(type, value, tback)
+    traceback.print_exception(type, value, tback)
+
+class MainWindow(QMainWindow):
+    # Scheduler constants
+    SCHED_KEY_TIME = "scheduler/time"
+    SCHED_KEY_MACROS = "scheduler/macros"
+    SCHED_KEY_ENABLED = "scheduler/enabled"
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Macro Editor")
+        self.resize(1200, 760)
+        
+        # Apply Dark Theme
+        self.setStyleSheet(DarkTheme.get_stylesheet())
+        
+        self.steps: list[StepData] = []
+        self._active_step_index: int | None = None
+        self.runner: MacroRunner | None = None
+        self.recorder: InputRecorder | None = None
+        self._current_macro_path: str | None = None
+        self._resume_state: dict | None = None
+        self._resume_index: int = 0
+        self._main_runner_paused: bool = False
+        self._paused_runner: MacroRunner | None = None
+        self.trigger_runner: MacroRunner | None = None
+        self._record_show_summary = False
+        self._was_minimized = False
+        self._live_overlays: list[CrosshairOverlay] = []
+        trigger_start_log = os.environ.get("IMAGEMACRO_TRIGGER_START_LOG", "")
+        self._show_trigger_start_log = str(trigger_start_log).strip().lower() in ("1", "true", "yes", "on")
+        self.config = ConfigManager()
+        self._load_record_settings()
+        
+        # Hotkey state
+        self._hk_run = "end"
+        self._hk_stop = "home"
+        self._hk_record = "f9"
+        self._hk_add_img = "ctrl+shift+i"
+        self._hk_add_notimg = "ctrl+shift+n"
+        self._mods_global = set()
+        self._qshortcuts: list[QShortcut] = []
+        self._hotkey_dialog_open = False
+        self._load_hotkeys()
+        self._preset_dir = self._compute_preset_dir()
+        self._sched_running = False
+        self._sched_ran_today = False
+        self.undo_stack = UndoStack()
+        self._file_logger = setup_file_logger("Macro")
+        self.debug_overlay = DebugOverlay()
+        self.debug_overlay.hide()
+        self.window_manager = WindowManager()
+        self.target_hwnd = None
+        
+        # System Hotkeys
+        self._system_hotkeys = SystemHotkeys(self)
+        
+        # Scheduler
+        self.scheduler = MacroScheduler(self)
+        self.scheduler.log.connect(self.info)
+        self.scheduler.requestRunMacro.connect(self._run_scheduled_macro)
+
+
+        self.list = StepList(self)
+        self.list.orderChanged.connect(self.sync_order)
+        self.list.itemSelectionChanged.connect(self.update_preview)
+        self.list.requestRunFrom.connect(self.run_from_index)
+        self.list.requestEdit.connect(self.edit_step_at)
+        self.list.requestConvertToBranch.connect(self.convert_to_branch_step)
+        self.list.requestDuplicate.connect(self.duplicate_step_at)
+        self.list.requestDuplicateMany.connect(self.duplicate_steps_at)
+        self.list.requestDelete.connect(self.delete_step_at)
+        self.list.requestDeleteMany.connect(self.delete_steps_at)
+        self.list.requestRename.connect(self.rename_step_at)
+        self.list.itemChanged.connect(self._on_list_item_renamed)
+        
+        # Toolbar
+        self.toolbar = self.addToolBar("Main Toolbar")
+        self.toolbar.setMovable(False)
+        self.toolbar.setFloatable(False)
+        self.toolbar.setIconSize(QSize(24, 24))
+        
+        style = QApplication.style()
+        
+        # Save / Load Actions (Keep these in toolbar)
+        self.act_save = QAction(style.standardIcon(style.SP_DialogSaveButton), "Save", self)
+        self.act_save.triggered.connect(self.save_macro)
+        self.toolbar.addAction(self.act_save)
+        
+        self.act_load = QAction(style.standardIcon(style.SP_DialogOpenButton), "Load", self)
+        self.act_load.triggered.connect(self.load_macro)
+        self.toolbar.addAction(self.act_load)
+
+        # Undo / Redo actions
+        self.act_undo = QAction("Undo", self)
+        self.act_undo.setShortcut(QKeySequence("Ctrl+Z"))
+        self.act_undo.triggered.connect(self._do_undo)
+        self.act_redo = QAction("Redo", self)
+        self.act_redo.setShortcut(QKeySequence("Ctrl+Y"))
+        self.act_redo.triggered.connect(self._do_redo)
+        self.toolbar.addAction(self.act_undo)
+        self.toolbar.addAction(self.act_redo)
+        
+        # Other actions are moved to the left panel buttons to avoid duplication.
+        # We keep the action objects if needed for shortcuts or other references, 
+        # but we don't add them to the toolbar.
+        
+        self.act_run = QAction("Run", self)
+        self.act_run.triggered.connect(self.run_macro)
+        
+        self.act_stop = QAction("Stop", self)
+        self.act_stop.triggered.connect(self.stop_macro)
+        
+        self.act_record = QAction("Record", self)
+        self.act_record.setCheckable(True)
+        self.act_record.toggled.connect(self.toggle_record)
+        
+        self.act_add_img = QAction("Add Image", self)
+        self.act_add_img.triggered.connect(self.add_image_step)
+        
+        self.act_add_act = QAction("Add Action", self)
+        self.act_add_act.triggered.connect(self.add_not_image_step)
+
+        # Main Layout with Splitter
+        from PyQt5.QtWidgets import QSplitter
+        
+        self.splitter = QSplitter(Qt.Horizontal)
+        
+        # Left Panel (Tabbed: Scenario / Triggers)
+        self.left_tabs = QTabWidget()
+        
+        # Tab 1: Scenario List
+        # We move the list directly to the tab, removing the old grid layout buttons
+        scenario_widget = QWidget()
+        scenario_layout = QVBoxLayout(scenario_widget)
+        scenario_layout.setContentsMargins(0,0,0,0)
+        scenario_layout.addWidget(self.list)
+        
+        # Scenario action buttons
+        btn_layout = QGridLayout()
+        btn_layout.setSpacing(5)
+        
+        # Helper to format button text with hotkey
+        def btn_text(label, hk):
+            # hk_pretty가 없으면 그대로 반환 (안전장치)
+            try:
+                pretty = hk_pretty(hk) if hk else ""
+                return f"{label} ({pretty})" if pretty else label
+            except NameError:
+                return f"{label} ({hk})" if hk else label
+
+        # Row 1: Add buttons
+        self.btnAddImg = QPushButton(btn_text("이미지+", self._hk_add_img))
+        self.btnAddImg.clicked.connect(self.add_image_step)
+        self.btnAddImg.setStyleSheet("background: #1E3A5F; color: white; padding: 8px; font-weight: bold;")
+        
+        self.btnAddAction = QPushButton(btn_text("일반동작+", self._hk_add_notimg))
+        self.btnAddAction.clicked.connect(self.add_not_image_step)
+        self.btnAddAction.setStyleSheet("background: #2C5F2D; color: white; padding: 8px; font-weight: bold;")
+        
+        btn_layout.addWidget(self.btnAddImg, 0, 0)
+        btn_layout.addWidget(self.btnAddAction, 0, 1)
+        
+        # Row 2: Other buttons
+        btn_add_branch = QPushButton("🔀 분기 추가")
+        btn_add_branch.clicked.connect(self.add_branch_step)
+        btn_add_branch.setStyleSheet("background: #5F4C2C; color: white; padding: 8px;")
+        
+        btn_add_comment = QPushButton("💬 주석 추가")
+        btn_add_comment.clicked.connect(self.add_comment_step)
+        btn_add_comment.setStyleSheet("background: #3E3E42; color: white; padding: 8px;")
+        
+        btn_layout.addWidget(btn_add_branch, 1, 0)
+        btn_layout.addWidget(btn_add_comment, 1, 1)
+        
+        # Row 3: Run / Stop buttons
+        self.btnRun = QPushButton(btn_text("실행", self._hk_run))
+        self.btnRun.clicked.connect(self.run_macro)
+        self.btnRun.setStyleSheet("background: #007ACC; color: white; padding: 10px; font-weight: bold;")
+        
+        self.btnStop = QPushButton(btn_text("정지", self._hk_stop))
+        self.btnStop.clicked.connect(self.stop_macro)
+        self.btnStop.setStyleSheet("background: #C0392B; color: white; padding: 10px; font-weight: bold;")
+        self.btnStop.setEnabled(False)
+        
+        btn_layout.addWidget(self.btnRun, 2, 0)
+        btn_layout.addWidget(self.btnStop, 2, 1)
+        
+        # Row 4: Record button
+        self.btnRecord = QPushButton(btn_text("녹화", self._hk_record))
+        self.btnRecord.setCheckable(True)
+        self.btnRecord.toggled.connect(self.toggle_record)
+        self.btnRecord.setStyleSheet("background: #8B0000; color: white; padding: 10px; font-weight: bold;")
+        btn_layout.addWidget(self.btnRecord, 3, 0, 1, 2)
+        
+        scenario_layout.addLayout(btn_layout)
+        
+        self.left_tabs.addTab(scenario_widget, "Scenario")
+        
+        # Tab 2: Triggers
+        trigger_widget = self._init_trigger_tab()
+        self.left_tabs.addTab(trigger_widget, "Triggers")
+        # Tab 3: Multi-Client Manager
+        try:
+            self.manager_tab = ManagerTab(self)
+            self.left_tabs.addTab(self.manager_tab, "Multi-Manager")
+        except Exception as e:
+            QMessageBox.critical(self, "ManagerTab Load Error", str(e))
+            raise
+        
+        self.splitter.addWidget(self.left_tabs)
+        
+        # Center Panel (Preview & Log)
+        center_widget = QWidget()
+        center_layout = QVBoxLayout(center_widget)
+        center_layout.setContentsMargins(0,0,0,0)
+        
+        # Preview Area
+        grp_preview = QGroupBox("Preview")
+        preview_layout = QVBoxLayout(grp_preview)
+        preview_layout.setContentsMargins(0,10,0,0)
+        self.lblPreview = QLabel("No Preview")
+        self.lblPreview.setAlignment(Qt.AlignCenter)
+        self.lblPreview.setStyleSheet("background:#222;color:#aaa;")
+        self.lblPreview.setMinimumHeight(300)
+        preview_layout.addWidget(self.lblPreview)
+        center_layout.addWidget(grp_preview, 2)
+        
+        # Log Area
+        grp_log = QGroupBox("Log")
+        log_layout = QVBoxLayout(grp_log)
+        log_layout.setContentsMargins(0,10,0,0)
+        self.log = QPlainTextEdit()
+        self.log.setReadOnly(True)
+        self.log.setStyleSheet("background:#111;color:#ddd;font-family:Consolas,monospace;")
+        log_layout.addWidget(self.log)
+        center_layout.addWidget(grp_log, 1)
+        
+        self.splitter.addWidget(center_widget)
+        
+        # Right Panel (Scheduler & Presets)
+        # We need to recreate right_panel as it was likely defined in _init_ui or passed globally
+        # Checking original code, right_panel was used in main_layout.addWidget(right_panel, 3)
+        # But right_panel variable is not defined in __init__ scope in the snippet provided.
+        # It seems it was created by _create_right_tab_panel() but not assigned to self.right_panel?
+        # Let's assume we need to call _create_right_tab_panel()
+        right_panel = self._create_right_tab_panel()
+        self.splitter.addWidget(right_panel)
+        self.right_panel = right_panel
+        
+        # Set Splitter Sizes (approx 25%, 50%, 25%)
+        self.splitter.setSizes([300, 600, 300])
+        
+        self.setCentralWidget(self.splitter)
+        
+        # Keep references to buttons if other methods use them (e.g. toggle_record uses btnRecord)
+        # We should update those methods to use actions instead, or map buttons to actions.
+        # For minimal refactoring impact, we can alias self.btnRecord to self.act_record
+        # But QAction has different API than QPushButton (setChecked vs setCheckable).
+        # We need to check usages of self.btnRecord, self.btnRun, etc.
+        
+        # Mapping for compatibility - REMOVED
+        # self.btnRecord = self.act_record 
+        # self.btnRun = self.act_run
+        # self.btnStop = self.act_stop
+        
+        # Other buttons like btnAddImg were connected in __init__. 
+        # We already connected actions above.
+        
+        # Checkboxes need to be placed somewhere. Maybe in a Settings menu or a small toolbar area?
+        # Or keep them in the right panel or bottom bar.
+        # For now, let's add them to a "Options" toolbar or menu.
+        self.chkDry = QCheckBox("Dry Run")
+        self.chkAutoMin = QCheckBox("Mini Mode")
+        self.chkCaptureFail = QCheckBox("Capture Fail")
+        self.chkHumanMode = QCheckBox("Human Mode")
+        self.chkDebugOverlay = QCheckBox("Show Debug Overlay")
+        
+        # Add a secondary toolbar for options
+        self.opt_toolbar = self.addToolBar("Options")
+        self.opt_toolbar.addWidget(self.chkDry)
+        self.opt_toolbar.addWidget(self.chkAutoMin)
+        self.opt_toolbar.addWidget(self.chkCaptureFail)
+        self.opt_toolbar.addWidget(self.chkHumanMode)
+        self.opt_toolbar.addWidget(self.chkDebugOverlay)
+        # Target window controls
+        self.lblTarget = QLabel("Target:")
+        self.edTargetTitle = QLineEdit()
+        self.edTargetTitle.setPlaceholderText("Partial Window Name")
+        self.btnFindTarget = QPushButton("Find")
+        self.btnFindTarget.setToolTip("Find and activate target window")
+        self.btnFindTarget.clicked.connect(self._find_target_window)
+        self.btnFixWindow = QPushButton("Fix/Shake")
+        self.btnFixWindow.setToolTip("Fix black screen/resize glitches")
+        self.btnFixWindow.clicked.connect(self._fix_target_window)
+        self.btnSelectTarget = QPushButton("...")
+        self.btnSelectTarget.setFixedWidth(28)
+        self.btnSelectTarget.setToolTip("Open window selector")
+        self.btnSelectTarget.clicked.connect(self._open_window_selector)
+        self.opt_toolbar.addWidget(self.lblTarget)
+        self.opt_toolbar.addWidget(self.edTargetTitle)
+        self.opt_toolbar.addWidget(self.btnSelectTarget)
+        self.opt_toolbar.addWidget(self.btnFindTarget)
+        self.opt_toolbar.addWidget(self.btnFixWindow)
+        # For backward compatibility with existing methods
+        self.edTargetWindow = self.edTargetTitle
+        self.chkDebugOverlay.toggled.connect(lambda v: self.debug_overlay.setVisible(v))
+        
+        # Menu Bar
+        menubar = self.menuBar()
+        
+        # Settings Menu
+        settings_menu = menubar.addMenu("Settings")
+        
+        act_hotkeys = QAction("Hotkey Settings", self)
+        act_hotkeys.triggered.connect(self._open_hotkey_dialog)
+        settings_menu.addAction(act_hotkeys)
+        
+        act_recording = QAction("Recording Settings", self)
+        act_recording.triggered.connect(self._open_record_settings)
+        settings_menu.addAction(act_recording)
+        
+        # Help Menu
+        help_menu = menubar.addMenu("Help")
+        
+        act_guide = QAction("User Guide", self)
+        act_guide.triggered.connect(self._open_user_guide)
+        help_menu.addAction(act_guide)
+        
+        self._init_status_bar()
+        self._update_hotkey_labels()
+        self._install_qshortcuts()
+        self._setup_global_hotkey_engine()
+        self._load_general_settings()
+        self._update_undo_buttons()
+        self._init_open_panel_button()
+        self.splitter.splitterMoved.connect(self._on_splitter_moved)
+
+    def _update_undo_buttons(self):
+        """Enable/disable undo/redo actions based on stack state."""
+        try:
+            can_undo = self.undo_stack.can_undo()
+            can_redo = self.undo_stack.can_redo()
+        except Exception:
+            # Fallback if the stack API changes
+            can_undo = bool(getattr(self.undo_stack, "undo_stack", []))
+            can_redo = bool(getattr(self.undo_stack, "redo_stack", []))
+
+        if hasattr(self, "act_undo"):
+            self.act_undo.setEnabled(bool(can_undo))
+        if hasattr(self, "act_redo"):
+            self.act_redo.setEnabled(bool(can_redo))
+
+    def _push_command(self, command, focus_index: int | None = None):
+        """Execute a command, refresh UI, and update undo/redo state."""
+        self.undo_stack.push(command)
+        try:
+            self.refresh_step_list(focus_index=focus_index)
+        except TypeError:
+            # Backward compatibility if refresh_step_list has no args
+            self.refresh_step_list()
+        # Restore selection if requested
+        if focus_index is not None and hasattr(self, "list"):
+            try:
+                self.list.setCurrentRow(max(0, min(focus_index, self.list.count() - 1)))
+            except Exception as e:
+                self._warn_once("push_command_focus", f"Failed to restore focused row after command push: {e}")
+        self._update_undo_buttons()
+
+    def _do_undo(self):
+        if not self.undo_stack.can_undo():
+            return
+        try:
+            self.undo_stack.undo()
+        except Exception as e:
+            self.err(f"Undo failed: {e}")
+            return
+        try:
+            self.refresh_step_list()
+        except Exception as e:
+            self._warn_once("undo_refresh_step_list", f"Undo completed but step list refresh failed: {e}")
+        self._update_undo_buttons()
+
+    def _do_redo(self):
+        if not self.undo_stack.can_redo():
+            return
+        try:
+            self.undo_stack.redo()
+        except Exception as e:
+            self.err(f"Redo failed: {e}")
+            return
+        try:
+            self.refresh_step_list()
+        except Exception as e:
+            self._warn_once("redo_refresh_step_list", f"Redo completed but step list refresh failed: {e}")
+        self._update_undo_buttons()
+
+
+    def _spawn_crosshair(self, x, y, dur):
+        try:
+            import mss
+            with mss.mss() as sct:
+                mon = sct.monitors[0]
+                left, top, w, h = int(mon["left"]), int(mon["top"]), int(mon["width"]), int(mon["height"])
+        except Exception:
+            scr = QApplication.primaryScreen()
+            vg = scr.virtualGeometry()
+            left, top, w, h = vg.x(), vg.y(), vg.width(), vg.height()
+            
+        ov = CrosshairOverlay(left, top, w, h, x, y, dur)
+        self._live_overlays.append(ov)
+        QTimer.singleShot(dur + 50, lambda: self._live_overlays.remove(ov) if ov in self._live_overlays else None)
+
+    # --- Serialization helpers ---
+    def _encode_bytes(self, obj):
+        import base64
+        if isinstance(obj, bytes):
+            return {"__bytes__": True, "data": base64.b64encode(obj).decode("ascii")}
+        if isinstance(obj, dict):
+            return {k: self._encode_bytes(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [self._encode_bytes(x) for x in obj]
+        return obj
+
+    def _decode_bytes(self, obj):
+        import base64
+        if isinstance(obj, dict):
+            if obj.get("__bytes__") and "data" in obj:
+                try:
+                    return base64.b64decode(obj["data"])
+                except Exception:
+                    return obj
+            return {k: self._decode_bytes(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [self._decode_bytes(x) for x in obj]
+        return obj
+
+    def _json_default(self, obj):
+        if isinstance(obj, bytes):
+            import base64
+            return {"__bytes__": True, "data": base64.b64encode(obj).decode("ascii")}
+        if hasattr(obj, "to_dict"):
+            try:
+                return self._encode_bytes(obj.to_dict())
+            except Exception as e:
+                self._warn_once("json_default_to_dict", f"Failed to serialize via to_dict(); falling back to __dict__: {e}")
+        if hasattr(obj, "__dict__"):
+            return self._encode_bytes(obj.__dict__)
+        return str(obj)
+
+    def _get_step_fields(self):
+        if not hasattr(self, "_step_field_names"):
+            self._step_field_names = {f.name for f in fields(StepData)}
+        return self._step_field_names
+
+    def _coerce_step(self, s):
+        if isinstance(s, StepData):
+            return s
+        if isinstance(s, dict):
+            allowed = self._get_step_fields()
+            filtered = {k: v for k, v in s.items() if k in allowed}
+            if "id" not in filtered:
+                filtered["id"] = s.get("id") or str(uuid.uuid4())
+            if "name" not in filtered:
+                filtered["name"] = s.get("name") or "Step"
+            if "type" not in filtered:
+                filtered["type"] = s.get("type") or "comment"
+            try:
+                return StepData(**filtered)
+            except Exception:
+                return StepData(id=str(filtered.get("id", uuid.uuid4())), name=filtered.get("name", "Step"), type=filtered.get("type", "comment"))
+        return StepData(id=str(uuid.uuid4()), name="Step", type="comment")
+
+    # --- File I/O ---
+    def save_macro(self):
+        fname, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Macro",
+            "",
+            "GameBot Files (*.json *.macro);;All Files (*)",
+        )
+        if not fname:
+            return
+        # 기본 확장자 .json
+        if "." not in os.path.basename(fname):
+            fname = f"{fname}.json"
+        
+        try:
+            rc = RepeatConfig(
+                repeat_count=self.sbRepeatCount.value(),
+                repeat_cooldown_ms=int(self.sbCooldown.value() * 1000),
+                stop_on_fail=self.cbStopOnFail.isChecked(),
+                max_duration_ms=self.sbMaxDuration.value() * 60 * 1000
+            )
+            serialized_steps = []
+            for step in self.steps:
+                payload = step
+                if hasattr(step, "to_dict"):
+                    try:
+                        payload = step.to_dict()
+                    except Exception:
+                        payload = step
+                elif hasattr(step, "__dict__"):
+                    payload = dict(step.__dict__)
+                # Fallback: ensure no non-string keys
+                try:
+                    payload = self._encode_bytes(payload)
+                except Exception:
+                    payload = self._encode_bytes(dict(payload))
+                serialized_steps.append(payload)
+
+            save_data = {
+                "meta": {
+                    "version": "1.0",
+                    "target_window": self._get_target_window_title() if hasattr(self, "_get_target_window_title") else "",
+                    "description": "",
+                },
+                "steps": self._encode_bytes(serialized_steps),
+                "repeat": rc.__dict__,
+            }
+            # Use json dump to preserve meta
+            with open(fname, "w", encoding="utf-8") as f:
+                json.dump(self._encode_bytes(save_data), f, ensure_ascii=False, indent=2, default=self._json_default)
+            self.info(f"Saved to {fname}")
+            try:
+                self._current_macro_path = os.path.abspath(fname)
+            except Exception:
+                self._current_macro_path = fname
+        except Exception as e:
+            QMessageBox.critical(self, "Save Error", str(e))
+
+    def load_macro(self):
+        fname, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load Macro",
+            "",
+            "GameBot Files (*.json *.macro);;All Files (*)",
+        )
+        if not fname:
+            return
+        self._load_macro_from_path(fname)
+
+    def _load_macro_from_path(self, path: str):
+        """
+        Load macro with backward compatibility.
+        - New format: dict with meta/repeat/steps.
+        - Legacy JSON list: steps only.
+        - Fallback: MacroIO.load_macro for .macro files.
+        """
+        new_steps = None
+        rc: RepeatConfig | None = None
+        json_err = None
+        raw_text = None
+
+        def _process_data(data_obj):
+            nonlocal new_steps, rc
+            if isinstance(data_obj, list):
+                new_steps = [self._coerce_step(self._decode_bytes(s)) for s in data_obj]
+                rc = RepeatConfig()
+                self.info("Loaded legacy macro format.")
+            elif isinstance(data_obj, dict):
+                new_steps = [self._coerce_step(self._decode_bytes(s)) for s in data_obj.get("steps", [])]
+                rep_cfg = data_obj.get("repeat", {}) or {}
+                rc = RepeatConfig(**rep_cfg) if isinstance(rep_cfg, dict) else RepeatConfig()
+                meta = data_obj.get("meta", {}) or {}
+                target = meta.get("target_window", "")
+                if hasattr(self, "edTargetTitle"):
+                    self.edTargetTitle.setText(target)
+                self.info(f"Loaded macro with target: {target}")
+            else:
+                raise ValueError("Unsupported macro format")
+
+        # Try JSON first (handles .json and JSON-formatted .macro)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                raw_text = f.read()
+            data = self._decode_bytes(json.loads(raw_text))
+            _process_data(data)
+        except Exception as e_json:
+            json_err = e_json
+            # Fallback: MacroIO (zip-based .macro)
+            try:
+                new_steps, rc = MacroIO.load_macro(path)
+                new_steps = [self._coerce_step(self._decode_bytes(s)) for s in new_steps]
+            except Exception as e_zip:  # noqa: BLE001
+                # Last resort: tolerant literal_eval for loosely formatted text macros
+                import ast
+
+                try:
+                    if raw_text is None:
+                        with open(path, "r", encoding="utf-8") as f:
+                            raw_text = f.read()
+                    data = self._decode_bytes(ast.literal_eval(raw_text))
+                    _process_data(data)
+                except Exception as e_literal:
+                    msg = str(e_zip)
+                    if json_err:
+                        msg = f"{msg}\n(JSON parse failed: {json_err})"
+                    msg = f"{msg}\n(Literal parse failed: {e_literal})"
+                    QMessageBox.critical(self, "Load Error", msg)
+                    return False
+
+        if rc is None:
+            rc = RepeatConfig()
+        if hasattr(self, 'sbRepeatCount'):
+            self.sbRepeatCount.setValue(rc.repeat_count)
+        if hasattr(self, 'sbCooldown'):
+            self.sbCooldown.setValue(rc.repeat_cooldown_ms / 1000.0)
+        if hasattr(self, 'cbStopOnFail'):
+            self.cbStopOnFail.setChecked(rc.stop_on_fail)
+        if hasattr(self, 'sbMaxDuration'):
+            self.sbMaxDuration.setValue(rc.max_duration_ms // 60000)
+        
+        self.steps = new_steps or []
+        self.list.clear()
+        for s in self.steps:
+            self.add_list_item(s)
+        self.update_preview()
+        self.info(f"Loaded: {path}")
+        try:
+            self._current_macro_path = os.path.abspath(path)
+        except Exception:
+            self._current_macro_path = path
+        return True
+
+    def info(self, msg: str):
+        if hasattr(self, 'log'):
+            self.log.appendHtml(f"<span style='color:#cccccc;'>[INFO] {msg}</span>")
+        print(f"[INFO] {msg}")
+        if hasattr(self, "statusBar"):
+            self.statusBar().showMessage(msg, 3000)
+
+    def warn(self, msg: str):
+        if hasattr(self, 'log'):
+            self.log.appendHtml(f"<span style='color:orange;'>[WARN] {msg}</span>")
+        print(f"[WARN] {msg}")
+        if hasattr(self, "statusBar"):
+            self.statusBar().showMessage(f"WARN: {msg}", 3000)
+
+    def err(self, msg: str):
+        if hasattr(self, 'log'):
+            self.log.appendHtml(f"<span style='color:#ff5555;'>[ERR] {msg}</span>")
+        print(f"[ERR] {msg}")
+        if hasattr(self, "statusBar"):
+            self.statusBar().showMessage(f"ERR: {msg}", 5000)
+
+    def _warn_once(self, key: str, msg: str):
+        warned = getattr(self, "_warned_once_keys", None)
+        if warned is None:
+            warned = set()
+            self._warned_once_keys = warned
+        if key in warned:
+            return
+        warned.add(key)
+        self.warn(msg)
+
+    def _init_status_bar(self):
+        self.statusBar().showMessage("Ready")
+        
+        # Mouse position label
+        self.lblMousePos = QLabel("Mouse: 0, 0")
+        self.lblMousePos.setStyleSheet("padding: 0 10px; color: #888;")
+        self.statusBar().addPermanentWidget(self.lblMousePos)
+        
+        # Timer for mouse tracking
+        self.mouse_timer = QTimer(self)
+        self.mouse_timer.timeout.connect(self._update_mouse_pos)
+        self.mouse_timer.start(100)
+
+    # --- List Management ---
+    def sync_order(self):
+        new_steps = []
+        for i in range(self.list.count()):
+            item = self.list.item(i)
+            step = item.data(Qt.UserRole)
+            new_steps.append(step)
+        if new_steps == self.steps:
+            return
+        focus_index = None
+        try:
+            focus_index = self.list.currentRow()
+        except Exception:
+            focus_index = None
+        self._push_command(ReorderStepsCommand(self.steps, new_steps), focus_index=focus_index)
+
+    def run_from_index(self, idx):
+        self.run_macro(start_index=idx)
+
+    def convert_to_branch_step(self, idx):
+        if idx < 0 or idx >= len(self.steps): return
+        step = self.steps[idx]
+        if step.type != 'image_click': return
+        if not step.png_bytes:
+            QMessageBox.warning(self, "Convert Failed", "Select an image template before converting to a branch step.")
+            return
+        
+        import copy
+        original = copy.deepcopy(step)
+        new_step = copy.deepcopy(step)
+        new_step.type = 'image_branch'
+        new_step.name = f"Branch: {step.name}"
+        goto_target = None
+        if idx + 1 < len(self.steps):
+            goto_target = self.steps[idx + 1].id
+        target = {
+            "id": str(uuid.uuid4())[:8],
+            "name": step.name,
+            "png_bytes": step.png_bytes,
+            "threshold": step.threshold,
+            "min_confidence": step.min_confidence or step.threshold,
+            "image_action": getattr(step, "image_action", "click"),
+            "click_button": getattr(step, "click_button", None) or step.click_btn,
+            "click_double": getattr(step, "click_double", False),
+            "goto_id": goto_target,
+        }
+        if step.search_roi_enabled and step.search_roi_width > 0 and step.search_roi_height > 0:
+            target.update({
+                "search_roi_enabled": True,
+                "search_roi_left": step.search_roi_left,
+                "search_roi_top": step.search_roi_top,
+                "search_roi_width": step.search_roi_width,
+                "search_roi_height": step.search_roi_height,
+            })
+        new_step.conditional_targets = [target]
+        
+        self._push_command(EditStepCommand(self.steps, idx, original, new_step), focus_index=idx)
+        self.info(f"Converted step {idx+1} to Branch Step.")
+
+    def _on_list_item_renamed(self, item):
+        idx = self.list.row(item)
+        if 0 <= idx < len(self.steps):
+            try:
+                new_name = item.text().strip()
+            except Exception:
+                new_name = ""
+            if new_name:
+                self.rename_step_at(idx, new_name)
+
+    def rename_step_at(self, idx, new_name: str):
+        if idx < 0 or idx >= len(self.steps):
+            return
+        name = new_name.strip()
+        if not name:
+            return
+        step = self.steps[idx]
+        if step.name == name:
+            return
+        original = copy.deepcopy(step)
+        updated = copy.deepcopy(step)
+        updated.name = name
+        self._push_command(EditStepCommand(self.steps, idx, original, updated), focus_index=idx)
+
+    def refresh_list_item(self, idx):
+        item = self.list.item(idx)
+        if not item:
+            return
+        step = self.steps[idx]
+        item.setData(Qt.UserRole, step)
+        from .ui.widgets import StepItemWidget
+        new_widget = StepItemWidget(step, idx + 1)
+        self.list.setItemWidget(item, new_widget)
+
+    def refresh_step_list(self, focus_index: int | None = None):
+        self.list.clear()
+        for i, s in enumerate(self.steps):
+            self.add_list_item(s, idx=i)
+        self.list.refresh_indices()
+        if focus_index is not None and 0 <= focus_index < self.list.count():
+            self.list.setCurrentRow(focus_index)
+            self.list.scrollToItem(self.list.item(focus_index))
+        self._apply_active_step_highlight()
+
+    def _apply_active_step_highlight(self, scroll: bool = False):
+        idx = getattr(self, "_active_step_index", None)
+        if not hasattr(self, "list"):
+            return
+        try:
+            self.list.set_active_index(idx)
+            if scroll and idx is not None and 0 <= idx < self.list.count():
+                self.list.scrollToItem(self.list.item(idx))
+        except Exception as e:
+            self._warn_once("active_step_highlight", f"Failed to update active-step highlight: {e}")
+
+    def _on_runner_step_changed(self, idx: int):
+        self._active_step_index = idx
+        self._apply_active_step_highlight(scroll=True)
+
+    def add_list_item(self, step: StepData, idx=-1):
+        if idx == -1:
+            self.list.add_step_item(step)
+        else:
+            # QListWidget doesn't have insertItem with widget easily?
+            # We have to insert item then set widget.
+            item = QListWidgetItem()
+            item.setSizeHint(QSize(0, 50))
+            item.setData(Qt.UserRole, step)
+            self.list.insertItem(idx, item)
+            
+            from .ui.widgets import StepItemWidget
+            widget = StepItemWidget(step, idx + 1)
+            self.list.setItemWidget(item, widget)
+
+    def update_preview(self):
+        items = self.list.selectedItems()
+        if not items:
+            self.lblPreview.setText("No Selection")
+            self.lblPreview.setPixmap(QPixmap())
+            return
+            
+        item = items[0]
+        step: StepData = item.data(Qt.UserRole)
+        
+        if step.type == 'image_click' and step.png_bytes:
+            pix = QPixmap()
+            pix.loadFromData(step.png_bytes)
+            if not pix.isNull():
+                scaled = pix.scaled(self.lblPreview.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                self.lblPreview.setPixmap(scaled)
+                self.lblPreview.setText("")
+            else:
+                self.lblPreview.setText("Invalid Image")
+        elif step.type == 'image_branch':
+             # Show first target image or something
+             if step.conditional_targets and step.conditional_targets[0].get('png_bytes'):
+                pix = QPixmap()
+                pix.loadFromData(step.conditional_targets[0]['png_bytes'])
+                if not pix.isNull():
+                    scaled = pix.scaled(self.lblPreview.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    self.lblPreview.setPixmap(scaled)
+                    self.lblPreview.setText("")
+                else:
+                    self.lblPreview.setText("Invalid Image")
+             else:
+                self.lblPreview.setText("Branch Step (No Image)")
+        else:
+            self.lblPreview.clear()
+            self.lblPreview.setText(f"Step: {step.name}\nType: {step.type}")
+
+    def _update_mouse_pos(self):
+        try:
+            pos = pyautogui.position()
+            self.lblMousePos.setText(f"Mouse: {pos.x}, {pos.y}")
+        except Exception as e:
+            self._warn_once("mouse_pos_update", f"Mouse position update failed: {e}")
+
+    # --- Hotkey Management ---
+    def _load_hotkeys(self):
+        hk = self.config.load_hotkeys()
+        self._hk_run = hk["run"]
+        self._hk_stop = hk["stop"]
+        self._hk_record = hk["record"]
+        self._hk_add_img = hk["add_img"]
+        self._hk_add_notimg = hk["add_notimg"]
+
+    def _save_hotkeys(self):
+        self.config.save_hotkeys({
+            "run": self._hk_run,
+            "stop": self._hk_stop,
+            "record": self._hk_record,
+            "add_img": self._hk_add_img,
+            "add_notimg": self._hk_add_notimg
+        })
+
+    def _disable_all_hotkeys(self):
+        for sc in getattr(self, "_qshortcuts", []):
+            try:
+                sc.setEnabled(False)
+            except Exception as e:
+                self.warn(f"Failed to disable a local shortcut: {e}")
+        try:
+            self._system_hotkeys.uninstall()
+        except Exception as e:
+            self.warn(f"Failed to uninstall system hotkeys: {e}")
+
+    def _enable_all_hotkeys(self):
+        for sc in getattr(self, "_qshortcuts", []):
+            try:
+                sc.setEnabled(True)
+            except Exception as e:
+                self.warn(f"Failed to enable a local shortcut: {e}")
+        self._setup_global_hotkey_engine()
+
+    def _open_hotkey_dialog(self):
+        self._hotkey_dialog_open = True
+        self._disable_all_hotkeys()
+        try:
+            dlg = HotkeySettingsDialog(
+                self._hk_run,
+                self._hk_stop,
+                self._hk_record,
+                self._hk_add_img,
+                self._hk_add_notimg,
+                self
+            )
+            if dlg.exec_() == QDialog.Accepted:
+                res = dlg.result_hotkeys()
+                if res:
+                    (self._hk_run, self._hk_stop, self._hk_record, 
+                     self._hk_add_img, self._hk_add_notimg) = res
+                    self._save_hotkeys()
+                    self._update_hotkey_labels()
+                    self._install_qshortcuts()
+                    self._setup_global_hotkey_engine()
+                    self.info("Hotkeys updated.")
+        finally:
+            self._hotkey_dialog_open = False
+            self._enable_all_hotkeys()
+
+    def _get_perf_level(self) -> int:
+        try:
+            cb = getattr(self, "cbPerfLevel", None)
+            if cb:
+                val = cb.currentData()
+                return int(val) if val else 1
+        except Exception as e:
+            self.warn(f"Failed to read performance level; fallback to 1: {e}")
+        return 1
+
+    def _load_general_settings(self):
+        """Load simple toggle settings such as Human Mode."""
+        try:
+            st = QSettings("ImageMacro", "MVP")
+            human = st.value("general/human_mode", False, type=bool)
+            self.chkHumanMode.setChecked(human)
+            dbg = st.value("general/debug_overlay", False, type=bool)
+            self.chkDebugOverlay.setChecked(dbg)
+            perf_playback = st.value("general/perf_playback", True, type=bool)
+            if hasattr(self, "chkPerfPlayback"):
+                self.chkPerfPlayback.setChecked(perf_playback)
+            perf_recording = st.value("general/perf_recording", True, type=bool)
+            if hasattr(self, "chkPerfRecording"):
+                self.chkPerfRecording.setChecked(perf_recording)
+            perf_level_raw = st.value("general/perf_level", 1)
+            try:
+                perf_level = int(perf_level_raw)
+            except Exception:
+                perf_level = 1
+            if perf_level not in (1, 2, 3):
+                perf_level = 1
+            if hasattr(self, "cbPerfLevel"):
+                idx = self.cbPerfLevel.findData(int(perf_level))
+                if idx < 0:
+                    idx = self.cbPerfLevel.findData(1)
+                if idx < 0 and self.cbPerfLevel.count() > 0:
+                    idx = 0
+                if idx >= 0:
+                    self.cbPerfLevel.setCurrentIndex(idx)
+            target_title = st.value("general/target_window_title", "", type=str)
+            if hasattr(self, "edTargetTitle"):
+                self.edTargetTitle.setText(target_title or "")
+            if not getattr(self, "_general_settings_signals_connected", False):
+                self.chkHumanMode.toggled.connect(lambda _: self._save_general_settings())
+                self.chkDebugOverlay.toggled.connect(lambda _: self._save_general_settings())
+                if hasattr(self, "chkPerfPlayback"):
+                    self.chkPerfPlayback.toggled.connect(lambda _: self._save_general_settings())
+                if hasattr(self, "chkPerfRecording"):
+                    self.chkPerfRecording.toggled.connect(lambda _: self._save_general_settings())
+                if hasattr(self, "cbPerfLevel"):
+                    self.cbPerfLevel.currentIndexChanged.connect(lambda _: self._save_general_settings())
+                self._general_settings_signals_connected = True
+        except Exception as e:
+            self.warn(f"Failed to load general settings: {e}")
+
+    def _save_general_settings(self):
+        try:
+            st = QSettings("ImageMacro", "MVP")
+            st.setValue("general/human_mode", self.chkHumanMode.isChecked())
+            st.setValue("general/debug_overlay", self.chkDebugOverlay.isChecked())
+            if hasattr(self, "chkPerfPlayback"):
+                st.setValue("general/perf_playback", self.chkPerfPlayback.isChecked())
+            if hasattr(self, "chkPerfRecording"):
+                st.setValue("general/perf_recording", self.chkPerfRecording.isChecked())
+            if hasattr(self, "cbPerfLevel"):
+                st.setValue("general/perf_level", self._get_perf_level())
+            st.setValue("general/target_window_title", self._get_target_window_title() if hasattr(self, "_get_target_window_title") else "")
+        except Exception as e:
+            self.warn(f"Failed to save general settings: {e}")
+
+    def _install_qshortcuts(self):
+        # Properly dispose previous shortcuts to avoid stacking duplicate handlers.
+        for sc in getattr(self, "_qshortcuts", []):
+            try:
+                sc.setEnabled(False)
+            except Exception as e:
+                self._warn_once("shortcut_disable", f"Failed to disable previous shortcut: {e}")
+            try:
+                sc.activated.disconnect()
+            except Exception as e:
+                self._warn_once("shortcut_disconnect", f"Failed to disconnect previous shortcut signal: {e}")
+            try:
+                sc.deleteLater()
+            except Exception as e:
+                self._warn_once("shortcut_delete", f"Failed to dispose previous shortcut object: {e}")
+        self._qshortcuts.clear()
+        def make_sc(combo, slot):
+            if not combo: return
+            mods, base = hk_to_tuple(combo)
+            if not base: return
+            # Convert to QKeySequence format (e.g. "Ctrl+Shift+A")
+            # Our hk_to_tuple returns set of mods and base string.
+            # We need to construct a string that QKeySequence understands.
+            key = base.upper()
+            if len(key) == 1 and key.isalpha():
+                seq = QKeySequence(
+                    (Qt.CTRL if 'ctrl' in mods else Qt.NoModifier) |
+                    (Qt.SHIFT if 'shift' in mods else Qt.NoModifier) |
+                    (Qt.ALT if 'alt' in mods else Qt.NoModifier) |
+                    (Qt.MetaModifier if 'win' in mods else Qt.NoModifier) |
+                    getattr(Qt, f"Key_{key.upper()}")
+                )
+            else:
+                parts = []
+                if 'ctrl' in mods: parts.append("Ctrl")
+                if 'shift' in mods: parts.append("Shift")
+                if 'alt' in mods: parts.append("Alt")
+                if 'win' in mods: parts.append("Meta")
+                parts.append(key)
+                seq = QKeySequence("+".join(parts))
+            
+            sc = QShortcut(QKeySequence(seq), self)
+            sc.activated.connect(slot)
+            self._qshortcuts.append(sc)
+            
+        make_sc(self._hk_run, self._act_run_from_hotkey)
+        make_sc(self._hk_stop, self._act_stop_from_hotkey)
+        make_sc(self._hk_record, self._act_record_from_hotkey)
+        make_sc(self._hk_add_img, self.add_image_step)
+        make_sc(self._hk_add_notimg, self.add_not_image_step)
+
+    def _setup_global_hotkey_engine(self):
+        # Always use system hotkeys on Windows if possible
+        if sys.platform.startswith("win") and not self._hotkey_dialog_open:
+            self._system_hotkeys.install()
+
+    def _act_run_from_hotkey(self):
+        if getattr(self, "_hotkey_dialog_open", False):
+            return
+        self.info("[Hotkey] Run")
+        self.run_macro()
+
+    def _act_stop_from_hotkey(self):
+        if getattr(self, "_hotkey_dialog_open", False):
+            return
+        self.info("[Hotkey] Stop")
+        self.stop_macro()
+
+    def _act_record_from_hotkey(self):
+        if getattr(self, "_hotkey_dialog_open", False):
+            return
+        self.info("[Hotkey] Record Toggle")
+        self.act_record.trigger()
+
+    # --- Recording ---
+    def _load_record_settings(self):
+        rs = self.config.load_record_settings()
+        self.rec_typed_gap_ms = rs["typed_gap_ms"]
+        self.rec_click_merge_ms = rs["click_merge_ms"]
+        self.rec_click_radius_px = rs["click_radius_px"]
+        self.rec_scroll_flush_ms = rs["scroll_flush_ms"]
+        self.rec_scroll_scale_dx = rs["scroll_scale_dx"]
+        self.rec_scroll_scale_dy = rs["scroll_scale_dy"]
+        self.rec_record_delay_enabled = bool(rs.get("record_delay_enabled", False))
+
+    def _save_record_settings(self):
+        self.config.save_record_settings({
+            "typed_gap_ms": self.rec_typed_gap_ms,
+            "click_merge_ms": self.rec_click_merge_ms,
+            "click_radius_px": self.rec_click_radius_px,
+            "scroll_flush_ms": self.rec_scroll_flush_ms,
+            "scroll_scale_dx": self.rec_scroll_scale_dx,
+            "scroll_scale_dy": self.rec_scroll_scale_dy,
+            "record_delay_enabled": self.rec_record_delay_enabled,
+        })
+
+    def _on_record_delay_toggle(self, checked: bool):
+        self.rec_record_delay_enabled = bool(checked)
+        self._save_record_settings()
+
+    def _set_record_labels(self, recording: bool):
+        shortcut_text = ""
+        try:
+            sc = self.act_record.shortcut() if getattr(self, "act_record", None) else None
+            shortcut_text = sc.toString() if sc else ""
+        except Exception as e:
+            self._warn_once("record_label_shortcut_read", f"Failed to read record shortcut text: {e}")
+        if not shortcut_text:
+            try:
+                shortcut_text = getattr(self, "_hk_record", "").upper()
+            except Exception:
+                shortcut_text = ""
+        base = "녹화 정지" if recording else "녹화"
+        label = f"{base} ({shortcut_text})" if shortcut_text else base
+        for obj in (getattr(self, "act_record", None), getattr(self, "btnRecord", None)):
+            try:
+                if obj:
+                    obj.setText(label)
+            except Exception as e:
+                self._warn_once("record_label_set_text", f"Failed to update record label text: {e}")
+
+    def _open_record_settings(self):
+        perf_recording = False
+        perf_level = 1
+        try:
+            if hasattr(self, "chkPerfRecording"):
+                perf_recording = bool(self.chkPerfRecording.isChecked())
+            if hasattr(self, "cbPerfLevel"):
+                perf_level = int(self.cbPerfLevel.currentData() or 1)
+        except Exception:
+            perf_level = 1
+        dlg = RecordingSettingsDialog(
+            self,
+            (
+                self.rec_typed_gap_ms,
+                self.rec_click_merge_ms,
+                self.rec_click_radius_px,
+                self.rec_scroll_flush_ms,
+                self.rec_scroll_scale_dx,
+                self.rec_scroll_scale_dy,
+            ),
+            perf_recording=perf_recording,
+            perf_level=perf_level,
+        )
+        if dlg.exec_() == QDialog.Accepted:
+            (self.rec_typed_gap_ms, self.rec_click_merge_ms, self.rec_click_radius_px,
+             self.rec_scroll_flush_ms, self.rec_scroll_scale_dx, self.rec_scroll_scale_dy) = dlg.values()
+            self._save_record_settings()
+            try:
+                perf_recording, perf_level = dlg.perf_values()
+            except Exception:
+                perf_recording, perf_level = None, None
+            if hasattr(self, "chkPerfRecording") and perf_recording is not None:
+                chk = self.chkPerfRecording
+                try:
+                    chk.blockSignals(True)
+                    chk.setChecked(bool(perf_recording))
+                finally:
+                    try:
+                        chk.blockSignals(False)
+                    except Exception as e:
+                        self._warn_once("record_settings_chk_unblock", f"Failed to restore PerfRecording checkbox signals: {e}")
+            if hasattr(self, "cbPerfLevel") and perf_level is not None:
+                cb = self.cbPerfLevel
+                try:
+                    idx = cb.findData(int(perf_level))
+                except Exception:
+                    idx = -1
+                if idx >= 0:
+                    try:
+                        cb.blockSignals(True)
+                        cb.setCurrentIndex(idx)
+                    finally:
+                        try:
+                            cb.blockSignals(False)
+                        except Exception as e:
+                            self._warn_once("record_settings_cb_unblock", f"Failed to restore PerfLevel combobox signals: {e}")
+            self._save_general_settings()
+
+    def _open_user_guide(self):
+        guide_path = os.path.join(os.path.dirname(__file__), "..", "USER_GUIDE.md")
+        guide_path = os.path.abspath(guide_path)
+        
+        if os.path.exists(guide_path):
+            try:
+                import subprocess
+                if sys.platform == "win32":
+                    os.startfile(guide_path)
+                elif sys.platform == "darwin":
+                    subprocess.call(["open", guide_path])
+                else:
+                    subprocess.call(["xdg-open", guide_path])
+            except Exception as e:
+                QMessageBox.information(self, "User Guide", 
+                    f"User guide location:\n{guide_path}\n\nError opening: {e}")
+        else:
+            QMessageBox.warning(self, "Not Found", f"User guide not found at:\n{guide_path}")
+            self.info("Recording settings updated.")
+
+    def _start_record(self):
+        g = self.geometry()
+        ignore_rect = QRect(g.x(), g.y(), g.width(), g.height())
+        perf_recording = False
+        try:
+            perf_recording = bool(self.chkPerfRecording.isChecked())
+        except Exception:
+            perf_recording = False
+        if perf_recording:
+            level = self._get_perf_level()
+            if level >= 3:
+                max_queue_size = 100000
+                move_min_distance_px = 0
+            elif level == 2:
+                max_queue_size = 50000
+                move_min_distance_px = 0
+            else:
+                max_queue_size = 20000
+                move_min_distance_px = 1
+        else:
+            max_queue_size = 5000
+            move_min_distance_px = 3
+        self.recorder = InputRecorder(
+            ignore_rect, self,
+            typed_gap_ms=self.rec_typed_gap_ms,
+            click_merge_ms=self.rec_click_merge_ms,
+            click_radius_px=self.rec_click_radius_px,
+            scroll_flush_ms=self.rec_scroll_flush_ms,
+            scroll_scale_dx=self.rec_scroll_scale_dx,
+            scroll_scale_dy=self.rec_scroll_scale_dy,
+            record_delay_enabled=self.rec_record_delay_enabled,
+            max_queue_size=max_queue_size,
+            move_min_distance_px=move_min_distance_px,
+            ignore_combos=[self._hk_record]
+        )
+        self.recorder.finished.connect(self._on_record_done)
+        self.recorder.pausedChanged.connect(lambda p: self.info(f"[Record] {'Paused' if p else 'Resumed'}"))
+        self.recorder.start()
+
+    def _stop_record(self, show_summary: bool = True):
+        if not self.recorder:
+            return
+        self._record_show_summary = show_summary
+        try:
+            self.recorder.stop()
+        except Exception as e:
+            self.warn(f"Recorder stop error: {e}")
+            self._record_show_summary = False
+            self.recorder = None
+
+    def _on_record_done(self, new_steps: list):
+        recorder = getattr(self, "recorder", None)
+        stats = {}
+        if recorder:
+            try:
+                stats = recorder.metrics or {}
+            except Exception:
+                stats = {}
+        show_summary = bool(getattr(self, "_record_show_summary", False))
+        self._record_show_summary = False
+        if recorder:
+            self.recorder = None
+
+        if not new_steps:
+            self.info("No steps recorded.")
+        else:
+            insert_index = len(self.steps)
+            focus_index = insert_index + len(new_steps) - 1
+            self._push_command(
+                AddStepsCommand(self.steps, new_steps, index=insert_index),
+                focus_index=focus_index
+            )
+            self.info(f"Recorded {len(new_steps)} steps.")
+
+        if show_summary:
+            total = stats.get("total", 0)
+            dropped_move = stats.get("dropped_move", 0)
+            dropped_scroll = stats.get("dropped_scroll", 0)
+            max_q = stats.get("max_queue", 0)
+            msg = (
+                "Recording Finished!\n"
+                f"Total Events: {total}\n"
+                f"Dropped (Moves): {dropped_move}\n"
+                f"Dropped (Scrolls): {dropped_scroll}\n"
+                f"Max Queue: {max_q}"
+            )
+            if getattr(self, "_file_logger", None):
+                try:
+                    self._file_logger.info(msg.replace("\n", " | "))
+                except Exception as e:
+                    self._warn_once("record_summary_file_logger", f"Failed to write recording summary to file logger: {e}")
+            self.info(msg.replace("\n", " | "))
+            try:
+                self.statusBar().showMessage(msg.replace("\n", " | "), 4000)
+            except Exception as e:
+                self._warn_once("record_summary_statusbar", f"Failed to show recording summary in status bar: {e}")
+            try:
+                QMessageBox.information(self, "Recording Finished", msg)
+            except Exception as e:
+                self._warn_once("record_summary_dialog", f"Failed to show recording summary dialog: {e}")
+
+    def _import_profile(self):
+        fname, _ = QFileDialog.getOpenFileName(self, 'Import Profile', '', 'JSON Files (*.json)')
+        if not fname: return
+        try:
+            with open(fname, 'r', encoding='utf-8') as f:
+                prof = json.load(f)
+            
+            hk = prof.get('hotkeys', {})
+            if hk:
+                self._hk_run = hk.get('run', self._hk_run)
+                self._hk_stop = hk.get('stop', self._hk_stop)
+                self._hk_record = hk.get('record', self._hk_record)
+                self._hk_add_img = hk.get('add_img', self._hk_add_img)
+                self._hk_add_notimg = hk.get('add_notimg', self._hk_add_notimg)
+                self._save_hotkeys()
+                self._update_hotkey_labels()
+                self._install_qshortcuts()
+                self._setup_global_hotkey_engine()
+            
+            self.info("Profile imported.")
+        except Exception as e:
+            QMessageBox.critical(self, "Import Error", str(e))
+
+    def _export_profile(self):
+        fname, _ = QFileDialog.getSaveFileName(self, 'Export Profile', '', 'JSON Files (*.json)')
+        if not fname: return
+        try:
+            prof = {
+                'hotkeys': {
+                    'run': self._hk_run,
+                    'stop': self._hk_stop,
+                    'record': self._hk_record,
+                    'add_img': self._hk_add_img,
+                    'add_notimg': self._hk_add_notimg
+                }
+            }
+            with open(fname, 'w', encoding='utf-8') as f:
+                json.dump(prof, f, indent=2)
+            self.info(f"Profile exported to {fname}")
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", str(e))
+
+    def run_macro(self, start_index=0):
+        if not self.steps:
+            self.info("No steps to run.")
+            return
+        if self.runner and self.runner.isRunning():
+            self.warn("Already running.")
+            return
+        self._active_step_index = None
+        self._apply_active_step_highlight()
+            
+        # Options
+        dry_run = self.chkDry.isChecked() if hasattr(self, 'chkDry') else False
+        mini_mode = self.chkAutoMin.isChecked() if hasattr(self, 'chkAutoMin') else False
+        capture_on_fail = self.chkCaptureFail.isChecked() if hasattr(self, 'chkCaptureFail') else False
+        human_mode = self.chkHumanMode.isChecked() if hasattr(self, 'chkHumanMode') else False
+        perf_mode = True
+        try:
+            perf_mode = bool(self.chkPerfPlayback.isChecked())
+        except Exception:
+            perf_mode = True
+        poll_interval = 0.1
+        if perf_mode:
+            level = self._get_perf_level()
+            if level >= 3:
+                poll_interval = 0.0
+            elif level == 2:
+                poll_interval = 0.01
+            else:
+                poll_interval = 0.05
+        
+        self.info(f"Starting macro... Human mode: {'ON' if human_mode else 'OFF'}, Perf: {'ON' if perf_mode else 'OFF'}")
+        self.act_run.setEnabled(False)
+        self.act_stop.setEnabled(True)
+        self.act_record.setEnabled(False)
+        
+        # [Sync] Button State
+        if hasattr(self, 'btnRun'): self.btnRun.setEnabled(False)
+        if hasattr(self, 'btnStop'): self.btnStop.setEnabled(True)
+        
+        # Convert cooldown sec to ms, max duration min to ms
+        rc = RepeatConfig(
+            repeat_count=self.sbRepeatCount.value(),
+            repeat_cooldown_ms=int(self.sbCooldown.value() * 1000),
+            stop_on_fail=self.cbStopOnFail.isChecked(),
+            max_duration_ms=self.sbMaxDuration.value() * 60 * 1000
+        )
+        
+        if mini_mode and not dry_run:
+            self.showMinimized()
+            self._was_minimized = True
+        
+        try:
+            self.runner = MacroRunner(
+                self.steps,
+                repeat=rc,
+                dry_run=dry_run,
+                start_index=start_index,
+                capture_on_fail=capture_on_fail,
+                human_mode=human_mode,
+                perf_mode=perf_mode,
+                parent=self,
+                current_file_path=self._current_macro_path,
+                target_window_title=self._get_target_window_title() if hasattr(self, "_get_target_window_title") else "",
+            )
+            try:
+                self.runner.poll_interval = poll_interval
+            except Exception as e:
+                self.warn(f"Failed to set runner poll interval ({poll_interval}): {e}")
+            if hasattr(self, "window_manager"):
+                try:
+                    self.runner._window_manager = self.window_manager
+                except Exception as e:
+                    self.warn(f"Failed to attach window manager to runner: {e}")
+            try:
+                self.runner.target_window_title = self._get_target_window_title()
+            except Exception as e:
+                self.warn(f"Failed to set target window title for runner: {e}")
+            # Pre-activation using UI window manager (helps tests/mocks)
+            try:
+                if hasattr(self, "window_manager"):
+                    title = self._get_target_window_title() if hasattr(self, "_get_target_window_title") else ""
+                    if title:
+                        hwnd = self.window_manager.find_window(title)
+                        if hwnd:
+                            self.window_manager.activate_window(hwnd)
+            except Exception as e:
+                self.warn(f"Runner pre-activation failed: {e}")
+            self.runner.log.connect(self.info)
+            self.runner.finished.connect(self._on_macro_finished)
+            # Connect debug overlay events
+            if hasattr(self.runner, "debugEvent"):
+                self.runner.debugEvent.connect(self._on_debug_event)
+            if hasattr(self.runner, "stepChanged"):
+                self.runner.stepChanged.connect(self._on_runner_step_changed)
+            self.runner.start()
+        except Exception as e:
+            self.err(f"Failed to start macro: {e}")
+            self.runner = None
+            self.act_run.setEnabled(True)
+            self.act_stop.setEnabled(False)
+            self.act_record.setEnabled(True)
+            if hasattr(self, "btnRun"):
+                self.btnRun.setEnabled(True)
+            if hasattr(self, "btnStop"):
+                self.btnStop.setEnabled(False)
+            if self._was_minimized:
+                self.showNormal()
+                self._was_minimized = False
+
+    def stop_macro(self):
+        if self.runner and self.runner.isRunning():
+            self.runner.stop()
+            self.info("Stopping macro...")
+            self.act_stop.setEnabled(False)
+            if hasattr(self, 'btnStop'): self.btnStop.setEnabled(False)
+        else:
+            self.info("Macro is not running.")
+
+    def _on_macro_finished(self, success):
+        self.info(f"Macro finished. Success: {success}")
+        self.act_run.setEnabled(True)
+        self.act_stop.setEnabled(False)
+        self.act_record.setEnabled(True)
+        
+        if self._was_minimized:
+            self.showNormal()
+            self._was_minimized = False
+        
+        # [Sync] Button State
+        if hasattr(self, 'btnRun'): self.btnRun.setEnabled(True)
+        if hasattr(self, 'btnStop'): self.btnStop.setEnabled(False)
+        try:
+            if hasattr(self.runner, "debugEvent"):
+                self.runner.debugEvent.disconnect(self._on_debug_event)
+        except Exception as e:
+            self.warn(f"Failed to disconnect runner debugEvent: {e}")
+        try:
+            if hasattr(self.runner, "stepChanged"):
+                self.runner.stepChanged.disconnect(self._on_runner_step_changed)
+        except Exception as e:
+            self.warn(f"Failed to disconnect runner stepChanged: {e}")
+        self._active_step_index = None
+        self._apply_active_step_highlight()
+        self.runner = None
+
+    # --- Scheduler Logic ---
+
+    def _load_scheduler_settings(self):
+        """ [수정] QSettings에서 스케줄러 설정을 로드합니다. """
+        try:
+            st = QSettings("ImageMacro", "MVP")
+            
+            # [수정] 기본 시간을 09:00로 설정
+            default_time = QTime(9, 0)
+            time_val = st.value(self.SCHED_KEY_TIME, default_time)
+            paths = st.value(self.SCHED_KEY_MACROS, [])
+
+            # Block signals to prevent auto-save loop
+            self.sched_time_edit.blockSignals(True)
+            self.sched_time_edit.setTime(time_val)
+            self.sched_time_edit.blockSignals(False)
+            
+            self.sched_list.clear()
+            for path in paths:
+                self._add_path_to_sched_list(path) # 새로 만든 함수 사용
+            
+            # [수정] 스케줄러 시작/중지 상태 복원
+            is_enabled = st.value(self.SCHED_KEY_ENABLED, False, type=bool)
+            if is_enabled and self.sched_list.count() > 0:
+                 self.sched_btnToggle.setChecked(True)
+            else:
+                 self.sched_btnToggle.setChecked(False)
+
+        except Exception as e:
+            self.info(f"[WARN] Failed to load scheduler settings: {e}")
+
+    def _save_scheduler_settings(self):
+        """스케줄러 설정을 QSettings에 저장합니다."""
+        try:
+            st = QSettings("ImageMacro", "MVP")
+            
+            time_val = self.sched_time_edit.time()
+            paths = [self.sched_list.item(i).data(Qt.UserRole) 
+                     for i in range(self.sched_list.count())]
+            
+            st.setValue(self.SCHED_KEY_TIME, time_val)
+            st.setValue(self.SCHED_KEY_MACROS, paths)
+            st.setValue(self.SCHED_KEY_ENABLED, self.sched_btnToggle.isChecked())
+
+        except Exception as e:
+            self.info(f"[WARN] Failed to save scheduler settings: {e}")
+
+    def _add_path_to_sched_list(self, path: str):
+        if not path or not isinstance(path, str):
+            return
+            
+        item = QListWidgetItem(os.path.basename(path))
+        item.setData(Qt.UserRole, path)
+        
+        if not os.path.exists(path):
+            item.setForeground(QColor("red"))
+            item.setToolTip(f"File not found: {path}")
+
+        self.sched_list.addItem(item)
+
+    def _sched_add_macro(self):
+        paths, _ = QFileDialog.getOpenFileNames(self, "Select Macro Files", "", "Macro (*.macro)")
+        for path in paths:
+            if path:
+                self._add_path_to_sched_list(path)
+        
+        if paths:
+            self._save_scheduler_settings()
+
+    def _sched_remove_macro(self):
+        selected_items = self.sched_list.selectedItems()
+        if not selected_items: return
+        for item in selected_items:
+            self.sched_list.takeItem(self.sched_list.row(item))
+        self._save_scheduler_settings()
+
+    def _sched_move_up(self):
+        current_row = self.sched_list.currentRow()
+        if current_row > 0:
+            item = self.sched_list.takeItem(current_row)
+            self.sched_list.insertItem(current_row - 1, item)
+            self.sched_list.setCurrentRow(current_row - 1)
+            self._save_scheduler_settings()
+
+    def _sched_move_down(self):
+        current_row = self.sched_list.currentRow()
+        if current_row < self.sched_list.count() - 1:
+            item = self.sched_list.takeItem(current_row)
+            self.sched_list.setCurrentRow(current_row + 1)
+            self._save_scheduler_settings()
+
+    def _on_sched_enable_changed(self, state):
+        enabled = (state == Qt.Checked)
+        self._sched_running = enabled
+        
+        queue = []
+        if hasattr(self, 'sched_list'):
+            for i in range(self.sched_list.count()):
+                item = self.sched_list.item(i)
+                path = item.data(Qt.UserRole)
+                if path:
+                    queue.append(path)
+        
+        self.scheduler.set_macro_queue(queue)
+        self.scheduler.set_target_time(self.sched_time_edit.time())
+        self.scheduler.set_enabled(enabled)
+
+    def _check_schedule(self):
+        """Minimal scheduler tick used in tests."""
+        if getattr(self, "sched_btnToggle", None) and self.sched_btnToggle.isChecked():
+            try:
+                self._run_scheduled_sequence()
+                self._sched_ran_today = True
+            except AttributeError:
+                # Fallback: run the scheduler's check if defined
+                if hasattr(self, "scheduler") and hasattr(self.scheduler, "run"):
+                    try:
+                        self.scheduler.run()
+                    except Exception as e:
+                        self.warn(f"Scheduler fallback run failed: {e}")
+
+    def _run_scheduled_sequence(self):
+        """Placeholder for scheduled run; tests may monkeypatch this."""
+        if hasattr(self, "scheduler"):
+            try:
+                self.scheduler.run()
+            except Exception as e:
+                self.warn(f"Scheduled sequence run failed: {e}")
+
+    def _run_scheduled_macro(self, path):
+        base_name = os.path.basename(path)
+        self.sched_status_label.setText(f"Running: {base_name}")
+        
+        if self._load_macro_from_path(path):
+            try:
+                self.runner.finished.disconnect(self._on_scheduled_run_finished)
+            except Exception as e:
+                self.warn(f"Failed to disconnect scheduled finished handler: {e}")
+            
+            self.run_macro()
+            if self.runner:
+                self.runner.finished.connect(self._on_scheduled_run_finished)
+            else:
+                self.warn(f"[Scheduler] Failed to start {base_name}")
+                self.scheduler.notify_macro_finished(False)
+        else:
+            self.info(f"[Scheduler] Failed to load {base_name}")
+            self.scheduler.notify_macro_finished(False)
+
+    def _on_scheduled_run_finished(self, ok=True):
+        self.scheduler.notify_macro_finished(ok)
+
+    # --- Preset Logic ---
+
+    def _refresh_preset_list(self):
+        if not hasattr(self, "presetList"):
+            return
+        directory = getattr(self, "_preset_dir", None) or self._compute_preset_dir()
+        self._preset_dir = directory
+        if hasattr(self, "lblPresetDir"):
+            self.lblPresetDir.setText(directory)
+        self.presetList.clear()
+        try:
+            entries = sorted(
+                [
+                    name
+                    for name in os.listdir(directory)
+                    if name.lower().endswith(".macro")
+                ]
+            )
+        except Exception:
+            entries = []
+
+        if not entries:
+            if hasattr(self, "lblPresetStatus"):
+                self.lblPresetStatus.setText(".macro 파일을 찾지 못했습니다.")
+            return
+
+        for name in entries:
+            full_path = os.path.join(directory, name)
+            item = QListWidgetItem(name)
+            item.setToolTip(full_path)
+            item.setData(Qt.UserRole, full_path)
+            self.presetList.addItem(item)
+        if hasattr(self, "lblPresetStatus"):
+            self.lblPresetStatus.setText(f"{len(entries)}개의 프리셋을 찾았습니다.")
+
+    def _load_preset_item(self, item):
+        if item:
+            self.presetList.setCurrentItem(item)
+            self._load_selected_preset()
+
+    def _load_selected_preset(self):
+        if not hasattr(self, "presetList"):
+            return
+        item = self.presetList.currentItem()
+        if item is None:
+            if hasattr(self, "lblPresetStatus"):
+                self.lblPresetStatus.setText("먼저 프리셋을 선택하세요.")
+            return
+        path = item.data(Qt.UserRole)
+        if not path:
+            return
+        if self._load_macro_from_path(path):
+            if hasattr(self, "lblPresetStatus"):
+                base = os.path.basename(path)
+                self.lblPresetStatus.setText(f"불러오기 완료: {base}")
+
+    def _compute_preset_dir(self) -> str:
+        try:
+            if getattr(sys, "frozen", False):
+                return os.path.abspath(os.path.dirname(sys.executable))
+        except Exception as e:
+            self._warn_once("compute_preset_dir_frozen", f"Failed to resolve frozen executable directory: {e}")
+        try:
+            base = os.path.abspath(os.path.dirname(__file__))
+        except Exception:
+            base = os.getcwd()
+        return base
+
+    def closeEvent(self, e):
+        def _shutdown_safe(label: str, fn):
+            try:
+                fn()
+            except Exception as ex:
+                try:
+                    self.err(f"Shutdown cleanup failed ({label}): {ex}")
+                except Exception:
+                    print(f"[WARN] Shutdown cleanup failed ({label}): {ex}")
+
+        _shutdown_safe(
+            "runner",
+            lambda: (
+                self.runner.stop(),
+                self.runner.wait(2000),
+            ) if self.runner and self.runner.isRunning() else None,
+        )
+        _shutdown_safe(
+            "recorder",
+            lambda: self._stop_record(show_summary=False) if self.recorder else None,
+        )
+        _shutdown_safe(
+            "trigger_watcher",
+            lambda: self.trigger_watcher.stop()
+            if getattr(self, "trigger_watcher", None) and self.trigger_watcher.isRunning()
+            else None,
+        )
+        _shutdown_safe(
+            "trigger_runner",
+            lambda: (
+                self.trigger_runner.stop(),
+                self.trigger_runner.wait(2000),
+            )
+            if getattr(self, "trigger_runner", None) and self.trigger_runner.isRunning()
+            else None,
+        )
+        _shutdown_safe(
+            "scheduler",
+            lambda: (
+                self.scheduler.set_enabled(False),
+                self.scheduler.timer.stop(),
+            )
+            if getattr(self, "scheduler", None)
+            else None,
+        )
+        _shutdown_safe("hotkeys", lambda: self._system_hotkeys.uninstall())
+        _shutdown_safe("save_general_settings", lambda: self._save_general_settings())
+        super().closeEvent(e)
+
+    def _refresh_trigger_list(self):
+        self.trigger_list.clear()
+        for t in self.triggers:
+            item = QListWidgetItem(f"{t.name} ({'ON' if t.enabled else 'OFF'})")
+            item.setData(Qt.UserRole, t)
+            if not t.enabled:
+                item.setForeground(QColor("gray"))
+            self.trigger_list.addItem(item)
+
+    def _add_trigger(self):
+        t = TriggerData(id=str(uuid.uuid4())[:8], name="New Trigger")
+        # Default condition step is created in __init__ of TriggerData
+        
+        dlg = TriggerEditDialog(t, self)
+        if dlg.exec_() == QDialog.Accepted:
+            self.triggers.append(t)
+            self._refresh_trigger_list()
+            self._save_triggers()
+            self.trigger_watcher.update_triggers(self.triggers)
+
+    def _on_debug_event(self, data: dict):
+        if not self.chkDebugOverlay.isChecked():
+            return
+        rect = data.get("rect") or (0, 0, 50, 50)
+        text = data.get("text", "")
+        color = data.get("color", (0, 255, 0))
+        try:
+            self.debug_overlay.add_event(rect, text=text, color=color, duration=2.0)
+            if not self.debug_overlay.isVisible():
+                self.debug_overlay.show()
+                self.debug_overlay.raise_()
+        except Exception as e:
+            self._warn_once("debug_overlay_event", f"Failed to render debug overlay event: {e}")
+
+    def _edit_trigger_item(self, item):
+        t = item.data(Qt.UserRole)
+        dlg = TriggerEditDialog(t, self)
+        if dlg.exec_() == QDialog.Accepted:
+            self._refresh_trigger_list()
+            self._save_triggers()
+            self.trigger_watcher.update_triggers(self.triggers)
+
+    def _del_trigger(self):
+        row = self.trigger_list.currentRow()
+        if row >= 0:
+            self.triggers.pop(row)
+            self._refresh_trigger_list()
+            self._save_triggers()
+            self.trigger_watcher.update_triggers(self.triggers)
+
+    def _trigger_storage_dir(self) -> str:
+        try:
+            base = QStandardPaths.writableLocation(QStandardPaths.AppDataLocation) or ""
+        except Exception:
+            base = ""
+        if not base:
+            try:
+                base = os.path.join(os.path.expanduser("~"), ".imagemacro")
+            except Exception:
+                base = os.getcwd()
+        path = os.path.join(base, "triggers")
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    def _trigger_json_path(self) -> str:
+        return os.path.join(self._trigger_storage_dir(), "triggers.json")
+
+    def _trigger_image_dir(self) -> str:
+        path = os.path.join(self._trigger_storage_dir(), "images")
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    def _legacy_trigger_json_path(self) -> str:
+        return os.path.join(os.getcwd(), "triggers.json")
+
+    def _legacy_trigger_image_dir(self) -> str:
+        return os.path.join(os.getcwd(), "triggers", "images")
+
+    def _resolve_trigger_sources(self) -> tuple[str | None, list[str]]:
+        primary_json = self._trigger_json_path()
+        legacy_json = self._legacy_trigger_json_path()
+        source_json = primary_json if os.path.exists(primary_json) else None
+        if source_json is None and os.path.exists(legacy_json):
+            source_json = legacy_json
+
+        image_dirs = []
+        primary_image = self._trigger_image_dir()
+        legacy_image = self._legacy_trigger_image_dir()
+        if source_json:
+            source_image = os.path.join(os.path.dirname(source_json), "images")
+            image_dirs.append(source_image)
+        image_dirs.extend([primary_image, legacy_image])
+
+        seen = set()
+        deduped = []
+        for d in image_dirs:
+            k = os.path.abspath(d)
+            if k in seen:
+                continue
+            seen.add(k)
+            deduped.append(d)
+        return source_json, deduped
+
+    def _load_triggers(self):
+        try:
+            src_json, image_dirs = self._resolve_trigger_sources()
+            if not src_json:
+                return
+
+            with open(src_json, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            
+            self.triggers.clear()
+            for d in data:
+                t = TriggerData.from_dict(d)
+                
+                # Load image if exists
+                s = t.condition_step
+                if s.type == 'image_click':
+                    for img_dir in image_dirs:
+                        img_path = os.path.join(img_dir, f"{s.id}.png")
+                        if os.path.exists(img_path):
+                            with open(img_path, "rb") as imgf:
+                                s.png_bytes = imgf.read()
+                                s.ensure_tpl()
+                            break
+                
+                self.triggers.append(t)
+                
+            self.trigger_watcher.update_triggers(self.triggers)
+            # If loaded from legacy location, migrate to the new app-data location.
+            if os.path.abspath(src_json) == os.path.abspath(self._legacy_trigger_json_path()):
+                self._save_triggers()
+        except Exception as e:
+            self.err(f"Failed to load triggers: {e}")
+
+    def _save_triggers(self):
+        try:
+            image_dir = self._trigger_image_dir()
+            json_path = self._trigger_json_path()
+                
+            data = []
+            for t in self.triggers:
+                d = t.to_dict()
+                # Save image bytes to file
+                s = t.condition_step
+                if s.png_bytes:
+                    with open(os.path.join(image_dir, f"{s.id}.png"), "wb") as f:
+                        f.write(s.png_bytes)
+                    # Remove bytes from json to keep it clean
+                    d['condition_step'].pop('png_bytes', None)
+                    d['condition_step'].pop('_tpl_bgr', None)
+                
+                data.append(d)
+                
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            self.err(f"Failed to save triggers: {e}")
+
+    def _resume_paused_runner(self) -> bool:
+        paused_runner = self._paused_runner
+        if not paused_runner:
+            self._resume_state = None
+            return False
+
+        try:
+            self.runner = paused_runner
+            self.act_run.setEnabled(False)
+            self.act_stop.setEnabled(True)
+            self.act_record.setEnabled(False)
+            if hasattr(self, "btnRun"):
+                self.btnRun.setEnabled(False)
+            if hasattr(self, "btnStop"):
+                self.btnStop.setEnabled(True)
+            if hasattr(self.runner, "debugEvent"):
+                try:
+                    self.runner.debugEvent.disconnect(self._on_debug_event)
+                except Exception as e:
+                    self.warn(f"Failed to refresh debugEvent connection on resume: {e}")
+                self.runner.debugEvent.connect(self._on_debug_event)
+            if hasattr(self.runner, "stepChanged"):
+                try:
+                    self.runner.stepChanged.disconnect(self._on_runner_step_changed)
+                except Exception as e:
+                    self.warn(f"Failed to refresh stepChanged connection on resume: {e}")
+                self.runner.stepChanged.connect(self._on_runner_step_changed)
+
+            if hasattr(self.runner, "resume"):
+                self.runner.resume(self._resume_index, self._resume_state)
+            else:
+                self.runner.start_index = int(self._resume_index)
+                self.runner.start()
+            return True
+        except Exception as e:
+            self.err(f"[Trigger] Failed to resume paused macro: {e}")
+            self.runner = None
+            return False
+        finally:
+            self._resume_state = None
+            self._paused_runner = None
+
+    def _on_trigger_fired(self, t: TriggerData):
+        if self._main_runner_paused:
+            self.info(f"[Trigger] Ignored {t.name} (Already handling a trigger)")
+            return
+
+        self.info(f"!!! TRIGGER FIRED: {t.name} !!!")
+        
+        if t.action_type == "notification":
+            self.info(f"[Notification] {t.action_value}")
+            return
+            
+        elif t.action_type == "stop":
+            self.stop_macro()
+            return
+            
+        elif t.action_type == "run_macro":
+            macro_path = os.path.expandvars(os.path.expanduser(t.action_value or "")).strip()
+            if macro_path and not os.path.isabs(macro_path) and self._current_macro_path:
+                try:
+                    base = os.path.dirname(os.path.abspath(self._current_macro_path))
+                    macro_path = os.path.abspath(os.path.join(base, macro_path))
+                except Exception as e:
+                    self.warn(f"[Trigger] Failed to resolve relative macro path '{macro_path}': {e}")
+            if not os.path.exists(macro_path):
+                self.err(f"[Trigger] Macro file not found: {macro_path}")
+                return
+                
+            if self.runner and self.runner.isRunning():
+                paused_runner = self.runner
+                self._main_runner_paused = True
+                self._paused_runner = paused_runner
+                
+                # Capture current step index before stopping
+                self._resume_index = paused_runner.current_step_index
+                self._resume_state = None
+                if hasattr(paused_runner, "snapshot_state"):
+                    try:
+                        self._resume_state = paused_runner.snapshot_state()
+                    except Exception:
+                        self._resume_state = None
+                self.info(f"[Trigger] Pausing main macro at step {self._resume_index + 1}...")
+                
+                paused_runner.stop()
+                paused_runner.wait(1000)
+                
+                try:
+                    trigger_steps = self._load_steps_from_file(macro_path)
+                    if not trigger_steps:
+                        self._main_runner_paused = False
+                        self.warn("[Trigger] Trigger macro load failed; resuming main macro.")
+                        self._resume_paused_runner()
+                        return
+
+                    self.trigger_runner = MacroRunner(
+                        trigger_steps,
+                        parent=self,
+                        current_file_path=macro_path,
+                    )
+                    self.trigger_runner.finished.connect(self._on_trigger_finished)
+                    self.trigger_runner.log.connect(self.info)
+                    self.trigger_runner.start()
+                    
+                except Exception as e:
+                    self.err(f"[Trigger] Failed to load macro: {e}")
+                    self._main_runner_paused = False
+                    self._resume_paused_runner()
+            else:
+                trigger_steps = self._load_steps_from_file(macro_path)
+                if not trigger_steps:
+                    self.err(f"[Trigger] Failed to load trigger macro: {macro_path}")
+                    return
+                try:
+                    self.trigger_runner = MacroRunner(
+                        trigger_steps,
+                        parent=self,
+                        current_file_path=macro_path,
+                    )
+                    self.trigger_runner.finished.connect(self._on_trigger_finished)
+                    self.trigger_runner.log.connect(self.info)
+                    self.trigger_runner.start()
+                except Exception as e:
+                    self.err(f"[Trigger] Failed to start trigger macro: {e}")
+                    self.trigger_runner = None
+
+    def _load_steps_from_file(self, path):
+        # Helper to load steps without affecting UI.
+        # Supports JSON (.json/.macro-json) and zip-based .macro files.
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = self._decode_bytes(json.load(f))
+            if isinstance(data, list):
+                return [self._coerce_step(self._decode_bytes(s)) for s in data]
+            if isinstance(data, dict):
+                steps_data = data.get("steps", []) or []
+                return [self._coerce_step(self._decode_bytes(s)) for s in steps_data]
+        except Exception:
+            self.warn(f"[Trigger] JSON step load failed for '{path}', trying MacroIO format.")
+        try:
+            steps, _ = MacroIO.load_macro(path)
+            return [self._coerce_step(self._decode_bytes(s)) for s in steps]
+        except Exception:
+            return None
+
+    def _on_trigger_finished(self, success):
+        self.info(f"[Trigger] Finished. Success: {success}")
+        self.trigger_runner = None
+        
+        if self._main_runner_paused:
+            self.info(f"[Trigger] Resuming main macro from step {self._resume_index + 1}...")
+            self._main_runner_paused = False
+            if not self._resume_paused_runner():
+                self.warn("[Trigger] Main macro resume was requested, but runner was unavailable.")
+
+    def _on_trigger_log(self, msg: str):
+        if msg == "Trigger Watcher Started." and not self._show_trigger_start_log:
+            return
+        self.info(msg)
+
+    def _init_trigger_tab(self):
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        
+        self.trigger_list = QListWidget()
+        self.trigger_list.itemDoubleClicked.connect(self._edit_trigger_item)
+        
+        btn_layout = QHBoxLayout()
+        btn_add = QPushButton("Add Trigger")
+        btn_add.clicked.connect(self._add_trigger)
+        btn_del = QPushButton("Del Trigger")
+        btn_del.clicked.connect(self._del_trigger)
+        
+        btn_layout.addWidget(btn_add)
+        btn_layout.addWidget(btn_del)
+        
+        layout.addWidget(QLabel("Background Triggers (Watchdog)"))
+        layout.addWidget(self.trigger_list)
+        layout.addLayout(btn_layout)
+        
+        self.triggers = []
+        self.trigger_watcher = TriggerWatcher(self.triggers, self)
+        self.trigger_watcher.triggerFired.connect(self._on_trigger_fired)
+        self.trigger_watcher.log.connect(self._on_trigger_log)
+        self.trigger_watcher.start()
+        
+        self._load_triggers()
+        self._refresh_trigger_list()
+        
+        return widget
+
+    def _create_right_tab_panel(self):
+        tabs = QTabWidget()
+        
+        # --- 1. Presets Tab (Create & Add First) ---
+        preset_tab = QWidget()
+        preset_layout = QVBoxLayout(preset_tab)
+        
+        self.lblPresetDir = QLabel()
+        self.lblPresetDir.setStyleSheet("color: gray; font-size: 10px;")
+        self.presetList = QListWidget()
+        self.presetList.itemDoubleClicked.connect(self._load_preset_item)
+        self.lblPresetStatus = QLabel("Ready")
+        
+        btn_refresh = QPushButton("Refresh")
+        btn_refresh.clicked.connect(self._refresh_preset_list)
+        
+        preset_layout.addWidget(QLabel("Presets (.macro)"))
+        preset_layout.addWidget(self.lblPresetDir)
+        preset_layout.addWidget(self.presetList)
+        preset_layout.addWidget(btn_refresh)
+        preset_layout.addWidget(self.lblPresetStatus)
+        
+        self._refresh_preset_list()
+        
+        tabs.addTab(preset_tab, "Presets")
+        
+        # --- 2. Scheduler Tab (Create & Add Second) ---
+        sched_tab = QWidget()
+        sched_layout = QVBoxLayout(sched_tab)
+        
+        # Macro List
+        self.sched_list = QListWidget()
+        sched_layout.addWidget(self.sched_list)
+        
+        btn_layout = QHBoxLayout()
+        btn_add = QPushButton("Add")
+        btn_add.clicked.connect(self._sched_add_macro)
+        btn_rem = QPushButton("Remove")
+        btn_rem.clicked.connect(self._sched_remove_macro)
+        btn_up = QPushButton("Up")
+        btn_up.clicked.connect(self._sched_move_up)
+        btn_down = QPushButton("Down")
+        btn_down.clicked.connect(self._sched_move_down)
+        
+        btn_layout.addWidget(btn_add)
+        btn_layout.addWidget(btn_rem)
+        btn_layout.addWidget(btn_up)
+        btn_layout.addWidget(btn_down)
+        sched_layout.addLayout(btn_layout)
+        
+        form = QFormLayout()
+        self.sched_time_edit = QTimeEdit()
+        self.sched_time_edit.setDisplayFormat("HH:mm")
+        self.sched_time_edit.timeChanged.connect(self._save_scheduler_settings)
+        
+        self.sched_enable_chk = QCheckBox("Enable Scheduler")
+        self.sched_enable_chk.stateChanged.connect(self._on_sched_enable_changed)
+        # Alias for tests expecting a toggle button with setChecked
+        self.sched_btnToggle = self.sched_enable_chk
+        
+        form.addRow("Run Time:", self.sched_time_edit)
+        form.addRow(self.sched_enable_chk)
+        
+        self.sched_status_label = QLabel("Status: Idle")
+        sched_layout.addLayout(form)
+        sched_layout.addWidget(self.sched_status_label)
+        
+        tabs.addTab(sched_tab, "Scheduler")
+        
+        # Settings Tab (Repeat Config)
+        settings_tab = QWidget()
+        settings_layout = QFormLayout(settings_tab)
+        
+        self.sbRepeatCount = QSpinBox()
+        self.sbRepeatCount.setRange(0, 9999)
+        self.sbRepeatCount.setValue(1)
+        self.sbRepeatCount.setSpecialValueText("Infinite")
+        
+        self.sbCooldown = QDoubleSpinBox()
+        self.sbCooldown.setRange(0, 3600)
+        self.sbCooldown.setValue(0)
+        self.sbCooldown.setSuffix(" s")
+        
+        self.cbStopOnFail = QCheckBox("Stop on Fail")
+        self.cbStopOnFail.setChecked(True)
+        
+        self.sbMaxDuration = QSpinBox()
+        self.sbMaxDuration.setRange(0, 1440) # 24 hours
+        self.sbMaxDuration.setValue(0)
+        self.sbMaxDuration.setSuffix(" min")
+        
+        settings_layout.addRow("Repeat Count (0=Inf):", self.sbRepeatCount)
+        settings_layout.addRow("Cooldown:", self.sbCooldown)
+        settings_layout.addRow("Max Duration:", self.sbMaxDuration)
+        settings_layout.addRow(self.cbStopOnFail)
+
+        self.chkPerfPlayback = QCheckBox("High Performance Playback")
+        self.chkPerfPlayback.setChecked(True)
+        self.chkPerfPlayback.setToolTip("Reduce internal sleeps and pyautogui delays.")
+        settings_layout.addRow(self.chkPerfPlayback)
+
+        self.chkPerfRecording = QCheckBox("High Performance Recording")
+        self.chkPerfRecording.setChecked(True)
+        self.chkPerfRecording.setToolTip("Increase recorder buffer and capture rate.")
+        settings_layout.addRow(self.chkPerfRecording)
+
+        self.cbPerfLevel = QComboBox()
+        self.cbPerfLevel.addItem("Performance Level 1", 1)
+        self.cbPerfLevel.addItem("Performance Level 2", 2)
+        self.cbPerfLevel.addItem("Performance Level 3", 3)
+        settings_layout.addRow("Perf Level:", self.cbPerfLevel)
+
+        self.chkRecordDelay = QCheckBox("Record Action Delays")
+        self.chkRecordDelay.setChecked(bool(getattr(self, "rec_record_delay_enabled", False)))
+        self.chkRecordDelay.setToolTip("Capture real time gaps between actions during recording.")
+        self.chkRecordDelay.toggled.connect(self._on_record_delay_toggle)
+        settings_layout.addRow(self.chkRecordDelay)
+        
+        btn_rec_settings = QPushButton("Recording Settings")
+        btn_rec_settings.clicked.connect(self._open_record_settings)
+        settings_layout.addRow(btn_rec_settings)
+        
+        btn_hotkeys = QPushButton("Hotkey Settings")
+        btn_hotkeys.clicked.connect(self._open_hotkey_dialog)
+        settings_layout.addRow(btn_hotkeys)
+        
+        tabs.addTab(settings_tab, "Settings")
+        
+        return tabs
+
+    # --- Floating "Open Panel" button ----------------------------------
+    def _init_open_panel_button(self):
+        try:
+            self.btn_open_panel = QPushButton("◀", self)
+            self.btn_open_panel.setFixedSize(24, 64)
+            self.btn_open_panel.setStyleSheet(
+                "background:#444;color:white;border:1px solid #222;"
+                "border-radius:4px; font-weight:bold;"
+            )
+            self.btn_open_panel.setVisible(False)
+            self.btn_open_panel.clicked.connect(self._restore_right_panel)
+            self.btn_open_panel.raise_()
+            self._reposition_open_panel_button()
+        except Exception as e:
+            self._warn_once("open_panel_init", f"Failed to initialize floating open-panel button: {e}")
+
+    def _on_splitter_moved(self, pos, index):
+        try:
+            sizes = self.splitter.sizes()
+            right_size = sizes[2] if len(sizes) > 2 else 0
+            show_btn = right_size <= 5
+            self.btn_open_panel.setVisible(show_btn)
+            if show_btn:
+                self._reposition_open_panel_button()
+        except Exception as e:
+            self._warn_once("open_panel_splitter_moved", f"Failed to update open-panel button visibility: {e}")
+
+    def _restore_right_panel(self):
+        try:
+            total = max(self.width(), 1)
+            restore = max(250, int(total * 0.25))
+            sizes = self.splitter.sizes()
+            if len(sizes) >= 3:
+                left = sizes[0] if sizes[0] > 0 else restore
+                center = sizes[1] if sizes[1] > 0 else restore
+                self.splitter.setSizes([left, center, restore])
+            self.btn_open_panel.setVisible(False)
+        except Exception as e:
+            self._warn_once("open_panel_restore_right", f"Failed to restore right panel size: {e}")
+
+    def _reposition_open_panel_button(self):
+        try:
+            if not hasattr(self, "btn_open_panel"):
+                return
+            btn = self.btn_open_panel
+            margin = 4
+            x = self.width() - btn.width() - margin
+            y = max(0, (self.height() - btn.height()) // 2)
+            btn.move(x, y)
+            btn.raise_()
+        except Exception as e:
+            self._warn_once("open_panel_reposition", f"Failed to reposition open-panel button: {e}")
+
+    def resizeEvent(self, event):
+        try:
+            self._reposition_open_panel_button()
+        except Exception as e:
+            self._warn_once("open_panel_resize_event", f"Resize handling failed while repositioning open-panel button: {e}")
+        super().resizeEvent(event)
+
+    # --- Command-pattern overrides for step CRUD (uses UndoStack) ---
+    def add_image_step(self):
+        try:
+            base_name = f"Image Step #{len(self.steps)+1}"
+            step = StepData(id=str(uuid.uuid4())[:8], name=base_name, type="image_click")
+
+            # 바로 ROI 캡처해서 스텝 생성 (기존 팝업 없이)
+            rect, crop, _ = ROISelector.select_from_screen(self)
+            if crop is None:
+                return
+            step.png_bytes = encode_png_bytes(crop)
+            step._tpl_bgr = crop
+            step._tpl_cache = {}
+            self._push_command(AddStepCommand(self.steps, step), focus_index=len(self.steps))
+        except Exception as e:
+            self.err(f"Error adding image step: {e}")
+
+    def add_not_image_step(self):
+        try:
+            base_name = f"Action Step #{len(self.steps)+1}"
+            step = StepData(id=str(uuid.uuid4())[:8], name=base_name, type='action')
+            dlg = NotImageDialog(step, self.steps, self)
+            res = dlg.exec_()
+            self.info(f"Action dialog result: {res}")
+            new_step = None
+            try:
+                new_step = dlg.get_step_data()
+            except Exception:
+                new_step = None
+            if res == QDialog.Rejected and not new_step:
+                self.warn("Action step was canceled.")
+                return
+            if res == QDialog.Rejected and new_step:
+                self.warn("Dialog returned Cancel, but valid action data detected. Saving anyway.")
+            if new_step:
+                self._push_command(AddStepCommand(self.steps, new_step), focus_index=len(self.steps))
+        except Exception as e:
+            self.err(f"Error in add_not_image_step: {e}")
+
+    def add_branch_step(self):
+        try:
+            base_name = f"Branch Step #{len(self.steps)+1}"
+            step = StepData(id=str(uuid.uuid4())[:8], name=base_name, type='image_branch')
+            dlg = BranchStepDialog(step, self.steps, self)
+            if dlg.exec_() == QDialog.Accepted:
+                new_step = dlg.get_step_data()
+                if new_step:
+                    self._push_command(AddStepCommand(self.steps, new_step), focus_index=len(self.steps))
+        except Exception as e:
+            self.err(f"Error adding branch step: {e}")
+
+    def add_comment_step(self):
+        try:
+            base_name = f"Note #{len(self.steps)+1}"
+            step = StepData(id=str(uuid.uuid4())[:8], name=base_name, type='comment', comment="")
+            self._push_command(AddStepCommand(self.steps, step), focus_index=len(self.steps))
+        except Exception as e:
+            self.err(f"Error adding comment: {e}")
+
+    def edit_step_at(self, idx):
+        if idx < 0 or idx >= len(self.steps):
+            return
+        step = self.steps[idx]
+        original = copy.deepcopy(step)
+        dlg = None
+        res = None
+        new_step = None
+
+        try:
+            if step.type == 'image_click':
+                dlg = ImageStepDialog(step, self)
+                res = dlg.exec_()
+                if res == QDialog.Accepted:
+                    new_step = dlg.get_step_data()
+            elif step.type == 'image_branch':
+                dlg = BranchStepDialog(step, self.steps, self)
+                res = dlg.exec_()
+                if res == QDialog.Accepted:
+                    new_step = dlg.get_step_data()
+            elif step.type == 'target':
+                dlg = TargetDialog(step, self)
+                res = dlg.exec_()
+                if res == QDialog.Accepted:
+                    new_step = dlg.get_step_data()
+            else:
+                dlg = NotImageDialog(step, self.steps, self)
+                res = dlg.exec_()
+                self.info(f"Action dialog result: {res}")
+                try:
+                    new_step = dlg.get_step_data()
+                except Exception:
+                    new_step = None
+                if res == QDialog.Rejected and not new_step:
+                    return
+                if res == QDialog.Rejected and new_step:
+                    self.warn("Dialog returned Cancel, but valid action data detected. Saving anyway.")
+
+            if new_step:
+                self._push_command(EditStepCommand(self.steps, idx, original, new_step), focus_index=idx)
+        except Exception as e:
+            self.err(f"Error editing step: {e}")
+
+    def delete_step_at(self, idx):
+        if idx < 0 or idx >= len(self.steps):
+            return
+        try:
+            self._push_command(RemoveStepCommand(self.steps, idx), focus_index=min(idx, len(self.steps)-1))
+        except Exception as e:
+            self.err(f"Error deleting step: {e}")
+
+    def delete_steps_at(self, indices):
+        if not indices:
+            return
+        try:
+            for i in sorted(indices, reverse=True):
+                if 0 <= i < len(self.steps):
+                    self._push_command(RemoveStepCommand(self.steps, i), focus_index=min(i, len(self.steps)-1))
+        except Exception as e:
+            self.err(f"Error deleting steps: {e}")
+
+    def move_step_up(self, idx):
+        if idx <= 0 or idx >= len(self.steps):
+            return
+        try:
+            self._push_command(MoveStepCommand(self.steps, idx, idx-1), focus_index=idx-1)
+        except Exception as e:
+            self.err(f"Error moving step up: {e}")
+
+    def move_step_down(self, idx):
+        if idx < 0 or idx >= len(self.steps)-1:
+            return
+        try:
+            self._push_command(MoveStepCommand(self.steps, idx, idx+1), focus_index=idx+1)
+        except Exception as e:
+            self.err(f"Error moving step down: {e}")
+
+    def duplicate_step_at(self, idx):
+        if idx < 0 or idx >= len(self.steps):
+            return
+        try:
+            clone = copy.deepcopy(self.steps[idx])
+            clone.id = str(uuid.uuid4())[:8]
+            clone.name = f"{clone.name} (Copy)"
+            self._push_command(AddStepCommand(self.steps, clone), focus_index=len(self.steps))
+        except Exception as e:
+            self.err(f"Error duplicating step: {e}")
+
+    def duplicate_steps_at(self, indices):
+        if not indices:
+            return
+        try:
+            for i in indices:
+                if 0 <= i < len(self.steps):
+                    clone = copy.deepcopy(self.steps[i])
+                    clone.id = str(uuid.uuid4())[:8]
+                    clone.name = f"{clone.name} (Copy)"
+                    self._push_command(AddStepCommand(self.steps, clone), focus_index=len(self.steps))
+        except Exception as e:
+            self.err(f"Error duplicating steps: {e}")
+
+    def _update_hotkey_labels(self):
+        def with_hint(base, hk):
+            try:
+                pretty = hk_pretty(hk) if hk else ""
+                return f"{base} ({pretty})" if pretty else base
+            except NameError:
+                return f"{base} ({hk})" if hk else base
+
+        if hasattr(self, "btnAddImg"):
+            self.btnAddImg.setText(with_hint("이미지+", self._hk_add_img))
+            self.btnAddImg.setToolTip(f"Shortcut: {hk_pretty(self._hk_add_img)}" if self._hk_add_img else "")
+        if hasattr(self, "btnAddAction"):
+            self.btnAddAction.setText(with_hint("일반동작+", self._hk_add_notimg))
+            self.btnAddAction.setToolTip(f"Shortcut: {hk_pretty(self._hk_add_notimg)}" if self._hk_add_notimg else "")
+        if hasattr(self, "btnRun"):
+            self.btnRun.setText(with_hint("실행", self._hk_run))
+        if hasattr(self, "btnStop"):
+            self.btnStop.setText(with_hint("정지", self._hk_stop))
+
+        self.act_run.setText(with_hint("Run", self._hk_run))
+        self.act_stop.setText(with_hint("Stop", self._hk_stop))
+        self.act_add_img.setText(with_hint("Add Image", self._hk_add_img))
+        self.act_add_act.setText(with_hint("Add Action", self._hk_add_notimg))
+
+        # 녹화 상태에 맞춰 버튼/액션 텍스트 갱신
+        self._set_record_labels_dynamic()
+
+    def _set_record_labels_dynamic(self):
+        recording = False
+        try:
+            recording = bool(getattr(self.recorder, "_active", False))
+        except Exception:
+            recording = False
+        try:
+            recording = recording or bool(self.act_record.isChecked())
+        except Exception as e:
+            self._warn_once("record_dynamic_action_checked", f"Failed to read action recording state: {e}")
+        try:
+            recording = recording or bool(self.btnRecord.isChecked())
+        except Exception as e:
+            self._warn_once("record_dynamic_button_checked", f"Failed to read button recording state: {e}")
+
+        shortcut_text = ""
+        try:
+            sc = self.act_record.shortcut() if getattr(self, "act_record", None) else None
+            shortcut_text = sc.toString() if sc else ""
+        except Exception:
+            shortcut_text = ""
+        if not shortcut_text and getattr(self, "_hk_record", None):
+            shortcut_text = self._hk_record.upper()
+
+        base = "녹화 정지" if recording else "녹화"
+        label = f"{base} ({shortcut_text})" if shortcut_text else base
+        for obj in (getattr(self, "act_record", None), getattr(self, "btnRecord", None)):
+            try:
+                if obj:
+                    obj.setText(label)
+            except Exception as e:
+                self._warn_once("record_dynamic_set_text", f"Failed to apply dynamic recording label: {e}")
+
+    def toggle_record(self, checked):
+        if checked:
+            if self.runner and self.runner.isRunning():
+                self.warn("Cannot record while running.")
+                try:
+                    self.act_record.setChecked(False)
+                    self.btnRecord.setChecked(False)
+                except Exception as e:
+                    self._warn_once("toggle_record_reset_checked", f"Failed to reset recording toggle state: {e}")
+                return
+            self.info("Start Recording...")
+            if getattr(self, "chkAutoMin", None) and self.chkAutoMin.isChecked():
+                self.showMinimized()
+                self._was_minimized = True
+            self._start_record()
+        else:
+            self.info("Stop Recording...")
+            self._stop_record()
+            if getattr(self, "_was_minimized", False):
+                self.showNormal()
+                self.activateWindow()
+                self._was_minimized = False
+        # 상태에 맞게 텍스트 갱신
+        self._set_record_labels_dynamic()
+        # 다른 라벨들도 최신 상태로 유지
+        try:
+            self._update_hotkey_labels()
+        except Exception as e:
+            self._warn_once("toggle_record_update_hotkey_labels", f"Failed to refresh hotkey labels after record toggle: {e}")
+
+    def _get_target_window_title(self) -> str:
+        try:
+            return self.edTargetTitle.text().strip()
+        except Exception:
+            return ""
+
+    def _find_target_window(self):
+        title = self._get_target_window_title()
+        if not title:
+            self.warn("Target window title is empty.")
+            return
+        self._save_general_settings()
+        try:
+            hwnd = self.window_manager.find_window(title)
+            if hwnd:
+                self.target_hwnd = hwnd
+                self.window_manager.activate_window(hwnd)
+                self.info(f"Found and activated: {title} (HWND {hwnd})")
+            else:
+                self.target_hwnd = None
+                self.warn(f"Window not found: {title}")
+        except Exception as e:
+            self.target_hwnd = None
+            self.warn(f"Window search failed: {e}")
+
+    def _fix_target_window(self):
+        if not self.target_hwnd:
+            self.warn("No window handle stored. Click Find first.")
+            return
+        try:
+            self.window_manager.activate_window(self.target_hwnd)
+            self.info(f"Fixed/Refreshed HWND {self.target_hwnd}")
+        except Exception as e:
+            self.warn(f"Fix failed: {e}")
+
+    def _open_window_selector(self):
+        try:
+            dlg = WindowSelectorDialog(self)
+        except Exception as e:
+            self.warn(f"Window selector unavailable: {e}")
+            return
+        if dlg.exec_() == QDialog.Accepted and dlg.selected_title:
+            self.edTargetTitle.setText(dlg.selected_title)
+            self._save_general_settings()
+
+def main():
+    app = QApplication(sys.argv)
+    sys.excepthook = _excepthook
+    w = MainWindow()
+    w.show()
+    sys.exit(app.exec_())

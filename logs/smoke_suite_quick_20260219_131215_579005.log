@@ -1,0 +1,11 @@
+[2026-02-19 13:12:15] [INFO] Smoke suite started (mode=quick)
+[2026-02-19 13:12:15] [INFO] Log file: D:\down\autocording\매크로모듈화\logs\smoke_suite_quick_20260219_131215_579005.log
+[2026-02-19 13:12:15] [STEP] runtime_core: C:\Users\Admin\AppData\Local\Programs\Python\Python313\python.exe -m pytest -q tests/test_e2e_runtime_orchestration.py tests/test_scheduler_core.py tests/test_trigger_engine_core.py
+.........................
+25 passed in 0.59s
+[2026-02-19 13:12:16] [STEP] runtime_core: exit=0, elapsed=1.39s
+[2026-02-19 13:12:16] [STEP] image_matching_core: C:\Users\Admin\AppData\Local\Programs\Python\Python313\python.exe -m pytest -q tests/test_image_dialog_presets.py tests/test_matcher_quality.py tests/test_stepdata_serialization.py
+......................
+22 passed in 0.50s
+[2026-02-19 13:12:18] [STEP] image_matching_core: exit=0, elapsed=1.34s
+[2026-02-19 13:12:18] [PASS] Smoke suite completed successfully

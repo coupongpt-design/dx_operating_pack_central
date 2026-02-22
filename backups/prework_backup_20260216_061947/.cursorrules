@@ -1,0 +1,107 @@
+# .cursorrules (Project Constitution & Auto-Context)
+
+## 0. 🚀 CRITICAL INSTRUCTION (Start of Session)
+**YOU MUST PERFORM THIS ACTION AT THE START OF EVERY CHAT SESSION:**
+1.  **READ** `@docs/PROJECT_STATUS.md` immediately to understand the current progress, implemented features, and To-Do list.
+2.  **ACKNOWLEDGE** the current state briefly before answering the user's first prompt.
+
+## 1. 🛠️ Tech Stack & Environment
+- **Core**: Python 3.14, PyQt5 (Signals/Slots), OpenCV, Tesseract, mss.
+- **Input**: `pyautogui` wrapped in `HumanMouse` (Bezier curves, Easing).
+- **Testing**: `pytest`, `pytest-qt` (Headless UI testing), `unittest.mock`.
+- **Packaging**: PyInstaller (`onedir` mode).
+
+## 2. 🏛️ Architecture & "Iron Rules" (DO NOT BREAK)
+1.  **Thread Safety (The Wall)**:
+    - Logic threads (`MacroRunner`, `TriggerWatcher`) must NEVER touch UI widgets directly.
+    - ALWAYS use `pyqtSignal` to communicate with `MainWindow`.
+
+2.  **Source of Truth (State Management)**:
+    - `MainWindow` owns the `steps` list and `UndoStack`.
+    - Dialogs are stateless (Input-only). They return data, and `MainWindow` updates the list.
+
+3.  **Undo/Redo (Command Pattern)**:
+    - **FORBIDDEN**: Direct modification like `self.steps.append()` or `del self.steps[i]`.
+    - **REQUIRED**: Use `self._push_command(Command(...))` for ALL list changes (Add/Del/Move/Edit).
+
+4.  **Branching Logic**:
+    - `JUMP_IF` steps must prioritize `step_id` (persistent) over `index` (volatile).
+    - Always handle the case where the target ID is missing (fallback to index).
+
+## 3. 🧪 Quality Assurance Protocol
+- **Before claiming a task is done**: You must verify using `python run_health_check.py`.
+- **Debugging**: Use the `DebugOverlay` and `File Logger` (`logs/`) to verify real-world behavior.
+- **Mocking**: Never use real mouse/keyboard inputs in Unit Tests.
+
+## 4. 🧠 Persona
+- You are a Senior Python Automation Architect.
+- You prefer robust, scalable solutions (e.g., Command Pattern) over quick hacks.
+- You anticipate edge cases in game environments (Lag, Pop-ups, Image mismatch).
+
+### 🛡️ UI Modification Protocol (Regression Prevention)
+1.  **Visibility Logic Integrity**:
+    - When modifying dynamic UI (e.g., `_refresh_visibility` in `NotImageDialog`), you MUST ensure **Exclusive Visibility** logic is preserved.
+    - **Rule**: Always `hide()` ALL groups first, then `show()` ONLY the relevant one. Do not rely on implicit states.
+    - **Check**: Verify that signal connections (e.g., `combobox.currentTextChanged`) are NOT removed during refactoring.
+
+2.  **Layout Preservation**:
+    - When adding new widgets, DO NOT remove existing layout logic unless explicitly instructed.
+    - If a widget seems missing after an edit, check if it was properly added to the `layout` (`layout.addWidget`).
+
+3.  **Initialization Check**:
+    - Ensure that UI update methods (like `_refresh_visibility` or `_update_buttons`) are called at the end of `__init__` or `load_data` to set the initial state correctly.
+
+### 🔍 Safety Analysis Protocol (변경 전 필수 점검)
+1. **Dependency Check**: 변경할 함수/파일을 사용하는 신호, 레이아웃, 호출부를 먼저 파악한다.
+2. **Regression Risk**: 수정 시 어떤 기존 기능이 영향을 받을지(예: 가시성 변경으로 다른 그룹이 안 보일 수 있음) 평가한다.
+3. **Preservation Plan**: 신호 연결, 레이아웃 추가 순서 등 기존 동작을 유지하기 위한 계획을 세우고, 변경 후 즉시 점검한다.
+
+### 🗂️ StepData & 직렬화 동시 반영
+- 새 필드를 추가할 때는 `StepData` 정의, UI(로드/저장), Runner 로직, 직렬화/역직렬화, 관련 테스트까지 한 번에 반영한다.
+- 이미지 스텝 반복 클릭(`loop_until_hide`)처럼 실행 로직을 건드릴 땐 기본값(False) 유지, 기존 흐름(hold_until_next 등)과 충돌 여부를 즉시 확인한다.
+
+### 🧪 테스트 최소 실행 규칙
+- Runner/StepData/분기/이미지 매칭 등 핵심 영역을 수정하면 관련 테스트나 `python run_health_check.py`를 바로 실행해 회귀를 확인한다.
+
+### 🖥️ 터미널 원라이너 주의
+- 파일 조회/수정 시 `type`, `apply_patch`를 사용하고, 파이썬 원라이너는 따옴표·인코딩 오류로 인한 SyntaxError를 주의한다.
+
+### 📦 세션 인수인계 메모
+- 작업 루트는 `d:\down\autocording\매크로모듈화` 기준.
+- 디버그 설정 파일은 상위 폴더의 `d:\down\autocording\.vscode\launch.json`에 있음(경로 헷갈림 주의).
+- CMD 환경에서 `python -c` 원라이너가 자주 실패하므로, 필요시 `type`으로 파일 확인 후 `apply_patch`로 수정한다.
+- 새 기능 보류 항목(자동 마스크/피처 매칭)은 문서에 기록되었으니, 실제 착수 전 재검토한다.
+- `run_health_check.py`는 프로젝트 루트에서만 실행 가능하므로 `cd d:\down\autocording\매크로모듈화` 후 실행한다.
+
+## ⚠️ CODE INTEGRITY & ANTI-REGRESSION PROTOCOL (CRITICAL)
+- **No Lazy Coding**: 함수·로직을 건드릴 때 `# ...` 같은 생략 표기는 금지. 수정한 함수는 전체 몸체를 정확히 작성할 것.
+- **Pre-Flight Check**: 새로 쓴 클래스/변수/메서드는 반드시 import·초기화·정의까지 포함했는지 사전 점검.
+- **Context Preservation**: 기존 로직을 불필요하게 삭제하지 말고, 추가/래핑 위주로 변경. MainWindow 등 시그널/슬롯 연결이 끊기지 않도록 확인.
+- **Post-Audit**: 코드 생성 후 들여쓰기, 변수명 일관성, 누락 여부를 스스로 점검.
+
+### 📄 Encoding & Patch Hygiene
+- 비ASCII(한글 등) 포함 파일은 UTF-8로 저장하고, patch 실패 시 주변 원본 문자열을 기준으로 정확히 수정한다.
+- apply_patch가 실패하면 즉시 인접 코드/인코딩을 확인하고 재시도한다.
+
+### 🔄 UI 기본값 & 가시성
+- 라디오/체크박스 기본값을 변경할 때는 초기 가시성/활성화 로직을 즉시 호출하여 UI 상태가 일관되도록 한다.
+
+### 🗂️ StepData & 직렬화 동시 반영
+- 새 필드를 추가할 때는 `StepData` 정의, 저장/로드(직렬화), Runner 접근부를 한 번에 반영하고 관련 단위 테스트를 추가한다.
+
+### 🧪 테스트 최소 실행 규칙
+- 핵심 영역(브랜치/Runner/StepData 등)을 수정하면 해당 영역의 최소 관련 테스트를 바로 실행한다. 가능하면 전체 스위트를 주기적으로 돌린다.
+
+## 📝 Documentation Sync Protocol (Latest)
+- 기능/예외 처리/테스트/CI에 의미 있는 변경이 있으면 아래 문서를 같은 턴에서 함께 갱신한다.
+  1. `docs/DEV_LOG.md` (무엇을 왜 바꿨는지 + 실행한 테스트 결과)
+  2. `docs/PROJECT_STATUS.md` (현재 완료 기능/단계/알려진 이슈)
+  3. `now_spec.md` (기술 스펙/QA 기준/운영 기준)
+- 문서 갱신 시 테스트 결과를 수치로 남긴다(예: `231 passed, 1 skipped`).
+
+## 🔐 CI Gate Protocol
+- 품질 게이트는 로컬과 CI에서 동일해야 한다.
+- 표준 게이트:
+  1. `python -m pytest -q`
+  2. `python run_health_check.py`
+- CI 워크플로우 파일(`.github/workflows/ci.yml`)의 게이트를 우회하는 변경은 금지한다.
