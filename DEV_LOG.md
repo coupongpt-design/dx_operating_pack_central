@@ -1184,3 +1184,18 @@
   - `python -m pytest -q` → `366 passed, 1 skipped`
 - **비고**:
   - `backups/` 미수정.
+
+## [2026-02-22] 세션 62 — Post-Task Commit Gate 강제 반영
+- **목표**: 작업 종료 시 테스트/디프/커밋 품질 게이트를 강제로 통일.
+- **변경 사항**:
+  - `AGENTS.md` Git Governance에 `Post-Task Commit Gate` 추가.
+  - SYNC_BLOCK에 commit 게이트 핵심 라인 추가(정본/미러 동시 반영):
+    - targeted 선실행
+    - 리스크 트리거 시 full pytest
+    - `git diff` 확인 후 clean 상태에서만 커밋
+    - 커밋 메시지 테스트 블록(`targeted`, `full suite`) 의무화
+  - `.cursorrules` 상세본 Git Governance 섹션에도 동일 규칙 확장.
+  - `MULTI_AGENT_PROTOCOL.md` Executor 역할에 commit gate 규칙 추가.
+- **검증**:
+  - `python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py`
+  - 리스크 트리거(규칙 파일 다중 수정)로 `python -m pytest -q` 전체 실행

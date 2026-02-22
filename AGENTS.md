@@ -80,6 +80,16 @@ For meaningful behavior changes, sync:
    - Keep changes isolated in dedicated change sets.
 4. Before risky refactors (`runner/signal/StepData`), create a snapshot commit.
 5. End-of-session check: clean `git status`, intended `git diff`, required tests green.
+6. Post-Task Commit Gate (mandatory):
+   - Run related targeted tests first.
+   - If any risk trigger exists, run full `python -m pytest -q`.
+   - Review `git diff` and confirm no unintended changes.
+   - Commit only when tests pass and diff is clean.
+   - If any condition fails, do not commit.
+   - Commit message must include:
+     - `Tests:`
+     - `- targeted: PASS / FAIL`
+     - `- full suite: <exact pytest -q summary line if executed>`
 
 ## 11) Synced Normative Block (for `.cursorrules`)
 <!-- SYNC_BLOCK_START -->
@@ -94,6 +104,8 @@ Constitutional files: AGENTS.md, .cursorrules, tests/test_rule_docs_sync.py, tes
 Constitutional policy: no delete/recreate; edit+diff only; isolated change set
 Risk snapshot: create pre-refactor commit for runner/signal/StepData
 Session close: status clean + intended diff + required tests green
+Post-task gate: targeted tests first; run full pytest on risk trigger; commit only if tests pass and diff is clean
+Commit message tests block: include targeted PASS/FAIL and full-suite exact pytest summary line when executed
 Thread/UI safety: worker threads never touch UI directly; use pyqtSignal
 State ownership: MainWindow owns steps/UndoStack; dialogs return data only
 Command rule: no direct self.steps CRUD/reorder; use _push_command(...)

@@ -11,6 +11,13 @@
 - Implements Planner output or approved scope with minimal diff.
 - Runs targeted tests first; runs full pytest if risky.
 - Outputs: changed files, behavior delta, tests, residual risks.
+- Commit gate (mandatory):
+  - Review `git diff` before commit.
+  - Commit only when tests pass and diff is clean.
+  - Commit message must include:
+    - `Tests:`
+    - `- targeted: PASS / FAIL`
+    - `- full suite: <exact pytest -q summary line if executed>`
 
 2. Guardian (read-only verifier)
 - Does not edit code.
@@ -89,4 +96,3 @@ Output:
 - Guardian FAIL rate trend
 - Rework count on runner/signal modifications
 - PR lead time (plan to merge)
-

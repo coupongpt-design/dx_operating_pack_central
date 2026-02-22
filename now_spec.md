@@ -160,6 +160,10 @@
   - 로컬 Git 초기화 및 베이스라인 커밋 완료.
   - `.gitignore` 적용.
   - 헌법급 파일 편집은 edit+diff 검토/단독 변경 세트 원칙을 따른다.
+  - Post-Task Commit Gate:
+    - targeted 테스트 후 커밋
+    - 리스크 트리거 시 full pytest 필수
+    - 커밋 메시지에 테스트 결과 블록(`targeted`, `full suite`) 필수
 - 헬스 체크 기준: `python run_health_check.py` = `SYSTEM HEALTHY`.
 
 ## 8. CI/CD Gate

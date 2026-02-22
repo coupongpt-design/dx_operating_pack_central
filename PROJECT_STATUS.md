@@ -97,6 +97,11 @@
   - 로컬 Git 초기화 + 베이스라인 커밋 생성.
   - `.gitignore` 추가.
   - 헌법급 파일(`AGENTS.md`, `.cursorrules`, 규칙 가드 테스트 2종)에 대해 delete/recreate 금지, edit+diff 검토, 단독 변경 세트 원칙 명시.
+- Post-Task Commit Gate 추가(강제):
+  - 작업 후 targeted 테스트 필수
+  - 리스크 트리거 시 `python -m pytest -q` 필수
+  - `git diff` 의도치 않은 변경 점검 후에만 커밋
+  - 커밋 메시지에 테스트 결과 블록(`targeted`, `full suite`) 필수
 - 멀티 역할 AI 실행 코어 추가:
   - `app/core/multi_role_ai.py` (역할 오케스트레이션, auto 모드 전환, 결과 요약/렌더링)
   - `tools/run_multi_role_ai.py` (CLI 실행 진입점)
