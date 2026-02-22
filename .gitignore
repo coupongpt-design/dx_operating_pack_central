@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.log
+*.tmp
+backups/
+captures/
+*.mp4
+*.avi
+*.zip
+*.7z
+.env
