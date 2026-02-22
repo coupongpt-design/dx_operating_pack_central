@@ -9,6 +9,10 @@ Precision triggers: files>=5, StepData change, serialization change, thread/sign
 Multi-Agent flow: default Executor->Guardian; precision trigger -> Planner->Executor->Guardian
 Role constraints: Planner no code edits; Guardian read-only PASS/FAIL gate
 Governance: rule-file changes (AGENTS/.cursorrules/rule-guard tests) in dedicated change set
+Constitutional files: AGENTS.md, .cursorrules, tests/test_rule_docs_sync.py, tests/test_rule_guard_steps_mutation.py
+Constitutional policy: no delete/recreate; edit+diff only; isolated change set
+Risk snapshot: create pre-refactor commit for runner/signal/StepData
+Session close: status clean + intended diff + required tests green
 Thread/UI safety: worker threads never touch UI directly; use pyqtSignal
 State ownership: MainWindow owns steps/UndoStack; dialogs return data only
 Command rule: no direct self.steps CRUD/reorder; use _push_command(...)
@@ -128,7 +132,28 @@ Sync policy: AGENTS.md canonical; .cursorrules mirrors this block only; directio
 - CMD quoting can be brittle; prefer small commands and minimal pattern complexity.
 - Never modify `backups/`.
 
-## 11) Sync/Conflict Policy
+## 11) Git Governance (Detailed)
+1. Local repository must stay Git-tracked.
+2. Before edits:
+   - `git status`
+   - `git diff`
+3. Constitutional files:
+   - `AGENTS.md`
+   - `.cursorrules`
+   - `tests/test_rule_docs_sync.py`
+   - `tests/test_rule_guard_steps_mutation.py`
+4. Constitutional file edits:
+   - Never delete/recreate.
+   - Edit-in-place and verify diff.
+   - Keep as dedicated change set, never mixed with feature work.
+5. Before risky refactor (`runner/signal/StepData`):
+   - Create snapshot commit first.
+6. Recovery commands are allowed with explicit intent:
+   - `git log --oneline`
+   - `git checkout <commit_id>`
+   - `git reset --hard <commit_id>`
+
+## 12) Sync/Conflict Policy
 1. Canonical source: `AGENTS.md`.
 2. Mirror scope in this file:
    - Only the block between `SYNC_BLOCK_START/END`.
@@ -137,4 +162,3 @@ Sync policy: AGENTS.md canonical; .cursorrules mirrors this block only; directio
 4. Do not back-write `AGENTS.md` from `.cursorrules`.
 5. If mismatch exists:
    - Treat `AGENTS.md` as authoritative and resync mirror block.
-

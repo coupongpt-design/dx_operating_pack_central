@@ -93,6 +93,10 @@
   - 승격: Precision 트리거 시 `Planner -> Executor -> Guardian` (3-Agent)
   - 규칙 파일 변경(`AGENTS.md/.cursorrules/규칙 가드 테스트`)은 단독 변경 세트 원칙.
 - 복붙용 운영 문서: `MULTI_AGENT_PROTOCOL.md` 추가(Planner/Executor/Guardian 프롬프트 포함).
+- Git 운영 체계 도입:
+  - 로컬 Git 초기화 + 베이스라인 커밋 생성.
+  - `.gitignore` 추가.
+  - 헌법급 파일(`AGENTS.md`, `.cursorrules`, 규칙 가드 테스트 2종)에 대해 delete/recreate 금지, edit+diff 검토, 단독 변경 세트 원칙 명시.
 - 멀티 역할 AI 실행 코어 추가:
   - `app/core/multi_role_ai.py` (역할 오케스트레이션, auto 모드 전환, 결과 요약/렌더링)
   - `tools/run_multi_role_ai.py` (CLI 실행 진입점)

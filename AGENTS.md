@@ -67,7 +67,21 @@ For meaningful behavior changes, sync:
 - Workspace root: `d:\down\autocording\매크로모듈화`
 - Keep backup artifacts under `backups/` untouched.
 
-## 10) Synced Normative Block (for `.cursorrules`)
+## 10) Git Governance
+1. Track all changes under Git; use diff-based review before commit.
+2. Constitutional files:
+   - `AGENTS.md`
+   - `.cursorrules`
+   - `tests/test_rule_docs_sync.py`
+   - `tests/test_rule_guard_steps_mutation.py`
+3. Constitutional file policy:
+   - No delete/recreate.
+   - Edit-in-place + diff review only.
+   - Keep changes isolated in dedicated change sets.
+4. Before risky refactors (`runner/signal/StepData`), create a snapshot commit.
+5. End-of-session check: clean `git status`, intended `git diff`, required tests green.
+
+## 11) Synced Normative Block (for `.cursorrules`)
 <!-- SYNC_BLOCK_START -->
 Priority: system/dev/runtime > user > AGENTS.md > .cursorrules
 Session Gate: read PROJECT_STATUS.md -> 2-line current-focus summary -> declare mode
@@ -76,6 +90,10 @@ Precision triggers: files>=5, StepData change, serialization change, thread/sign
 Multi-Agent flow: default Executor->Guardian; precision trigger -> Planner->Executor->Guardian
 Role constraints: Planner no code edits; Guardian read-only PASS/FAIL gate
 Governance: rule-file changes (AGENTS/.cursorrules/rule-guard tests) in dedicated change set
+Constitutional files: AGENTS.md, .cursorrules, tests/test_rule_docs_sync.py, tests/test_rule_guard_steps_mutation.py
+Constitutional policy: no delete/recreate; edit+diff only; isolated change set
+Risk snapshot: create pre-refactor commit for runner/signal/StepData
+Session close: status clean + intended diff + required tests green
 Thread/UI safety: worker threads never touch UI directly; use pyqtSignal
 State ownership: MainWindow owns steps/UndoStack; dialogs return data only
 Command rule: no direct self.steps CRUD/reorder; use _push_command(...)
@@ -87,4 +105,3 @@ Docs sync: DEV_LOG.md + PROJECT_STATUS.md + now_spec.md on meaningful behavior c
 Environment: do not modify backups/
 Sync policy: AGENTS.md canonical; .cursorrules mirrors this block only; direction AGENTS -> .cursorrules
 <!-- SYNC_BLOCK_END -->
-

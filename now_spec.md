@@ -156,6 +156,10 @@
   - 기본 2-Agent(`Executor -> Guardian`)
   - Precision 트리거 시 3-Agent(`Planner -> Executor -> Guardian`)
   - 복붙 프롬프트/운영 절차는 `MULTI_AGENT_PROTOCOL.md`를 기준으로 사용한다.
+- Git 거버넌스:
+  - 로컬 Git 초기화 및 베이스라인 커밋 완료.
+  - `.gitignore` 적용.
+  - 헌법급 파일 편집은 edit+diff 검토/단독 변경 세트 원칙을 따른다.
 - 헬스 체크 기준: `python run_health_check.py` = `SYSTEM HEALTHY`.
 
 ## 8. CI/CD Gate

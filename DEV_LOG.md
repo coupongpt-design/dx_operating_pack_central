@@ -1166,3 +1166,21 @@
 - **비고**:
   - 규칙/문서 중심 변경(런타임 로직 변경 없음).
   - `backups/` 미수정.
+
+## [2026-02-22] 세션 61 — Git 도입 및 규칙 파일 보호 정책 적용
+- **목표**: 규칙 체계/대형 리팩터 안정화를 위한 Git 기반 거버넌스 도입.
+- **변경 사항**:
+  - 로컬 Git 초기화 및 사용자 설정 반영.
+  - 베이스라인 커밋 생성(`baseline_before_git_governance`).
+  - `.gitignore` 추가 커밋(`chore_add_gitignore`).
+  - `AGENTS.md`에 Git Governance 섹션 추가:
+    - 헌법급 파일 지정(`AGENTS.md`, `.cursorrules`, `tests/test_rule_docs_sync.py`, `tests/test_rule_guard_steps_mutation.py`)
+    - delete/recreate 금지, edit+diff 검토, 단독 변경 세트 원칙
+    - runner/signal/StepData 리팩터 전 snapshot 커밋 원칙
+  - `.cursorrules` 상세본에 동일 정책 확장 반영.
+  - SYNC_BLOCK에 Git 거버넌스 핵심 라인 동기화 반영.
+- **검증**:
+  - `python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py` → `2 passed`
+  - `python -m pytest -q` → `366 passed, 1 skipped`
+- **비고**:
+  - `backups/` 미수정.
