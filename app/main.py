@@ -413,8 +413,8 @@ class MainWindow(QMainWindow):
 
         self._opt_root = QWidget()
         self._opt_root_layout = QVBoxLayout(self._opt_root)
-        self._opt_root_layout.setContentsMargins(4, 2, 4, 2)
-        self._opt_root_layout.setSpacing(4)
+        self._opt_root_layout.setContentsMargins(4, 0, 4, 0)
+        self._opt_root_layout.setSpacing(2)
 
         self._opt_core_row = QWidget()
         self._opt_core_row.setObjectName("optCoreRow")
@@ -431,7 +431,7 @@ class MainWindow(QMainWindow):
         self._opt_root_layout.addWidget(self._opt_adv_row)
 
         self._opt_scroll.setWidget(self._opt_root)
-        self._opt_scroll.setMinimumHeight(62)
+        self._opt_scroll.setMinimumHeight(75)
         self.opt_toolbar.addWidget(self._opt_scroll)
 
         def _opt_core_add(widget, stretch: int = 0):
@@ -444,14 +444,16 @@ class MainWindow(QMainWindow):
             line = QFrame()
             line.setFrameShape(QFrame.VLine)
             line.setFrameShadow(QFrame.Sunken)
-            line.setFixedHeight(20)
+            line.setMinimumHeight(14)
+            line.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
             self._opt_core_layout.addWidget(line)
 
         def _opt_adv_sep():
             line = QFrame()
             line.setFrameShape(QFrame.VLine)
             line.setFrameShadow(QFrame.Sunken)
-            line.setFixedHeight(20)
+            line.setMinimumHeight(14)
+            line.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
             self._opt_adv_layout.addWidget(line)
 
         # Backward compatibility for references that used a single row layout.
@@ -532,7 +534,7 @@ class MainWindow(QMainWindow):
 
         self.btnToolbarRun = QPushButton("Run")
         self.btnToolbarRun.setToolTip("Start macro (or resume if paused)")
-        self.btnToolbarRun.setMinimumWidth(82)
+        self.btnToolbarRun.setMinimumWidth(85)
         self.btnToolbarRun.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.btnToolbarRun.setStyleSheet(
             "QPushButton { background-color: #0078D4; color: white; padding: 5px 12px; font-weight: 600; }"
@@ -543,7 +545,7 @@ class MainWindow(QMainWindow):
 
         self.btnToolbarStop = QPushButton("Stop")
         self.btnToolbarStop.setToolTip("Stop running macro")
-        self.btnToolbarStop.setMinimumWidth(82)
+        self.btnToolbarStop.setMinimumWidth(85)
         self.btnToolbarStop.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.btnToolbarStop.setStyleSheet(
             "QPushButton { background-color: #2b1f1f; color: #ff6b6b; border: 1px solid #9f2f2f; padding: 5px 12px; font-weight: 600; }"
@@ -554,6 +556,8 @@ class MainWindow(QMainWindow):
         _opt_core_add(self.btnToolbarStop)
 
         self._opt_core_layout.addStretch(0)
+        self._opt_core_layout.setStretchFactor(self.edTargetTitle, 2)
+        self._opt_core_layout.setStretchFactor(self.edExcelDataPath, 3)
 
         # Advanced row: secondary runtime options
         self.chkAutoEnterAfterText = QCheckBox("Auto Enter")

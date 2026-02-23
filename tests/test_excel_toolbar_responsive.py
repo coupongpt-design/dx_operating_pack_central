@@ -134,8 +134,10 @@ def test_toolbar_run_stop_buttons_stay_visible_on_narrow_width(monkeypatch, qapp
     assert hasattr(win, "btnToolbarStop")
     assert win.btnToolbarRun.isVisible() is True
     assert win.btnToolbarStop.isVisible() is True
-    assert win.btnToolbarRun.minimumWidth() >= 80
-    assert win.btnToolbarStop.minimumWidth() >= 80
+    assert win.btnToolbarRun.minimumWidth() >= 85
+    assert win.btnToolbarStop.minimumWidth() >= 85
+    assert win.btnToolbarRun.sizePolicy().horizontalPolicy() == QSizePolicy.Fixed
+    assert win.btnToolbarStop.sizePolicy().horizontalPolicy() == QSizePolicy.Fixed
 
     win.close()
 
@@ -166,5 +168,28 @@ def test_toolbar_run_stop_buttons_dispatch_existing_paths(monkeypatch, qapp, qtb
 
     assert calls["run"] == 1
     assert calls["stop"] == 1
+
+    win.close()
+
+
+def test_toolbar_height_and_margins_fit_two_rows_without_clipping(monkeypatch, qapp, qtbot):
+    from app.main import MainWindow
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.show()
+    win.resize(900, 580)
+    qapp.processEvents()
+
+    margins = win._opt_root_layout.contentsMargins()
+    assert margins.top() == 0
+    assert margins.bottom() == 0
+    assert win._opt_root_layout.spacing() == 2
+    assert win._opt_scroll.minimumHeight() >= 75
+    assert win._opt_core_row.isVisible() is True
+    assert win._opt_adv_row.isVisible() is True
+    assert win.edTargetTitle.sizePolicy().horizontalPolicy() == QSizePolicy.Expanding
+    assert win.edExcelDataPath.sizePolicy().horizontalPolicy() == QSizePolicy.Expanding
 
     win.close()
