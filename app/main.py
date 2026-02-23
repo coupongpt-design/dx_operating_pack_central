@@ -461,6 +461,8 @@ class MainWindow(QMainWindow):
         self.lblTarget = QLabel("Target:")
         self.edTargetTitle = QLineEdit()
         self.edTargetTitle.setPlaceholderText("Partial Window Name")
+        self.edTargetTitle.setMinimumWidth(140)
+        self.edTargetTitle.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.btnFindTarget = QPushButton("Find")
         self.btnFindTarget.setToolTip("Find and activate target window")
         self.btnFindTarget.clicked.connect(self._find_target_window)
@@ -472,7 +474,7 @@ class MainWindow(QMainWindow):
         self.btnSelectTarget.setToolTip("Open window selector")
         self.btnSelectTarget.clicked.connect(self._open_window_selector)
         _opt_core_add(self.lblTarget)
-        _opt_core_add(self.edTargetTitle)
+        _opt_core_add(self.edTargetTitle, 1)
         _opt_core_add(self.btnSelectTarget)
         _opt_core_add(self.btnFindTarget)
         _opt_core_add(self.btnFixWindow)
@@ -528,6 +530,29 @@ class MainWindow(QMainWindow):
         self.lblBatchModeBadge.hide()
         _opt_core_add(self.lblBatchModeBadge)
 
+        self.btnToolbarRun = QPushButton("Run")
+        self.btnToolbarRun.setToolTip("Start macro (or resume if paused)")
+        self.btnToolbarRun.setMinimumWidth(82)
+        self.btnToolbarRun.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.btnToolbarRun.setStyleSheet(
+            "QPushButton { background-color: #0078D4; color: white; padding: 5px 12px; font-weight: 600; }"
+            "QPushButton:disabled { background-color: #40515f; color: #c7c7c7; }"
+        )
+        self.btnToolbarRun.clicked.connect(self._on_run_button_clicked)
+        _opt_core_add(self.btnToolbarRun)
+
+        self.btnToolbarStop = QPushButton("Stop")
+        self.btnToolbarStop.setToolTip("Stop running macro")
+        self.btnToolbarStop.setMinimumWidth(82)
+        self.btnToolbarStop.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.btnToolbarStop.setStyleSheet(
+            "QPushButton { background-color: #2b1f1f; color: #ff6b6b; border: 1px solid #9f2f2f; padding: 5px 12px; font-weight: 600; }"
+            "QPushButton:disabled { color: #8f8f8f; border-color: #555; }"
+        )
+        self.btnToolbarStop.clicked.connect(self._on_stop_button_clicked)
+        self.btnToolbarStop.setEnabled(False)
+        _opt_core_add(self.btnToolbarStop)
+
         self._opt_core_layout.addStretch(0)
 
         # Advanced row: secondary runtime options
@@ -548,6 +573,7 @@ class MainWindow(QMainWindow):
         self.chkDebugOverlay.toggled.connect(lambda v: self.debug_overlay.setVisible(v))
         self.chkExcelDataMode.toggled.connect(self._on_excel_mode_toggled)
         self._apply_excel_mode_visual_state(self.chkExcelDataMode.isChecked(), announce=False)
+        self._sync_toolbar_run_stop_buttons()
         
         # Menu Bar
         menubar = self.menuBar()
@@ -1230,6 +1256,7 @@ class MainWindow(QMainWindow):
                     self.btnRun.setEnabled(False)
                 else:
                     self.btnRun.setEnabled(True)
+        self._sync_toolbar_run_stop_buttons()
 
     def _on_run_button_clicked(self):
         if self._excel_mode_running:
@@ -1246,6 +1273,17 @@ class MainWindow(QMainWindow):
             self.run_excel_orchestration()
             return
         self.run_macro()
+
+    def _on_stop_button_clicked(self):
+        self.stop_macro()
+
+    def _sync_toolbar_run_stop_buttons(self):
+        if hasattr(self, "btnToolbarRun"):
+            run_enabled = bool(self.btnRun.isEnabled()) if hasattr(self, "btnRun") else bool(self.act_run.isEnabled())
+            self.btnToolbarRun.setEnabled(run_enabled)
+        if hasattr(self, "btnToolbarStop"):
+            stop_enabled = bool(self.btnStop.isEnabled()) if hasattr(self, "btnStop") else bool(self.act_stop.isEnabled())
+            self.btnToolbarStop.setEnabled(stop_enabled)
 
     def _pick_excel_data_file(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -1653,6 +1691,7 @@ class MainWindow(QMainWindow):
                 self.btnRun.setEnabled(True)
             if hasattr(self, "btnStop"):
                 self.btnStop.setEnabled(False)
+            self._sync_toolbar_run_stop_buttons()
             return
 
         snapshot = self._excel_job_manager.snapshot()
@@ -1695,6 +1734,7 @@ class MainWindow(QMainWindow):
         self.act_stop.setEnabled(False)
         if hasattr(self, "btnStop"):
             self.btnStop.setEnabled(False)
+        self._sync_toolbar_run_stop_buttons()
 
     def _disable_all_hotkeys(self):
         for sc in getattr(self, "_qshortcuts", []):
@@ -2346,6 +2386,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'btnRun'):
             self.btnRun.setEnabled(False)
         if hasattr(self, 'btnStop'): self.btnStop.setEnabled(True)
+        self._sync_toolbar_run_stop_buttons()
         
         # Convert cooldown sec to ms, max duration min to ms
         rc = RepeatConfig(
@@ -2429,6 +2470,7 @@ class MainWindow(QMainWindow):
                 self.btnRun.setEnabled(True)
             if hasattr(self, "btnStop"):
                 self.btnStop.setEnabled(False)
+            self._sync_toolbar_run_stop_buttons()
             self._set_macro_paused_ui(False)
             if self._was_minimized:
                 self.showNormal()
@@ -3009,6 +3051,7 @@ class MainWindow(QMainWindow):
                 self.btnRun.setEnabled(False)
             if hasattr(self, "btnStop"):
                 self.btnStop.setEnabled(True)
+            self._sync_toolbar_run_stop_buttons()
             if hasattr(self.runner, "debugEvent"):
                 try:
                     self.runner.debugEvent.disconnect(self._on_debug_event)
@@ -3615,6 +3658,10 @@ class MainWindow(QMainWindow):
             self.btnAddAction.setToolTip(f"Shortcut: {hk_pretty(self._hk_add_notimg)}" if self._hk_add_notimg else "")
         if hasattr(self, "btnStop"):
             self.btnStop.setText(self._format_hotkey_hint("정지", self._hk_stop))
+        if hasattr(self, "btnToolbarRun"):
+            self.btnToolbarRun.setText(self._format_hotkey_hint("Run", self._hk_run))
+        if hasattr(self, "btnToolbarStop"):
+            self.btnToolbarStop.setText(self._format_hotkey_hint("Stop", self._hk_stop))
 
         self.act_run.setText(self._format_hotkey_hint("Run", self._hk_run))
         self.act_stop.setText(self._format_hotkey_hint("Stop", self._hk_stop))

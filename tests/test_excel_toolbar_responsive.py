@@ -118,3 +118,53 @@ def test_excel_mode_visual_feedback_updates_core_row_and_badge(monkeypatch, qapp
     assert "Standard Mode Activated" in win.statusBar().currentMessage()
 
     win.close()
+
+
+def test_toolbar_run_stop_buttons_stay_visible_on_narrow_width(monkeypatch, qapp, qtbot):
+    from app.main import MainWindow
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.show()
+    win.resize(760, 640)
+    qapp.processEvents()
+
+    assert hasattr(win, "btnToolbarRun")
+    assert hasattr(win, "btnToolbarStop")
+    assert win.btnToolbarRun.isVisible() is True
+    assert win.btnToolbarStop.isVisible() is True
+    assert win.btnToolbarRun.minimumWidth() >= 80
+    assert win.btnToolbarStop.minimumWidth() >= 80
+
+    win.close()
+
+
+def test_toolbar_run_stop_buttons_dispatch_existing_paths(monkeypatch, qapp, qtbot):
+    from app.main import MainWindow
+
+    calls = {"run": 0, "stop": 0}
+
+    def fake_run(self):
+        calls["run"] += 1
+
+    def fake_stop(self):
+        calls["stop"] += 1
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+    monkeypatch.setattr(MainWindow, "_on_run_button_clicked", fake_run, raising=False)
+    monkeypatch.setattr(MainWindow, "_on_stop_button_clicked", fake_stop, raising=False)
+
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.show()
+    qapp.processEvents()
+
+    win.btnToolbarRun.click()
+    win.btnToolbarStop.setEnabled(True)
+    win.btnToolbarStop.click()
+
+    assert calls["run"] == 1
+    assert calls["stop"] == 1
+
+    win.close()
