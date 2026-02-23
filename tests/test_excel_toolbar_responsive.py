@@ -71,3 +71,22 @@ def test_excel_priority_controls_stay_visible_on_narrow_width(monkeypatch, qapp,
     assert win.chkAutoEnterAfterText.isVisible() is True
 
     win.close()
+
+
+def test_option_toolbar_is_split_into_core_and_advanced_rows(monkeypatch, qapp, qtbot):
+    from app.main import MainWindow
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.show()
+    qapp.processEvents()
+
+    assert hasattr(win, "_opt_core_layout")
+    assert hasattr(win, "_opt_adv_layout")
+    assert win.chkExcelDataMode.parentWidget().isVisible() is True
+    assert win.chkDry.parentWidget().isVisible() is True
+    assert win.chkExcelDataMode.isVisible() is True
+    assert win.chkDry.isVisible() is True
+
+    win.close()

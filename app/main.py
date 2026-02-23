@@ -398,7 +398,8 @@ class MainWindow(QMainWindow):
         self.chkHumanMode = QCheckBox("Human Mode")
         self.chkDebugOverlay = QCheckBox("Show Debug Overlay")
         
-        # Add a secondary toolbar for options (scrollable row to avoid clipping on narrow windows)
+        # Add a secondary toolbar for options
+        # Stage 1 UI modernization: split one dense row into Core + Advanced rows
         self.opt_toolbar = self.addToolBar("Options")
         self.opt_toolbar.setMovable(False)
         self.opt_toolbar.setFloatable(False)
@@ -410,75 +411,52 @@ class MainWindow(QMainWindow):
         self._opt_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self._opt_scroll.setFrameShape(QFrame.NoFrame)
 
-        self._opt_row = QWidget()
-        self._opt_row_layout = QHBoxLayout(self._opt_row)
-        self._opt_row_layout.setContentsMargins(4, 2, 4, 2)
-        self._opt_row_layout.setSpacing(6)
-        self._opt_scroll.setWidget(self._opt_row)
-        self._opt_scroll.setMinimumHeight(34)
+        self._opt_root = QWidget()
+        self._opt_root_layout = QVBoxLayout(self._opt_root)
+        self._opt_root_layout.setContentsMargins(4, 2, 4, 2)
+        self._opt_root_layout.setSpacing(4)
+
+        self._opt_core_row = QWidget()
+        self._opt_core_layout = QHBoxLayout(self._opt_core_row)
+        self._opt_core_layout.setContentsMargins(0, 0, 0, 0)
+        self._opt_core_layout.setSpacing(6)
+
+        self._opt_adv_row = QWidget()
+        self._opt_adv_layout = QHBoxLayout(self._opt_adv_row)
+        self._opt_adv_layout.setContentsMargins(0, 0, 0, 0)
+        self._opt_adv_layout.setSpacing(6)
+
+        self._opt_root_layout.addWidget(self._opt_core_row)
+        self._opt_root_layout.addWidget(self._opt_adv_row)
+
+        self._opt_scroll.setWidget(self._opt_root)
+        self._opt_scroll.setMinimumHeight(62)
         self.opt_toolbar.addWidget(self._opt_scroll)
 
-        def _opt_add(widget, stretch: int = 0):
-            self._opt_row_layout.addWidget(widget, stretch)
+        def _opt_core_add(widget, stretch: int = 0):
+            self._opt_core_layout.addWidget(widget, stretch)
 
-        def _opt_sep():
+        def _opt_adv_add(widget, stretch: int = 0):
+            self._opt_adv_layout.addWidget(widget, stretch)
+
+        def _opt_core_sep():
             line = QFrame()
             line.setFrameShape(QFrame.VLine)
             line.setFrameShadow(QFrame.Sunken)
             line.setFixedHeight(20)
-            self._opt_row_layout.addWidget(line)
+            self._opt_core_layout.addWidget(line)
 
-        # Keep most-used Excel controls near the left so they remain visible first.
-        self.chkExcelDataMode = QCheckBox("Excel Data Mode")
-        self.chkExcelDataMode.setToolTip("엑셀 행 데이터를 분배해 멀티 세션 자동화를 실행합니다.")
-        self.chkExcelDataMode.setMinimumWidth(130)
-        self.chkExcelDataMode.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        _opt_add(self.chkExcelDataMode)
+        def _opt_adv_sep():
+            line = QFrame()
+            line.setFrameShape(QFrame.VLine)
+            line.setFrameShadow(QFrame.Sunken)
+            line.setFixedHeight(20)
+            self._opt_adv_layout.addWidget(line)
 
-        self.spExcelParallelism = QSpinBox()
-        self.spExcelParallelism.setRange(1, 16)
-        self.spExcelParallelism.setValue(2)
-        self.spExcelParallelism.setPrefix("P:")
-        self.spExcelParallelism.setMinimumWidth(68)
-        self.spExcelParallelism.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        _opt_add(self.spExcelParallelism)
+        # Backward compatibility for references that used a single row layout.
+        self._opt_row_layout = self._opt_core_layout
 
-        self.edExcelDataPath = ElidedPathLineEdit()
-        self.edExcelDataPath.setPlaceholderText(".xlsx 파일 경로")
-        self.edExcelDataPath.setReadOnly(True)
-        self.edExcelDataPath.setMinimumWidth(120)
-        self.edExcelDataPath.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        _opt_add(self.edExcelDataPath, 1)
-
-        self.btnExcelDataPick = QPushButton("Excel...")
-        self.btnExcelDataPick.setToolTip("엑셀 데이터 파일을 선택합니다.")
-        self.btnExcelDataPick.clicked.connect(self._pick_excel_data_file)
-        self.btnExcelDataPick.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        _opt_add(self.btnExcelDataPick)
-
-        self.pbExcelProgress = QProgressBar()
-        self.pbExcelProgress.setRange(0, 100)
-        self.pbExcelProgress.setValue(0)
-        self.pbExcelProgress.setFixedWidth(120)
-        _opt_add(self.pbExcelProgress)
-
-        self.lblExcelStatus = QLabel("Excel: Idle")
-        self.lblExcelStatus.setMinimumWidth(150)
-        self.lblExcelStatus.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        _opt_add(self.lblExcelStatus)
-
-        self.chkAutoEnterAfterText = QCheckBox("Auto Enter")
-        self.chkAutoEnterAfterText.setToolTip("텍스트 입력 액션 뒤에 Enter 키를 자동 입력합니다.")
-        self.chkAutoEnterAfterText.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        _opt_add(self.chkAutoEnterAfterText)
-
-        _opt_sep()
-        _opt_add(self.chkDry)
-        _opt_add(self.chkAutoMin)
-        _opt_add(self.chkCaptureFail)
-        _opt_add(self.chkHumanMode)
-        _opt_add(self.chkDebugOverlay)
-        # Target window controls
+        # Core row: setup essentials (Target -> Mode/Data -> Monitor)
         self.lblTarget = QLabel("Target:")
         self.edTargetTitle = QLineEdit()
         self.edTargetTitle.setPlaceholderText("Partial Window Name")
@@ -492,12 +470,67 @@ class MainWindow(QMainWindow):
         self.btnSelectTarget.setFixedWidth(28)
         self.btnSelectTarget.setToolTip("Open window selector")
         self.btnSelectTarget.clicked.connect(self._open_window_selector)
-        _opt_add(self.lblTarget)
-        _opt_add(self.edTargetTitle)
-        _opt_add(self.btnSelectTarget)
-        _opt_add(self.btnFindTarget)
-        _opt_add(self.btnFixWindow)
-        self._opt_row_layout.addStretch(0)
+        _opt_core_add(self.lblTarget)
+        _opt_core_add(self.edTargetTitle)
+        _opt_core_add(self.btnSelectTarget)
+        _opt_core_add(self.btnFindTarget)
+        _opt_core_add(self.btnFixWindow)
+        _opt_core_sep()
+
+        # Keep most-used Excel controls near the left side of the core row.
+        self.chkExcelDataMode = QCheckBox("Excel Data Mode")
+        self.chkExcelDataMode.setToolTip("엑셀 행 데이터를 분배해 멀티 세션 자동화를 실행합니다.")
+        self.chkExcelDataMode.setMinimumWidth(130)
+        self.chkExcelDataMode.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        _opt_core_add(self.chkExcelDataMode)
+
+        self.spExcelParallelism = QSpinBox()
+        self.spExcelParallelism.setRange(1, 16)
+        self.spExcelParallelism.setValue(2)
+        self.spExcelParallelism.setPrefix("P:")
+        self.spExcelParallelism.setMinimumWidth(68)
+        self.spExcelParallelism.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        _opt_core_add(self.spExcelParallelism)
+
+        self.edExcelDataPath = ElidedPathLineEdit()
+        self.edExcelDataPath.setPlaceholderText(".xlsx 파일 경로")
+        self.edExcelDataPath.setReadOnly(True)
+        self.edExcelDataPath.setMinimumWidth(120)
+        self.edExcelDataPath.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        _opt_core_add(self.edExcelDataPath, 1)
+
+        self.btnExcelDataPick = QPushButton("Excel...")
+        self.btnExcelDataPick.setToolTip("엑셀 데이터 파일을 선택합니다.")
+        self.btnExcelDataPick.clicked.connect(self._pick_excel_data_file)
+        self.btnExcelDataPick.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        _opt_core_add(self.btnExcelDataPick)
+
+        self.pbExcelProgress = QProgressBar()
+        self.pbExcelProgress.setRange(0, 100)
+        self.pbExcelProgress.setValue(0)
+        self.pbExcelProgress.setFixedWidth(120)
+        _opt_core_add(self.pbExcelProgress)
+
+        self.lblExcelStatus = QLabel("Excel: Idle")
+        self.lblExcelStatus.setMinimumWidth(150)
+        self.lblExcelStatus.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        _opt_core_add(self.lblExcelStatus)
+
+        self._opt_core_layout.addStretch(0)
+
+        # Advanced row: secondary runtime options
+        self.chkAutoEnterAfterText = QCheckBox("Auto Enter")
+        self.chkAutoEnterAfterText.setToolTip("텍스트 입력 액션 뒤에 Enter 키를 자동 입력합니다.")
+        self.chkAutoEnterAfterText.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        _opt_adv_add(self.chkAutoEnterAfterText)
+        _opt_adv_sep()
+        _opt_adv_add(self.chkDry)
+        _opt_adv_add(self.chkAutoMin)
+        _opt_adv_add(self.chkCaptureFail)
+        _opt_adv_add(self.chkHumanMode)
+        _opt_adv_add(self.chkDebugOverlay)
+        self._opt_adv_layout.addStretch(0)
+
         # For backward compatibility with existing methods
         self.edTargetWindow = self.edTargetTitle
         self.chkDebugOverlay.toggled.connect(lambda v: self.debug_overlay.setVisible(v))
