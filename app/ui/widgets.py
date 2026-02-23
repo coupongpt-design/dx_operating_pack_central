@@ -11,10 +11,12 @@ from ..utils.common import hk_pretty
 LOGGER = logging.getLogger(__name__)
 
 class StepItemWidget(QWidget):
-    def __init__(self, step: StepData, index: int, parent=None):
+    def __init__(self, step: StepData, index: int, parent=None, flow_hint: str = "", excel_preview: str = ""):
         super().__init__(parent)
         self.step = step
         self.index = index
+        self.flow_hint = str(flow_hint or "")
+        self.excel_preview = str(excel_preview or "")
         self._active = False
         self._failed = False
         self.setObjectName("stepItemWidget")
@@ -61,6 +63,18 @@ class StepItemWidget(QWidget):
         self.desc_label = QLabel(desc)
         self.desc_label.setStyleSheet("font-size: 11px; color: #888;")
         text_layout.addWidget(self.desc_label)
+
+        self.flow_label = QLabel(self.flow_hint)
+        self.flow_label.setStyleSheet("font-size: 11px; color: #8fb3d9;")
+        self.flow_label.setWordWrap(True)
+        self.flow_label.setVisible(bool(self.flow_hint))
+        text_layout.addWidget(self.flow_label)
+
+        self.preview_label = QLabel(self.excel_preview)
+        self.preview_label.setStyleSheet("font-size: 11px; color: #8a8a8a;")
+        self.preview_label.setWordWrap(True)
+        self.preview_label.setVisible(bool(self.excel_preview))
+        text_layout.addWidget(self.preview_label)
         
         layout.addLayout(text_layout)
         layout.addStretch()
@@ -177,15 +191,25 @@ class StepList(QListWidget):
         self._active_row = None
         self._failed_row = None
 
-    def add_step_item(self, step: StepData):
+    def _calc_item_height(self, flow_hint: str = "", excel_preview: str = "") -> int:
+        height = 50
+        if str(flow_hint or "").strip():
+            height += 16
+        if str(excel_preview or "").strip():
+            height += 16
+        return max(50, height)
+
+    def add_step_item(self, step: StepData, flow_hint: str = "", excel_preview: str = "", tooltip: str = ""):
         item = QListWidgetItem(self)
-        item.setSizeHint(QSize(0, 50)) # Fixed height for card
+        item.setSizeHint(QSize(0, self._calc_item_height(flow_hint, excel_preview)))
         item.setData(Qt.UserRole, step)
+        if tooltip:
+            item.setToolTip(str(tooltip))
         self.addItem(item)
         
         # Create widget
         idx = self.count()
-        widget = StepItemWidget(step, idx)
+        widget = StepItemWidget(step, idx, flow_hint=flow_hint, excel_preview=excel_preview)
         widget.title_label.mousePressEvent = lambda e, it=item: self._begin_inline_edit(it)
         widget.title_edit.editingFinished.connect(lambda it=item, w=widget: self._finish_inline_edit(it, w))
         widget.title_edit.returnPressed.connect(lambda it=item, w=widget: self._finish_inline_edit(it, w))

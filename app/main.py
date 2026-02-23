@@ -139,6 +139,8 @@ class MainWindow(QMainWindow):
         self._excel_monitor_thread: threading.Thread | None = None
         self._excel_total_jobs: int = 0
         self._excel_payload_by_job_id: dict[str, dict] = {}
+        self._excel_preview_cache_path: str = ""
+        self._excel_preview_payload: dict = {}
         self._macro_paused_ui: bool = False
         self._record_show_summary = False
         self._was_minimized = False
@@ -582,6 +584,7 @@ class MainWindow(QMainWindow):
         self.edTargetWindow = self.edTargetTitle
         self.chkDebugOverlay.toggled.connect(lambda v: self.debug_overlay.setVisible(v))
         self.chkExcelDataMode.toggled.connect(self._on_excel_mode_toggled)
+        self.edExcelDataPath.textChanged.connect(self._on_excel_preview_source_changed)
         self._apply_excel_mode_visual_state(self.chkExcelDataMode.isChecked(), announce=False)
         self._sync_toolbar_run_stop_buttons()
         
@@ -1066,14 +1069,26 @@ class MainWindow(QMainWindow):
             return
         step = self.steps[idx]
         item.setData(Qt.UserRole, step)
+        id_to_index = {str(getattr(s, "id", "") or ""): i for i, s in enumerate(self.steps)}
+        preview_payload = self._get_excel_preview_payload()
+        flow_hint = self._build_step_flow_hint(step, id_to_index)
+        excel_preview = self._build_step_excel_preview(step, preview_payload)
+        tooltip_parts = [p for p in [flow_hint, excel_preview] if p]
+        item.setToolTip("\n".join(tooltip_parts))
         from .ui.widgets import StepItemWidget
-        new_widget = StepItemWidget(step, idx + 1)
+        new_widget = StepItemWidget(step, idx + 1, flow_hint=flow_hint, excel_preview=excel_preview)
         self.list.setItemWidget(item, new_widget)
 
     def refresh_step_list(self, focus_index: int | None = None):
         self.list.clear()
+        id_to_index = {str(getattr(s, "id", "") or ""): i for i, s in enumerate(self.steps)}
+        preview_payload = self._get_excel_preview_payload()
         for i, s in enumerate(self.steps):
-            self.add_list_item(s, idx=i)
+            flow_hint = self._build_step_flow_hint(s, id_to_index)
+            excel_preview = self._build_step_excel_preview(s, preview_payload)
+            tooltip_parts = [p for p in [flow_hint, excel_preview] if p]
+            tooltip = "\n".join(tooltip_parts)
+            self.add_list_item(s, idx=i, flow_hint=flow_hint, excel_preview=excel_preview, tooltip=tooltip)
         self.list.refresh_indices()
         if focus_index is not None and 0 <= focus_index < self.list.count():
             self.list.setCurrentRow(focus_index)
@@ -1138,19 +1153,26 @@ class MainWindow(QMainWindow):
             self.lblRuntimeFail.setText(f"Fail: {name} [{sid}] - {message}")
         self.warn(f"[Step Fail] {name} [{sid}] - {message}")
 
-    def add_list_item(self, step: StepData, idx=-1):
+    def add_list_item(self, step: StepData, idx=-1, flow_hint: str = "", excel_preview: str = "", tooltip: str = ""):
         if idx == -1:
-            self.list.add_step_item(step)
+            self.list.add_step_item(step, flow_hint=flow_hint, excel_preview=excel_preview, tooltip=tooltip)
         else:
             # QListWidget doesn't have insertItem with widget easily?
             # We have to insert item then set widget.
             item = QListWidgetItem()
-            item.setSizeHint(QSize(0, 50))
+            item_height = 50
+            if str(flow_hint or "").strip():
+                item_height += 16
+            if str(excel_preview or "").strip():
+                item_height += 16
+            item.setSizeHint(QSize(0, item_height))
             item.setData(Qt.UserRole, step)
+            if tooltip:
+                item.setToolTip(str(tooltip))
             self.list.insertItem(idx, item)
             
             from .ui.widgets import StepItemWidget
-            widget = StepItemWidget(step, idx + 1)
+            widget = StepItemWidget(step, idx + 1, flow_hint=flow_hint, excel_preview=excel_preview)
             self.list.setItemWidget(item, widget)
 
     def update_preview(self):
@@ -1324,6 +1346,12 @@ class MainWindow(QMainWindow):
 
     def _on_excel_mode_toggled(self, enabled: bool) -> None:
         self._apply_excel_mode_visual_state(enabled, announce=self.isVisible())
+        self.refresh_step_list()
+
+    def _on_excel_preview_source_changed(self, _text: str) -> None:
+        self._excel_preview_cache_path = ""
+        self._excel_preview_payload = {}
+        self.refresh_step_list()
 
     def _get_excel_text_template(self) -> str:
         for step in self.steps:
@@ -1521,6 +1549,108 @@ class MainWindow(QMainWindow):
             if str(k).strip().lower() == lowered:
                 return v
         return ""
+
+    @staticmethod
+    def _extract_placeholders(template_text: str) -> list[str]:
+        text = str(template_text or "")
+        found: list[str] = []
+        seen: set[str] = set()
+        for pattern in (r"\{\{\s*([^{}]+?)\s*\}\}", r"\{\s*([^{}]+?)\s*\}"):
+            for m in re.finditer(pattern, text):
+                name = str(m.group(1) or "").strip()
+                if not name or name in seen:
+                    continue
+                seen.add(name)
+                found.append(name)
+        return found
+
+    def _get_excel_preview_payload(self) -> dict:
+        if not hasattr(self, "chkExcelDataMode") or not self.chkExcelDataMode.isChecked():
+            return {}
+        path = self.edExcelDataPath.text().strip() if hasattr(self, "edExcelDataPath") else ""
+        if not path:
+            return {}
+        if path == self._excel_preview_cache_path:
+            return dict(self._excel_preview_payload)
+        if not os.path.exists(path):
+            self._excel_preview_cache_path = path
+            self._excel_preview_payload = {}
+            return {}
+        try:
+            loaded_rows = ExcelDataLoader.load_rows(path)
+            payload = dict(loaded_rows[0][1] or {}) if loaded_rows else {}
+        except Exception:
+            payload = {}
+        self._excel_preview_cache_path = path
+        self._excel_preview_payload = dict(payload)
+        return dict(payload)
+
+    def _build_step_flow_hint(self, step: StepData, id_to_index: dict[str, int]) -> str:
+        stype = str(getattr(step, "type", "") or "").lower()
+        parts: list[str] = []
+
+        if stype in {"jump_if", "ocr_jump_if"}:
+            target_id = getattr(step, "target_true_id", None) or getattr(step, "jump_to_step_id", None)
+            if target_id:
+                target_idx = id_to_index.get(str(target_id))
+                if target_idx is not None:
+                    parts.append(f"흐름: 조건 참 -> #{target_idx + 1}")
+                else:
+                    parts.append(f"흐름: 조건 참 -> ID {target_id}")
+            fail_id = getattr(step, "branch_on_fail_goto_id", None)
+            if fail_id:
+                fail_idx = id_to_index.get(str(fail_id))
+                if fail_idx is not None:
+                    parts.append(f"흐름: 조건 실패 -> #{fail_idx + 1}")
+
+        if stype == "end_loop":
+            start_id = getattr(step, "start_loop_id", None)
+            if start_id:
+                start_idx = id_to_index.get(str(start_id))
+                if start_idx is not None:
+                    parts.append(f"흐름: 루프 복귀 -> #{start_idx + 1}")
+
+        if stype == "start_loop":
+            loop_count = int(getattr(step, "loop_count", 0) or 0)
+            if loop_count <= 0:
+                parts.append("흐름: 반복 시작 (무한)")
+            else:
+                parts.append(f"흐름: 반복 시작 ({loop_count}회)")
+
+        return " | ".join(parts)
+
+    def _build_step_excel_preview(self, step: StepData, payload: dict) -> str:
+        if not payload:
+            return ""
+        stype = str(getattr(step, "type", "") or "").lower()
+        template = ""
+        if stype == "text":
+            template = str(getattr(step, "key_string", "") or "")
+        elif stype == "keyboard":
+            mode = str(getattr(step, "keyboard_mode", "") or "").lower()
+            if mode == "text":
+                template = str(getattr(step, "key_string", "") or "")
+        if not template:
+            return ""
+
+        placeholders = self._extract_placeholders(template)
+        if not placeholders:
+            return ""
+
+        rendered = TemplateProcessor.render(template, payload)
+        unresolved = TemplateProcessor.has_unresolved_placeholder(rendered)
+
+        token = placeholders[0]
+        token_label = f"{{{{{token}}}}}"
+        raw_val = self._lookup_excel_payload_value(payload, token)
+        value = "" if raw_val is None else str(raw_val)
+        if unresolved:
+            return f"데이터 미리보기: {token_label} -> (미매핑)"
+        shown = value if value else str(rendered or "")
+        shown = shown.strip()
+        if len(shown) > 48:
+            shown = shown[:45] + "..."
+        return f"데이터 미리보기: {token_label} -> {shown}"
 
     def _build_excel_worker_note(self, event: dict) -> str:
         if not isinstance(event, dict):

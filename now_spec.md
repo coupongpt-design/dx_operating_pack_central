@@ -140,6 +140,10 @@
 - 메인 UI는 Runner의 step 시그널을 구독해 실행 상태를 실시간 표시:
   - 상태바 `Run`/`Fail` 라벨에 step_uuid 기반 상태 출력
   - 현재 실행 스텝은 파란 하이라이트, 마지막 실패 스텝은 붉은 하이라이트
+- Scenario 스텝 리스트 가시성:
+  - `jump_if`/`ocr_jump_if`/`start_loop`/`end_loop`는 카드 내 흐름 힌트로 점프/복귀 경로를 표시
+  - Excel 모드 + 데이터 파일 지정 시 텍스트 스텝 `{{변수}}`에 대해 첫 데이터 행 미리보기를 카드/툴팁에 표시
+  - 변수 매핑은 헤더 대소문자를 구분하지 않음(`user_name` == `USER_NAME`)
 - 이미지 클릭 좌표 계산:
   - matcher가 찾은 중심점에서 `click_anchor`로 실제 기준점(top-left 등)을 계산한 뒤 `click_offset_x/y`를 적용.
   - branch target 매칭/클릭도 동일 규칙을 적용.
@@ -174,7 +178,7 @@
 - 스모크 실행 진입점:
   - `python run_smoke_suite.py --quick` (핵심 런타임/매칭 게이트)
   - `python run_smoke_suite.py` (핵심 게이트 + 전체 health check)
-- 최신 로컬 기준: `python -m pytest -q` = `418 passed, 1 skipped`.
+- 최신 로컬 기준: `python -m pytest -q` = `429 passed, 1 skipped`.
 
 ### 규칙 적용 가드
 - 규칙은 2단 구조로 운용:

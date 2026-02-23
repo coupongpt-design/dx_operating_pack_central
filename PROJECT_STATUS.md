@@ -148,6 +148,9 @@
   - `GlobalInputManager`(context manager, timeout)로 물리 입력(마우스/키보드) 구간 단일화
   - `MacroRunner` 입력 스텝에서 lock wait/acquire/release/timeout 이벤트를 구조화 로그(JSONL)에 기록
   - lock timeout 발생 시 스텝 실패 경로로 전파되어 stop_on_fail 정책과 일관 동작
+- Stage 2-1 시나리오 가시성 보강:
+  - 스텝 카드에 분기/루프 흐름 힌트(점프 대상/루프 복귀/반복 횟수)를 표시
+  - Excel 모드에서 텍스트 스텝 `{{변수}}`에 대해 첫 데이터 행 기준 미리보기 표시(헤더 대소문자 무시 매핑)
 
 ## 파일 포맷
 - JSON 저장: 메타데이터 포함 JSON(`meta`/`repeat`/`steps`), 레거시 리스트 JSON 역호환.
@@ -159,7 +162,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `427 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `429 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 

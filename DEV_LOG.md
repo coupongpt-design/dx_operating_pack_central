@@ -1374,3 +1374,23 @@
 - Verification:
   - `python -m pytest -q tests/test_conditional_wizard_generation.py` -> `4 passed in 0.48s`
   - `python -m pytest -q` -> `427 passed, 1 skipped in 20.52s`
+
+## [2026-02-23] Session 72 - UI 현대화 Stage 2-1 PR-2 (시나리오 흐름/데이터 미리보기)
+- Summary:
+  - Scenario 스텝 카드에 분기/루프 흐름 힌트와 Excel 변수 미리보기를 표시하도록 리스트 렌더링 경로를 확장.
+  - Excel 미리보기는 첫 데이터 행을 사용하며 placeholder 헤더 매핑은 대소문자 무시(`USER_NAME`/`user_name`)로 동작.
+  - Excel 모드 토글/데이터 경로 변경 시 리스트를 즉시 재렌더링해 UI 표시가 실시간 동기화되도록 연결.
+- Code:
+  - `app/main.py`
+    - `refresh_step_list`/`refresh_list_item`/`add_list_item`에 `flow_hint`, `excel_preview`, `tooltip` 전달 경로 추가.
+    - `_extract_placeholders`, `_get_excel_preview_payload`, `_build_step_flow_hint`, `_build_step_excel_preview` 추가.
+    - `chkExcelDataMode.toggled`, `edExcelDataPath.textChanged`를 미리보기 캐시 무효화 + 리스트 갱신 경로로 연결.
+  - `app/ui/widgets.py`
+    - `StepItemWidget`에 `flow_label`, `preview_label` 추가.
+    - `StepList`에 동적 아이템 높이 계산(`_calc_item_height`) 및 hint/preview 기반 렌더링 추가.
+  - `tests/test_scenario_flow_hints.py` 신규:
+    - jump/loop 흐름 힌트 생성 검증.
+    - Excel placeholder 미리보기(대소문자 무시 매핑) UI 반영 검증.
+- Verification:
+  - `python -m pytest -q tests/test_scenario_flow_hints.py tests/test_conditional_wizard_generation.py tests/test_excel_toolbar_responsive.py` -> `14 passed in 0.84s`
+  - `python -m pytest -q` -> `429 passed, 1 skipped in 20.49s`
