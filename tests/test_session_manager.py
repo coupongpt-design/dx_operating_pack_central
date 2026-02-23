@@ -95,3 +95,76 @@ def test_round_robin_rotation(qtbot, monkeypatch):
     mgr._switch_context()
     assert calls["s1"]["start"] == 2  # started again
     assert calls["s1"]["activate"] == 2
+
+
+def test_pending_session_recovers_with_backoff(monkeypatch):
+    now = {"t": 100.0}
+    monkeypatch.setattr("app.core.session_manager.time.monotonic", lambda: now["t"])
+
+    runner_calls = {"start": 0, "stop": 0}
+    runner = _make_runner(runner_calls)
+    provider_calls = {"count": 0}
+
+    def provider(_sess):
+        provider_calls["count"] += 1
+        if provider_calls["count"] >= 2:
+            return runner
+        return None
+
+    mgr = SessionManager(
+        runner_provider=provider,
+        pending_recovery_backoff_sec=2.0,
+        pending_recovery_max_attempts=5,
+        pending_recovery_max_pending_sec=30.0,
+    )
+    mgr._timer.stop()
+    mgr._wm = SimpleNamespace(find_window=lambda _title: None, activate_window=lambda _hwnd: None)
+    sess = GameSession(name="p1", target_title="", script_path="p1.json", runner=None, status="idle")
+    mgr.sessions = [sess]
+
+    mgr._switch_context()
+    assert provider_calls["count"] == 1
+    assert sess.status == "pending"
+
+    # Backoff window has not elapsed: provider should not be called again.
+    mgr._switch_context()
+    assert provider_calls["count"] == 1
+    assert sess.status == "pending"
+
+    now["t"] = 102.1
+    mgr._switch_context()
+    assert provider_calls["count"] == 2
+    assert sess.runner is runner
+    assert sess.status == "running"
+    assert runner_calls["start"] >= 1
+
+
+def test_pending_session_escalates_to_error_after_max_attempts(monkeypatch):
+    now = {"t": 200.0}
+    monkeypatch.setattr("app.core.session_manager.time.monotonic", lambda: now["t"])
+
+    provider_calls = {"count": 0}
+
+    def provider(_sess):
+        provider_calls["count"] += 1
+        return None
+
+    mgr = SessionManager(
+        runner_provider=provider,
+        pending_recovery_backoff_sec=1.0,
+        pending_recovery_max_attempts=2,
+        pending_recovery_max_pending_sec=30.0,
+    )
+    mgr._timer.stop()
+    mgr._wm = SimpleNamespace(find_window=lambda _title: None, activate_window=lambda _hwnd: None)
+    sess = GameSession(name="p2", target_title="", script_path="p2.json", runner=None, status="idle")
+    mgr.sessions = [sess]
+
+    mgr._switch_context()
+    assert provider_calls["count"] == 1
+    assert sess.status == "pending"
+
+    now["t"] = 201.1
+    mgr._switch_context()
+    assert provider_calls["count"] == 2
+    assert sess.status == "error"

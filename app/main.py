@@ -8,6 +8,8 @@ import traceback
 import shutil
 import re
 import copy
+import threading
+import datetime
 from dataclasses import fields
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
@@ -15,9 +17,9 @@ from PyQt5.QtWidgets import (
     QMessageBox, QCheckBox, QSpinBox, QDoubleSpinBox, QGroupBox, 
     QFormLayout, QPlainTextEdit, QTabWidget, QGridLayout, QAction,
     QMenu, QMenuBar, QShortcut, QInputDialog, QTimeEdit, QTableWidget, QTableWidgetItem,
-    QDialog, QLineEdit, QComboBox
+    QDialog, QLineEdit, QComboBox, QProgressBar, QScrollArea, QSizePolicy, QFrame
 )
-from PyQt5.QtCore import Qt, QTimer, QSettings, QSize, QEventLoop, QRect, QTime, QStandardPaths
+from PyQt5.QtCore import Qt, QTimer, QSettings, QSize, QEventLoop, QRect, QTime, QStandardPaths, pyqtSignal
 from PyQt5.QtGui import QKeySequence, QIcon, QPixmap, QPainter, QColor, QFont
 
 from .ui.dialogs import (
@@ -55,12 +57,51 @@ from .utils.common import hk_pretty, hk_to_tuple, hk_normalize, encode_png_bytes
 from .utils.logging_setup import setup_file_logger
 from .utils.runtime_paths import get_resource_path
 from .core.ocr_runtime import configure_tesseract_cmd, get_tesseract_status, save_tesseract_cmd_to_settings
+from .core.data_orchestration import JobQueueManager
+from .core.session_adapter import SessionJobAdapter
+from .core.excel_io import ExcelDataLoader, ExcelResultExporter
+from .core.template_processor import TemplateProcessor
+from .core.input_lock import get_global_input_manager
 
 def _excepthook(type, value, tback):
     sys.__excepthook__(type, value, tback)
     traceback.print_exception(type, value, tback)
 
+
+class ElidedPathLineEdit(QLineEdit):
+    """Read-only path field that shows an elided label while preserving full text."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._full_text = ""
+
+    def setText(self, text: str):  # type: ignore[override]
+        self._full_text = str(text or "")
+        self._apply_elide()
+
+    def text(self) -> str:  # type: ignore[override]
+        return self._full_text
+
+    def clear(self):  # type: ignore[override]
+        self._full_text = ""
+        super().setText("")
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._apply_elide()
+
+    def _apply_elide(self):
+        if not self._full_text:
+            super().setText("")
+            return
+        width = max(20, self.contentsRect().width() - 6)
+        shown = self.fontMetrics().elidedText(self._full_text, Qt.ElideRight, width)
+        super().setText(shown)
+
+
 class MainWindow(QMainWindow):
+    excelOrchEvent = pyqtSignal(dict)
+    excelOrchFinished = pyqtSignal(bool, str)
     # Scheduler constants
     SCHED_KEY_TIME = "scheduler/time"
     SCHED_KEY_MACROS = "scheduler/macros"
@@ -89,6 +130,15 @@ class MainWindow(QMainWindow):
         self._main_runner_paused: bool = False
         self._paused_runner: MacroRunner | None = None
         self.trigger_runner: MacroRunner | None = None
+        self._excel_mode_running: bool = False
+        self._excel_input_path: str = ""
+        self._excel_output_path: str = ""
+        self._excel_job_manager: JobQueueManager | None = None
+        self._excel_adapters: list[SessionJobAdapter] = []
+        self._excel_stop_event: threading.Event = threading.Event()
+        self._excel_monitor_thread: threading.Thread | None = None
+        self._excel_total_jobs: int = 0
+        self._excel_payload_by_job_id: dict[str, dict] = {}
         self._macro_paused_ui: bool = False
         self._record_show_summary = False
         self._was_minimized = False
@@ -348,13 +398,86 @@ class MainWindow(QMainWindow):
         self.chkHumanMode = QCheckBox("Human Mode")
         self.chkDebugOverlay = QCheckBox("Show Debug Overlay")
         
-        # Add a secondary toolbar for options
+        # Add a secondary toolbar for options (scrollable row to avoid clipping on narrow windows)
         self.opt_toolbar = self.addToolBar("Options")
-        self.opt_toolbar.addWidget(self.chkDry)
-        self.opt_toolbar.addWidget(self.chkAutoMin)
-        self.opt_toolbar.addWidget(self.chkCaptureFail)
-        self.opt_toolbar.addWidget(self.chkHumanMode)
-        self.opt_toolbar.addWidget(self.chkDebugOverlay)
+        self.opt_toolbar.setMovable(False)
+        self.opt_toolbar.setFloatable(False)
+        self.opt_toolbar.setAllowedAreas(Qt.TopToolBarArea)
+
+        self._opt_scroll = QScrollArea()
+        self._opt_scroll.setWidgetResizable(True)
+        self._opt_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._opt_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self._opt_scroll.setFrameShape(QFrame.NoFrame)
+
+        self._opt_row = QWidget()
+        self._opt_row_layout = QHBoxLayout(self._opt_row)
+        self._opt_row_layout.setContentsMargins(4, 2, 4, 2)
+        self._opt_row_layout.setSpacing(6)
+        self._opt_scroll.setWidget(self._opt_row)
+        self._opt_scroll.setMinimumHeight(34)
+        self.opt_toolbar.addWidget(self._opt_scroll)
+
+        def _opt_add(widget, stretch: int = 0):
+            self._opt_row_layout.addWidget(widget, stretch)
+
+        def _opt_sep():
+            line = QFrame()
+            line.setFrameShape(QFrame.VLine)
+            line.setFrameShadow(QFrame.Sunken)
+            line.setFixedHeight(20)
+            self._opt_row_layout.addWidget(line)
+
+        # Keep most-used Excel controls near the left so they remain visible first.
+        self.chkExcelDataMode = QCheckBox("Excel Data Mode")
+        self.chkExcelDataMode.setToolTip("엑셀 행 데이터를 분배해 멀티 세션 자동화를 실행합니다.")
+        self.chkExcelDataMode.setMinimumWidth(130)
+        self.chkExcelDataMode.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        _opt_add(self.chkExcelDataMode)
+
+        self.spExcelParallelism = QSpinBox()
+        self.spExcelParallelism.setRange(1, 16)
+        self.spExcelParallelism.setValue(2)
+        self.spExcelParallelism.setPrefix("P:")
+        self.spExcelParallelism.setMinimumWidth(68)
+        self.spExcelParallelism.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        _opt_add(self.spExcelParallelism)
+
+        self.edExcelDataPath = ElidedPathLineEdit()
+        self.edExcelDataPath.setPlaceholderText(".xlsx 파일 경로")
+        self.edExcelDataPath.setReadOnly(True)
+        self.edExcelDataPath.setMinimumWidth(120)
+        self.edExcelDataPath.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        _opt_add(self.edExcelDataPath, 1)
+
+        self.btnExcelDataPick = QPushButton("Excel...")
+        self.btnExcelDataPick.setToolTip("엑셀 데이터 파일을 선택합니다.")
+        self.btnExcelDataPick.clicked.connect(self._pick_excel_data_file)
+        self.btnExcelDataPick.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        _opt_add(self.btnExcelDataPick)
+
+        self.pbExcelProgress = QProgressBar()
+        self.pbExcelProgress.setRange(0, 100)
+        self.pbExcelProgress.setValue(0)
+        self.pbExcelProgress.setFixedWidth(120)
+        _opt_add(self.pbExcelProgress)
+
+        self.lblExcelStatus = QLabel("Excel: Idle")
+        self.lblExcelStatus.setMinimumWidth(150)
+        self.lblExcelStatus.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        _opt_add(self.lblExcelStatus)
+
+        self.chkAutoEnterAfterText = QCheckBox("Auto Enter")
+        self.chkAutoEnterAfterText.setToolTip("텍스트 입력 액션 뒤에 Enter 키를 자동 입력합니다.")
+        self.chkAutoEnterAfterText.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        _opt_add(self.chkAutoEnterAfterText)
+
+        _opt_sep()
+        _opt_add(self.chkDry)
+        _opt_add(self.chkAutoMin)
+        _opt_add(self.chkCaptureFail)
+        _opt_add(self.chkHumanMode)
+        _opt_add(self.chkDebugOverlay)
         # Target window controls
         self.lblTarget = QLabel("Target:")
         self.edTargetTitle = QLineEdit()
@@ -369,11 +492,12 @@ class MainWindow(QMainWindow):
         self.btnSelectTarget.setFixedWidth(28)
         self.btnSelectTarget.setToolTip("Open window selector")
         self.btnSelectTarget.clicked.connect(self._open_window_selector)
-        self.opt_toolbar.addWidget(self.lblTarget)
-        self.opt_toolbar.addWidget(self.edTargetTitle)
-        self.opt_toolbar.addWidget(self.btnSelectTarget)
-        self.opt_toolbar.addWidget(self.btnFindTarget)
-        self.opt_toolbar.addWidget(self.btnFixWindow)
+        _opt_add(self.lblTarget)
+        _opt_add(self.edTargetTitle)
+        _opt_add(self.btnSelectTarget)
+        _opt_add(self.btnFindTarget)
+        _opt_add(self.btnFixWindow)
+        self._opt_row_layout.addStretch(0)
         # For backward compatibility with existing methods
         self.edTargetWindow = self.edTargetTitle
         self.chkDebugOverlay.toggled.connect(lambda v: self.debug_overlay.setVisible(v))
@@ -417,6 +541,8 @@ class MainWindow(QMainWindow):
         self._update_undo_buttons()
         self._init_open_panel_button()
         self.splitter.splitterMoved.connect(self._on_splitter_moved)
+        self.excelOrchEvent.connect(self._on_excel_orch_event)
+        self.excelOrchFinished.connect(self._on_excel_orch_finished)
 
     def _update_undo_buttons(self):
         """Enable/disable undo/redo actions based on stack state."""
@@ -1059,6 +1185,9 @@ class MainWindow(QMainWindow):
                     self.btnRun.setEnabled(True)
 
     def _on_run_button_clicked(self):
+        if self._excel_mode_running:
+            self.info("Excel orchestration is already running.")
+            return
         if self.runner and self.runner.isRunning():
             try:
                 if hasattr(self.runner, "is_paused") and self.runner.is_paused():
@@ -1066,7 +1195,439 @@ class MainWindow(QMainWindow):
                     return
             except Exception:
                 pass
+        if hasattr(self, "chkExcelDataMode") and self.chkExcelDataMode.isChecked():
+            self.run_excel_orchestration()
+            return
         self.run_macro()
+
+    def _pick_excel_data_file(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Excel 데이터 파일 선택",
+            "",
+            "Excel Files (*.xlsx)",
+        )
+        if path:
+            self.edExcelDataPath.setText(path)
+
+    def _get_excel_text_template(self) -> str:
+        for step in self.steps:
+            action_type = str(getattr(step, "type", None) or getattr(step, "action_type", "") or "").lower()
+            if action_type == "text":
+                text = getattr(step, "key_string", None)
+                if text not in (None, ""):
+                    return str(text)
+                continue
+            if action_type == "keyboard":
+                key_mode = str(getattr(step, "keyboard_mode", None) or getattr(step, "key_mode", "") or "").lower()
+                if key_mode != "text":
+                    continue
+                text = getattr(step, "key_string", None)
+                if text not in (None, ""):
+                    return str(text)
+        return ""
+
+    def _build_excel_payload_runner(self):
+        parent = self
+
+        class _ExcelPayloadRunner:
+            def __init__(self, owner: "MainWindow"):
+                self._owner = owner
+                self._dry_run = bool(owner.chkDry.isChecked()) if hasattr(owner, "chkDry") else False
+                self._auto_enter_after_text = bool(owner.chkAutoEnterAfterText.isChecked()) if hasattr(owner, "chkAutoEnterAfterText") else False
+                self._poll_interval = 0.05
+                self._input_lock_manager = get_global_input_manager()
+                self._input_lock_timeout_sec = 10.0
+                if hasattr(owner, "_get_perf_level") and hasattr(owner, "chkPerfPlayback"):
+                    try:
+                        if bool(owner.chkPerfPlayback.isChecked()):
+                            level = int(owner._get_perf_level())
+                            if level >= 3:
+                                self._poll_interval = 0.0
+                            elif level == 2:
+                                self._poll_interval = 0.01
+                    except Exception:
+                        self._poll_interval = 0.05
+
+            def _maybe_press_enter_locked(self) -> None:
+                if not self._auto_enter_after_text:
+                    return
+                pyautogui.press("enter")
+                if self._poll_interval > 0.0:
+                    time.sleep(min(0.05, max(0.0, float(self._poll_interval))))
+
+            @staticmethod
+            def _requires_clipboard_paste(text: str) -> bool:
+                # pyautogui.write may drop/garble IME/non-ASCII chars; use paste path for safety.
+                return any(ord(ch) > 127 for ch in str(text or ""))
+
+            @staticmethod
+            def _get_clipboard_text() -> str | None:
+                try:
+                    pyperclip = __import__("pyperclip")
+                    return pyperclip.paste()
+                except Exception:
+                    pass
+                try:
+                    return QApplication.clipboard().text()
+                except Exception:
+                    return None
+
+            @staticmethod
+            def _set_clipboard_text(text: str) -> bool:
+                data = str(text or "")
+                try:
+                    pyperclip = __import__("pyperclip")
+                    pyperclip.copy(data)
+                    return True
+                except Exception:
+                    pass
+                try:
+                    QApplication.clipboard().setText(data)
+                    return True
+                except Exception:
+                    return False
+
+            def _paste_text(self, text: str) -> bool:
+                with self._input_lock_manager.acquire(
+                    timeout_sec=self._input_lock_timeout_sec,
+                    owner="excel_payload_runner",
+                    operation="keyboard_paste",
+                ):
+                    prev = self._get_clipboard_text()
+                    if not self._set_clipboard_text(text):
+                        return False
+                    try:
+                        pyautogui.hotkey("ctrl", "v")
+                        self._maybe_press_enter_locked()
+                        return True
+                    finally:
+                        if prev is not None:
+                            self._set_clipboard_text(prev)
+
+            def execute_job(self, payload: dict):
+                payload_map = dict(payload or {})
+                payload_map.pop("__job_id", None)
+                payload_map.pop("__excel_row_index", None)
+                if self._dry_run:
+                    return True
+                template_text = self._owner._get_excel_text_template()
+                if template_text not in (None, ""):
+                    text = TemplateProcessor.render(str(template_text), payload_map)
+                else:
+                    text = payload_map.get("text")
+                    if text is None:
+                        text = payload_map.get("message")
+                    text = TemplateProcessor.render(str(text or ""), payload_map)
+                if TemplateProcessor.has_unresolved_placeholder(text):
+                    raise RuntimeError(f"unresolved_placeholder: {text}")
+                try:
+                    if self._requires_clipboard_paste(text):
+                        if not self._paste_text(text):
+                            raise RuntimeError("clipboard_unavailable")
+                    else:
+                        with self._input_lock_manager.acquire(
+                            timeout_sec=self._input_lock_timeout_sec,
+                            owner="excel_payload_runner",
+                            operation="keyboard_typewrite",
+                        ):
+                            pyautogui.write(text, interval=self._poll_interval)
+                            self._maybe_press_enter_locked()
+                except Exception as e:
+                    raise RuntimeError(f"input_failed: {e}") from e
+                return True
+
+        return _ExcelPayloadRunner(parent)
+
+    def _build_excel_adapter(
+        self,
+        orchestrator: JobQueueManager,
+        runner,
+        consumer_id: str,
+        stop_event: threading.Event,
+    ) -> SessionJobAdapter:
+        return SessionJobAdapter(
+            orchestrator,
+            runner,
+            consumer_id=consumer_id,
+            stop_event=stop_event,
+        )
+
+    def _default_excel_output_path(self, input_path: str) -> str:
+        stem, ext = os.path.splitext(input_path)
+        suffix = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        if not ext:
+            ext = ".xlsx"
+        return f"{stem}_result_{suffix}{ext}"
+
+    def _on_excel_result_sink_event(self, event: dict):
+        try:
+            self.excelOrchEvent.emit(dict(event or {}))
+        except Exception:
+            return
+
+    def _render_excel_progress(self, snapshot: dict, status_note: str = ""):
+        total = max(0, int(snapshot.get("total_jobs") or 0))
+        succeeded = max(0, int(snapshot.get("succeeded") or 0))
+        failed = max(0, int(snapshot.get("failed") or 0))
+        done = min(total, succeeded + failed)
+
+        if hasattr(self, "pbExcelProgress"):
+            if total > 0:
+                self.pbExcelProgress.setRange(0, total)
+                self.pbExcelProgress.setValue(done)
+            else:
+                self.pbExcelProgress.setRange(0, 100)
+                self.pbExcelProgress.setValue(0)
+        if hasattr(self, "lblExcelStatus"):
+            base = f"Excel: {done}/{total} (ok {succeeded}, fail {failed})"
+            if status_note:
+                base = f"{base} - {status_note}"
+            self.lblExcelStatus.setText(base)
+
+    def _on_excel_orch_event(self, event: dict):
+        manager = self._excel_job_manager
+        if manager is None:
+            return
+        worker_note = self._build_excel_worker_note(event)
+        if worker_note:
+            self.info(worker_note)
+        snapshot = manager.snapshot()
+        status_note = str((event or {}).get("event") or "")
+        self._render_excel_progress(snapshot, status_note=status_note)
+
+    def _lookup_excel_payload_value(self, payload: dict, key: str):
+        if not payload:
+            return ""
+        if key in payload:
+            return payload.get(key)
+        lowered = str(key or "").strip().lower()
+        for k, v in payload.items():
+            if str(k).strip().lower() == lowered:
+                return v
+        return ""
+
+    def _build_excel_worker_note(self, event: dict) -> str:
+        if not isinstance(event, dict):
+            return ""
+        if str(event.get("event") or "") != "job_dispatched":
+            return ""
+        job_id = str(event.get("job_id") or "").strip()
+        if not job_id:
+            return ""
+        payload = dict(self._excel_payload_by_job_id.get(job_id) or {})
+        if not payload:
+            return ""
+
+        consumer_id = str(event.get("consumer_id") or "worker")
+        worker_match = re.search(r"(\d+)$", consumer_id)
+        worker_name = f"Worker {worker_match.group(1)}" if worker_match else consumer_id
+
+        template_text = str(self._get_excel_text_template() or "")
+        resolved = ""
+        token_label = ""
+        token_value = ""
+        if template_text.strip():
+            resolved = TemplateProcessor.render(template_text, payload)
+            token_match = re.search(r"\{\{\s*([^{}]+)\s*\}\}", template_text)
+            if token_match is None:
+                token_match = re.search(r"\{\s*([^{}]+)\s*\}", template_text)
+            if token_match is not None:
+                token_name = str(token_match.group(1) or "").strip()
+                token_label = f"{{{{{token_name}}}}}"
+                raw_value = self._lookup_excel_payload_value(payload, token_name)
+                token_value = "" if raw_value is None else str(raw_value)
+        if not resolved:
+            fallback = payload.get("text")
+            if fallback is None:
+                fallback = payload.get("message")
+            resolved = TemplateProcessor.render(str(fallback or ""), payload)
+        resolved = str(resolved or "").strip()
+        if token_label:
+            shown_value = token_value if token_value else resolved
+            return f"[{worker_name}] 처리 중: {token_label} -> {shown_value}"
+        if not resolved:
+            return f"[{worker_name}] 처리 중"
+        if len(resolved) > 80:
+            resolved = resolved[:77] + "..."
+        return f"[{worker_name}] 처리 중: {resolved}"
+
+    def _excel_monitor_loop(self):
+        manager = self._excel_job_manager
+        if manager is None:
+            self.excelOrchFinished.emit(False, "orchestrator_missing")
+            return
+        try:
+            while True:
+                if manager.is_fully_done():
+                    self.excelOrchFinished.emit(True, "completed")
+                    return
+                if self._excel_stop_event.is_set():
+                    if manager.is_fully_done():
+                        self.excelOrchFinished.emit(True, "completed")
+                    else:
+                        self.excelOrchFinished.emit(False, "stopped")
+                    return
+                sleep_sec = manager.get_recommended_sleep_sec(default_backoff=0.2)
+                self._excel_stop_event.wait(timeout=max(0.05, float(sleep_sec)))
+        except Exception as e:
+            self.excelOrchFinished.emit(False, f"monitor_error: {e}")
+
+    def _cleanup_excel_runtime(self):
+        adapters = list(self._excel_adapters)
+        for adapter in adapters:
+            try:
+                adapter.stop()
+            except Exception:
+                pass
+        for adapter in adapters:
+            try:
+                adapter.join(1.0)
+            except Exception:
+                pass
+        self._excel_adapters = []
+        self._excel_payload_by_job_id = {}
+        self._excel_mode_running = False
+        self._excel_stop_event.set()
+
+    def run_excel_orchestration(self):
+        if self._excel_mode_running:
+            self.warn("Excel orchestration is already running.")
+            return
+        if self.runner and self.runner.isRunning():
+            self.warn("Cannot start Excel mode while macro is running.")
+            return
+
+        input_path = self.edExcelDataPath.text().strip() if hasattr(self, "edExcelDataPath") else ""
+        if not input_path:
+            self.warn("Excel data file path is empty.")
+            return
+        if not os.path.exists(input_path):
+            self.err(f"Excel file not found: {input_path}")
+            return
+
+        try:
+            loaded_rows = ExcelDataLoader.load_rows(input_path)
+        except Exception as e:
+            self.err(f"Excel data load failed: {e}")
+            return
+
+        if not loaded_rows:
+            self.warn("No usable rows found in the selected Excel file.")
+            return
+
+        payload_rows = []
+        self._excel_payload_by_job_id = {}
+        for row_idx, payload in loaded_rows:
+            p = dict(payload or {})
+            p["__excel_row_index"] = int(row_idx)
+            p["job_id"] = f"excel-{int(row_idx)}"
+            payload_rows.append(p)
+            self._excel_payload_by_job_id[p["job_id"]] = dict(payload or {})
+
+        self._excel_total_jobs = len(payload_rows)
+        self._excel_input_path = input_path
+        self._excel_output_path = self._default_excel_output_path(input_path)
+        self._excel_stop_event = threading.Event()
+        self._excel_job_manager = JobQueueManager(
+            payload_rows,
+            max_retry=2,
+            retry_delay_sec=0.2,
+            result_sink=self._on_excel_result_sink_event,
+        )
+        self._excel_adapters = []
+
+        requested = 1
+        if hasattr(self, "spExcelParallelism"):
+            requested = int(self.spExcelParallelism.value())
+        parallelism = max(1, min(requested, len(payload_rows)))
+
+        for idx in range(parallelism):
+            adapter = self._build_excel_adapter(
+                self._excel_job_manager,
+                self._build_excel_payload_runner(),
+                consumer_id=f"excel-{idx+1}",
+                stop_event=threading.Event(),
+            )
+            self._excel_adapters.append(adapter)
+
+        self._excel_mode_running = True
+        self.act_run.setEnabled(False)
+        self.act_stop.setEnabled(True)
+        self.act_record.setEnabled(False)
+        if hasattr(self, "btnRun"):
+            self.btnRun.setEnabled(False)
+        if hasattr(self, "btnStop"):
+            self.btnStop.setEnabled(True)
+        self._set_macro_paused_ui(False)
+        if hasattr(self, "pbExcelProgress"):
+            self.pbExcelProgress.setRange(0, self._excel_total_jobs)
+            self.pbExcelProgress.setValue(0)
+        if hasattr(self, "lblExcelStatus"):
+            self.lblExcelStatus.setText(f"Excel: 0/{self._excel_total_jobs} (starting)")
+
+        for adapter in self._excel_adapters:
+            adapter.start()
+        self._excel_monitor_thread = threading.Thread(
+            target=self._excel_monitor_loop,
+            name="ExcelOrchestrationMonitor",
+            daemon=True,
+        )
+        self._excel_monitor_thread.start()
+        self.info(f"Excel orchestration started: rows={self._excel_total_jobs}, workers={parallelism}")
+
+    def _on_excel_orch_finished(self, completed: bool, reason: str):
+        if not self._excel_job_manager:
+            self._cleanup_excel_runtime()
+            self.act_run.setEnabled(True)
+            self.act_stop.setEnabled(False)
+            self.act_record.setEnabled(True)
+            if hasattr(self, "btnRun"):
+                self.btnRun.setEnabled(True)
+            if hasattr(self, "btnStop"):
+                self.btnStop.setEnabled(False)
+            return
+
+        snapshot = self._excel_job_manager.snapshot()
+        self._render_excel_progress(snapshot, status_note=reason)
+
+        if completed and self._excel_job_manager.is_fully_done():
+            try:
+                out_path = ExcelResultExporter.export_with_results(
+                    self._excel_input_path,
+                    self._excel_output_path or self._default_excel_output_path(self._excel_input_path),
+                    snapshot,
+                )
+                self.info(f"Excel orchestration finished. Result saved: {out_path}")
+            except Exception as e:
+                self.err(f"Excel result export failed: {e}")
+        else:
+            self.warn(f"Excel orchestration stopped: {reason}")
+
+        self._cleanup_excel_runtime()
+        self._excel_job_manager = None
+        self.act_run.setEnabled(True)
+        self.act_stop.setEnabled(False)
+        self.act_record.setEnabled(True)
+        if hasattr(self, "btnRun"):
+            self.btnRun.setEnabled(True)
+        if hasattr(self, "btnStop"):
+            self.btnStop.setEnabled(False)
+        self._set_macro_paused_ui(False)
+
+    def _request_stop_excel_orchestration(self, reason: str = "user_stop"):
+        if not self._excel_mode_running:
+            return
+        self.info(f"Stopping Excel orchestration ({reason})...")
+        self._excel_stop_event.set()
+        for adapter in list(self._excel_adapters):
+            try:
+                adapter.stop()
+            except Exception:
+                pass
+        self.act_stop.setEnabled(False)
+        if hasattr(self, "btnStop"):
+            self.btnStop.setEnabled(False)
 
     def _disable_all_hotkeys(self):
         for sc in getattr(self, "_qshortcuts", []):
@@ -1282,7 +1843,7 @@ class MainWindow(QMainWindow):
         if getattr(self, "_hotkey_dialog_open", False):
             return
         self.info("[Hotkey] Run")
-        self.run_macro()
+        self._on_run_button_clicked()
 
     def _act_stop_from_hotkey(self):
         if getattr(self, "_hotkey_dialog_open", False):
@@ -1744,6 +2305,7 @@ class MainWindow(QMainWindow):
                 current_file_path=self._current_macro_path,
                 target_window_title=self._get_target_window_title() if hasattr(self, "_get_target_window_title") else "",
                 structured_logging=True,
+                auto_enter_after_text=bool(self.chkAutoEnterAfterText.isChecked()) if hasattr(self, "chkAutoEnterAfterText") else False,
             )
             try:
                 self.runner.poll_interval = poll_interval
@@ -1806,6 +2368,9 @@ class MainWindow(QMainWindow):
                 self._was_minimized = False
 
     def stop_macro(self):
+        if self._excel_mode_running:
+            self._request_stop_excel_orchestration("manual_stop")
+            return
         if self.runner and self.runner.isRunning():
             self.runner.stop()
             self.info("Stopping macro...")
@@ -2166,6 +2731,8 @@ class MainWindow(QMainWindow):
                 self.runner.wait(2000),
             ) if self.runner and self.runner.isRunning() else None,
         )
+        _shutdown_safe("excel_orchestration", lambda: self._request_stop_excel_orchestration("window_close"))
+        _shutdown_safe("excel_runtime_cleanup", self._cleanup_excel_runtime)
         _shutdown_safe(
             "recorder",
             lambda: self._stop_record(show_summary=False) if self.recorder else None,
@@ -2478,6 +3045,7 @@ class MainWindow(QMainWindow):
                         parent=self,
                         current_file_path=macro_path,
                         structured_logging=True,
+                        auto_enter_after_text=bool(self.chkAutoEnterAfterText.isChecked()) if hasattr(self, "chkAutoEnterAfterText") else False,
                     )
                     self.trigger_runner.finished.connect(self._on_trigger_finished)
                     self.trigger_runner.log.connect(self.info)
@@ -2498,6 +3066,7 @@ class MainWindow(QMainWindow):
                         parent=self,
                         current_file_path=macro_path,
                         structured_logging=True,
+                        auto_enter_after_text=bool(self.chkAutoEnterAfterText.isChecked()) if hasattr(self, "chkAutoEnterAfterText") else False,
                     )
                     self.trigger_runner.finished.connect(self._on_trigger_finished)
                     self.trigger_runner.log.connect(self.info)

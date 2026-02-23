@@ -521,3 +521,44 @@ def test_normalize_step_template_path_uses_macro_base(tmp_path):
 
     expected = (macro_path.parent / "images" / "a.png").resolve()
     assert step.anchor_image_path == str(expected)
+
+
+def test_text_paste_auto_enter_enabled(monkeypatch, patched_runner):
+    runner_mod, pg = patched_runner
+    step = StepData(id="t1", name="Text", type="text", key_string="hello")
+    r = MacroRunner([step], repeat=RepeatConfig(), dry_run=False, auto_enter_after_text=True)
+    copied = []
+    monkeypatch.setattr(r, "_get_clipboard_text", lambda: "prev")
+    monkeypatch.setattr(r, "_set_clipboard_text", lambda text: copied.append(text) or True)
+
+    ok = r._text_paste(step)
+
+    assert ok is True
+    pg.hotkey.assert_called_with("ctrl", "v")
+    pg.press.assert_called_with("enter")
+    assert copied[0] == "hello"
+    assert copied[-1] == "prev"
+
+
+def test_text_paste_auto_enter_disabled(monkeypatch, patched_runner):
+    runner_mod, pg = patched_runner
+    step = StepData(id="t2", name="Text", type="text", key_string="hello")
+    r = MacroRunner([step], repeat=RepeatConfig(), dry_run=False, auto_enter_after_text=False)
+    monkeypatch.setattr(r, "_get_clipboard_text", lambda: "prev")
+    monkeypatch.setattr(r, "_set_clipboard_text", lambda text: True)
+
+    ok = r._text_paste(step)
+
+    assert ok is True
+    assert not pg.press.called
+
+
+def test_key_text_mode_does_not_auto_enter_for_non_text_step(monkeypatch, patched_runner):
+    runner_mod, pg = patched_runner
+    step = StepData(id="k1", name="KeyAsText", type="key", key_string="abc")
+    r = MacroRunner([step], repeat=RepeatConfig(), dry_run=False, auto_enter_after_text=True)
+
+    ok, _ = r._key_press(step)
+
+    assert ok is True
+    assert not pg.press.called

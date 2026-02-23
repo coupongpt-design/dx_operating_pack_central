@@ -3,7 +3,7 @@ import sys
 
 import pytest
 pytest.importorskip("pytestqt")
-from PyQt5.QtCore import QPoint, QRect, QSettings
+from PyQt5.QtCore import QPoint, QRect, QSettings, Qt
 from PyQt5.QtWidgets import QApplication
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -68,6 +68,30 @@ def test_action_dialog_keyboard_mode_saved(qapp, qtbot):
     assert step.type == "keyboard"
     assert step.keyboard_mode == "key_down"
     assert step.key_string == "ctrl"
+    dlg.close()
+
+
+def test_action_dialog_key_record_button_captures_special_key(qapp, qtbot):
+    dlg = _make_dialog(qtbot)
+    _set_action_type(dlg, "key")
+
+    assert dlg.btnKeyRecord.isEnabled() is True
+    dlg.btnKeyRecord.click()
+    assert dlg.btnKeyRecord.isChecked() is True
+
+    qtbot.keyClick(dlg, Qt.Key_Tab)
+
+    assert dlg.edKey.text() == "tab"
+    assert dlg.btnKeyRecord.isChecked() is False
+    dlg.close()
+
+
+def test_action_dialog_key_record_disabled_for_text_mode(qapp, qtbot):
+    dlg = _make_dialog(qtbot)
+    _set_action_type(dlg, "text")
+
+    assert dlg.btnKeyRecord.isEnabled() is False
+    assert dlg.btnKeyRecord.isChecked() is False
     dlg.close()
 
 

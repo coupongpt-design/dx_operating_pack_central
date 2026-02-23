@@ -36,7 +36,7 @@ class ManagerTab(QWidget):
     def __init__(self, parent=None, runner_builder: Callable[[GameSession], object] | None = None):
         super().__init__(parent)
         self._logger = logging.getLogger(__name__ + ".ManagerTab")
-        self.manager = SessionManager(self)
+        self.manager = SessionManager(self, runner_provider=self._build_runner_for_session)
         self.sessions: List[GameSession] = []
         self._runner_builder = runner_builder
         self._build_ui()

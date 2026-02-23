@@ -3,6 +3,7 @@ import traceback
 import logging
 import uuid
 import threading
+from contextlib import contextmanager
 import re
 import os
 from pathlib import Path
@@ -18,9 +19,15 @@ from .vision import ImageProcessor
 from .input_emulator import HumanMouse
 from .window_manager import WindowManager
 from .evaluator import ConditionEvaluator
+from .input_lock import (
+    GlobalInputManager,
+    InputLockTimeoutError,
+    get_global_input_manager,
+)
 
 from .models import StepData, RepeatConfig
 from .ocr_runtime import configure_tesseract_cmd
+from .template_processor import TemplateProcessor
 from ..utils.matcher import Matcher
 from ..utils.common import info, err, hk_to_tuple, hk_normalize, hk_pretty
 from ..utils.logging_setup import setup_file_logger
@@ -125,6 +132,10 @@ class MacroRunner(QThread):
         perf_mode: bool = False,
         structured_logging: bool = False,
         structured_log_dir: str | None = None,
+        input_lock_enabled: bool = True,
+        input_lock_timeout_sec: float = 10.0,
+        input_lock_manager: GlobalInputManager | None = None,
+        auto_enter_after_text: bool = False,
     ):
         super().__init__(parent)
         self.steps = steps
@@ -144,6 +155,10 @@ class MacroRunner(QThread):
             log_dir=structured_log_dir or os.path.join(os.getcwd(), "logs"),
             enabled=bool(structured_logging),
         )
+        self._input_lock_enabled = bool(input_lock_enabled)
+        self._input_lock_timeout_sec = max(0.05, float(input_lock_timeout_sec))
+        self._input_lock_manager = input_lock_manager or get_global_input_manager()
+        self._auto_enter_after_text = bool(auto_enter_after_text)
         self._step_started_at: dict[str, float] = {}
         self._run_finish_emitted = False
         self._pyautogui_defaults = {
@@ -259,6 +274,52 @@ class MacroRunner(QThread):
             self._structured_logger.write(level=level, event=event, payload=payload)
         except Exception as e:
             self.logger.debug("structured event write failed: %s", e)
+
+    @contextmanager
+    def _acquire_input_lock(self, operation: str):
+        if self.dry_run or not self._input_lock_enabled:
+            yield
+            return
+
+        timeout_sec = float(self._input_lock_timeout_sec)
+        op = str(operation or "input")
+        self._write_structured_event(
+            "INFO",
+            "input_lock_waiting",
+            operation=op,
+            timeout_sec=timeout_sec,
+        )
+        try:
+            with self._input_lock_manager.acquire(
+                timeout_sec=timeout_sec,
+                owner=str(self.run_id or ""),
+                operation=op,
+            ) as token:
+                self._write_structured_event(
+                    "INFO",
+                    "input_lock_acquired",
+                    operation=op,
+                    wait_ms=int(token.wait_ms),
+                )
+                held_start = time.perf_counter()
+                try:
+                    yield
+                finally:
+                    held_ms = max(0, int((time.perf_counter() - held_start) * 1000))
+                    self._write_structured_event(
+                        "INFO",
+                        "input_lock_released",
+                        operation=op,
+                        held_ms=held_ms,
+                    )
+        except InputLockTimeoutError:
+            self._write_structured_event(
+                "ERROR",
+                "input_lock_timeout",
+                operation=op,
+                timeout_sec=timeout_sec,
+            )
+            raise
 
     def _consume_step_duration_ms(self, step_uuid: str) -> int | None:
         started = self._step_started_at.pop(step_uuid, None)
@@ -1093,26 +1154,27 @@ class MacroRunner(QThread):
             btn = "left"
         duration = max(0, getattr(s, "press_duration_ms", 70)) / 1000.0
 
-        if self.dry_run:
-            self.requestCrosshair.emit(int(x), int(y), 200)
-        elif self.human_mode:
-            self._human_mouse.click(int(x), int(y), button=btn, double=double_click, hold_sec=duration)
-        else:
-            pyautogui.moveTo(x, y)
-            if action != "move":
-                if double_click:
-                    for tap in range(2):
+        with self._acquire_input_lock("click"):
+            if self.dry_run:
+                self.requestCrosshair.emit(int(x), int(y), 200)
+            elif self.human_mode:
+                self._human_mouse.click(int(x), int(y), button=btn, double=double_click, hold_sec=duration)
+            else:
+                pyautogui.moveTo(x, y)
+                if action != "move":
+                    if double_click:
+                        for tap in range(2):
+                            pyautogui.mouseDown(button=btn)
+                            if duration > 0:
+                                time.sleep(duration)
+                            pyautogui.mouseUp(button=btn)
+                            if tap == 0:
+                                self.msleep(50)
+                    else:
                         pyautogui.mouseDown(button=btn)
                         if duration > 0:
                             time.sleep(duration)
                         pyautogui.mouseUp(button=btn)
-                        if tap == 0:
-                            self.msleep(50)
-                else:
-                    pyautogui.mouseDown(button=btn)
-                    if duration > 0:
-                        time.sleep(duration)
-                    pyautogui.mouseUp(button=btn)
         # Post-click sleep (applies to human/direct)
         post_sleep = getattr(s, "post_click_sleep_ms", 0)
         if post_sleep > 0:
@@ -1189,6 +1251,9 @@ class MacroRunner(QThread):
         txt = self._process_dynamic_string(s.key_string or "")
         if not txt:
             return False
+        if TemplateProcessor.has_unresolved_placeholder(txt):
+            self.log.emit("!! text paste blocked: unresolved placeholder remains.")
+            return False
         times = max(1, int(getattr(s, "key_times", 1) or 1))
         try:
             prev = self._get_clipboard_text()
@@ -1197,9 +1262,12 @@ class MacroRunner(QThread):
                 return False
             self.msleep(30)
             if not self.dry_run:
-                for _ in range(times):
-                    pyautogui.hotkey("ctrl", "v")
-                    self.msleep(20)
+                with self._acquire_input_lock("keyboard_paste"):
+                    for _ in range(times):
+                        pyautogui.hotkey("ctrl", "v")
+                        if self._auto_enter_after_text:
+                            pyautogui.press("enter")
+                        self.msleep(20)
             self.msleep(30)
             if prev is not None:
                 self._set_clipboard_text(prev)
@@ -1267,15 +1335,16 @@ class MacroRunner(QThread):
         mod_names = [self._map_key_name(m) for m in sorted(mods)]
         if self.dry_run:
             return True
-        try:
-            for mk in mod_names:
-                if mk:
-                    pyautogui.keyDown(mk)
-            pyautogui.press(key_name)
-        finally:
-            for mk in reversed(mod_names):
-                if mk:
-                    pyautogui.keyUp(mk)
+        with self._acquire_input_lock("keyboard_press"):
+            try:
+                for mk in mod_names:
+                    if mk:
+                        pyautogui.keyDown(mk)
+                pyautogui.press(key_name)
+            finally:
+                for mk in reversed(mod_names):
+                    if mk:
+                        pyautogui.keyUp(mk)
         return True
 
     def _region_for_step(self, mon, step: StepData) -> dict | None:
@@ -1295,10 +1364,16 @@ class MacroRunner(QThread):
             return (False, None)
         repeat = max(1, int(getattr(s, "key_times", 1) or 1))
         if data["text"] is not None:
+            if TemplateProcessor.has_unresolved_placeholder(data["text"]):
+                self.log.emit("!! key typewrite blocked: unresolved placeholder remains.")
+                return (False, None)
             if self.dry_run:
                 return (True, None)
-            for _ in range(repeat):
-                pyautogui.typewrite(data["text"], interval=0)
+            with self._acquire_input_lock("keyboard_typewrite"):
+                for _ in range(repeat):
+                    pyautogui.typewrite(data["text"], interval=0)
+                    if self._auto_enter_after_text and str(getattr(s, "type", "")).lower() in {"text", "keyboard"}:
+                        pyautogui.press("enter")
             return (True, None)
         base = data["base"]
         if not base:
@@ -1319,11 +1394,12 @@ class MacroRunner(QThread):
             return (False, None)
         if self.dry_run:
             return (True, None)
-        for mod in sorted(data["mods"]):
-            mod_name = self._map_key_name(mod)
-            if mod_name:
-                pyautogui.keyDown(mod_name)
-        pyautogui.keyDown(key_name)
+        with self._acquire_input_lock("keyboard_keydown"):
+            for mod in sorted(data["mods"]):
+                mod_name = self._map_key_name(mod)
+                if mod_name:
+                    pyautogui.keyDown(mod_name)
+            pyautogui.keyDown(key_name)
         return (True, None)
 
     def _key_up(self, s: StepData) -> tuple[bool, str | None]:
@@ -1335,11 +1411,12 @@ class MacroRunner(QThread):
             return (False, None)
         if self.dry_run:
             return (True, None)
-        pyautogui.keyUp(key_name)
-        for mod in sorted(data["mods"], reverse=True):
-            mod_name = self._map_key_name(mod)
-            if mod_name:
-                pyautogui.keyUp(mod_name)
+        with self._acquire_input_lock("keyboard_keyup"):
+            pyautogui.keyUp(key_name)
+            for mod in sorted(data["mods"], reverse=True):
+                mod_name = self._map_key_name(mod)
+                if mod_name:
+                    pyautogui.keyUp(mod_name)
         return (True, None)
 
     def _key_hold(self, s: StepData) -> tuple[bool, str | None]:
@@ -1351,19 +1428,20 @@ class MacroRunner(QThread):
             return (False, None)
         if self.dry_run:
             return (True, None)
-        try:
-            for mod in sorted(data["mods"]):
-                mod_name = self._map_key_name(mod)
-                if mod_name:
-                    pyautogui.keyDown(mod_name)
-            pyautogui.keyDown(key_name)
-            self.msleep(max(0, int(getattr(s, "hold_ms", 0))))
-        finally:
-            pyautogui.keyUp(key_name)
-            for mod in sorted(data["mods"], reverse=True):
-                mod_name = self._map_key_name(mod)
-                if mod_name:
-                    pyautogui.keyUp(mod_name)
+        with self._acquire_input_lock("keyboard_keyhold"):
+            try:
+                for mod in sorted(data["mods"]):
+                    mod_name = self._map_key_name(mod)
+                    if mod_name:
+                        pyautogui.keyDown(mod_name)
+                pyautogui.keyDown(key_name)
+                self.msleep(max(0, int(getattr(s, "hold_ms", 0))))
+            finally:
+                pyautogui.keyUp(key_name)
+                for mod in sorted(data["mods"], reverse=True):
+                    mod_name = self._map_key_name(mod)
+                    if mod_name:
+                        pyautogui.keyUp(mod_name)
         return (True, None)
 
     def _keyboard(self, s: StepData) -> tuple[bool, str | None]:
@@ -1418,14 +1496,15 @@ class MacroRunner(QThread):
             return (True, None)
         try:
             btn = s.click_btn or "left"
-            if self.human_mode:
-                self._human_mouse.click(int(s.click_x), int(s.click_y), button=btn, double=bool(s.click_double))
-            else:
-                pyautogui.moveTo(int(s.click_x), int(s.click_y))
-                if s.click_double:
-                    pyautogui.doubleClick(button=btn)
+            with self._acquire_input_lock("click_point"):
+                if self.human_mode:
+                    self._human_mouse.click(int(s.click_x), int(s.click_y), button=btn, double=bool(s.click_double))
                 else:
-                    pyautogui.click(button=btn)
+                    pyautogui.moveTo(int(s.click_x), int(s.click_y))
+                    if s.click_double:
+                        pyautogui.doubleClick(button=btn)
+                    else:
+                        pyautogui.click(button=btn)
             return (True, None)
         except Exception as e:
             self.log.emit(f"!! click_point error: {e}")
@@ -1440,13 +1519,14 @@ class MacroRunner(QThread):
             return True
         try:
             duration_sec = max(0.0, s.drag_duration_ms / 1000.0)
-            if self.human_mode:
-                self._human_mouse.drag(int(s.drag_from_x), int(s.drag_from_y), int(s.drag_to_x), int(s.drag_to_y), duration=duration_sec)
-            else:
-                pyautogui.moveTo(int(s.drag_from_x), int(s.drag_from_y))
-                pyautogui.mouseDown()
-                pyautogui.moveTo(int(s.drag_to_x), int(s.drag_to_y), duration=duration_sec, tween=pyautogui.easeInOutQuad)
-                pyautogui.mouseUp()
+            with self._acquire_input_lock("drag"):
+                if self.human_mode:
+                    self._human_mouse.drag(int(s.drag_from_x), int(s.drag_from_y), int(s.drag_to_x), int(s.drag_to_y), duration=duration_sec)
+                else:
+                    pyautogui.moveTo(int(s.drag_from_x), int(s.drag_from_y))
+                    pyautogui.mouseDown()
+                    pyautogui.moveTo(int(s.drag_to_x), int(s.drag_to_y), duration=duration_sec, tween=pyautogui.easeInOutQuad)
+                    pyautogui.mouseUp()
             return True
         except Exception as e:
             self.log.emit(f"!! drag error: {e}")
@@ -1459,10 +1539,11 @@ class MacroRunner(QThread):
             self.requestCrosshair.emit(int(s.click_x), int(s.click_y), 200)
             return True
         try:
-            if self.human_mode:
-                self._human_mouse.move_to(int(s.click_x), int(s.click_y))
-            else:
-                pyautogui.moveTo(int(s.click_x), int(s.click_y))
+            with self._acquire_input_lock("mouse_move"):
+                if self.human_mode:
+                    self._human_mouse.move_to(int(s.click_x), int(s.click_y))
+                else:
+                    pyautogui.moveTo(int(s.click_x), int(s.click_y))
             return True
         except Exception as e:
             self.log.emit(f"!! mouse_move error: {e}")
@@ -1472,23 +1553,24 @@ class MacroRunner(QThread):
         btn = getattr(s, "click_btn", None) or "left"
         double = bool(getattr(s, "click_double", False))
         try:
-            if s.click_x is not None and s.click_y is not None:
-                if self.dry_run:
-                    self.requestCrosshair.emit(int(s.click_x), int(s.click_y), 200)
-                else:
-                    if self.human_mode:
-                        self._human_mouse.move_to(int(s.click_x), int(s.click_y))
+            with self._acquire_input_lock("click"):
+                if s.click_x is not None and s.click_y is not None:
+                    if self.dry_run:
+                        self.requestCrosshair.emit(int(s.click_x), int(s.click_y), 200)
                     else:
-                        pyautogui.moveTo(int(s.click_x), int(s.click_y))
-            if self.dry_run:
-                return (True, None)
-            if self.human_mode:
-                self._human_mouse.click(int(s.click_x or 0), int(s.click_y or 0), button=btn, double=double)
-            else:
-                if double:
-                    pyautogui.doubleClick(button=btn)
+                        if self.human_mode:
+                            self._human_mouse.move_to(int(s.click_x), int(s.click_y))
+                        else:
+                            pyautogui.moveTo(int(s.click_x), int(s.click_y))
+                if self.dry_run:
+                    return (True, None)
+                if self.human_mode:
+                    self._human_mouse.click(int(s.click_x or 0), int(s.click_y or 0), button=btn, double=double)
                 else:
-                    pyautogui.click(button=btn)
+                    if double:
+                        pyautogui.doubleClick(button=btn)
+                    else:
+                        pyautogui.click(button=btn)
             return (True, None)
         except Exception as e:
             self.log.emit(f"!! click error: {e}")
@@ -1517,20 +1599,21 @@ class MacroRunner(QThread):
             return True
         try:
             button = s.click_btn or s.click_button or "left"
-            if self.human_mode:
-                self._human_mouse.drag_path(points, button=button)
-            else:
-                pyautogui.moveTo(points[0][0], points[0][1])
-                pyautogui.mouseDown(button=button)
-                prev_t = points[0][2]
-                for px, py, ts in points[1:]:
-                    if prev_t is not None and ts is not None:
-                        delta = max(0.0, ts - prev_t)
-                        if delta > 0.0:
-                            time.sleep(delta)
-                    pyautogui.moveTo(px, py)
-                    prev_t = ts
-                pyautogui.mouseUp(button=button)
+            with self._acquire_input_lock("drag_path"):
+                if self.human_mode:
+                    self._human_mouse.drag_path(points, button=button)
+                else:
+                    pyautogui.moveTo(points[0][0], points[0][1])
+                    pyautogui.mouseDown(button=button)
+                    prev_t = points[0][2]
+                    for px, py, ts in points[1:]:
+                        if prev_t is not None and ts is not None:
+                            delta = max(0.0, ts - prev_t)
+                            if delta > 0.0:
+                                time.sleep(delta)
+                        pyautogui.moveTo(px, py)
+                        prev_t = ts
+                    pyautogui.mouseUp(button=button)
             return True
         except Exception as e:
             self.log.emit(f"!! drag_path error: {e}")
@@ -1549,10 +1632,11 @@ class MacroRunner(QThread):
 
     def _scroll(self, s: StepData) -> tuple[bool, str | None]:
         try:
-            for _ in range(max(1, int(s.scroll_times))):
-                pyautogui.hscroll(int(s.scroll_dx))
-                pyautogui.scroll(int(s.scroll_dy))
-                self.msleep(max(0, int(s.scroll_interval_ms)))
+            with self._acquire_input_lock("scroll"):
+                for _ in range(max(1, int(s.scroll_times))):
+                    pyautogui.hscroll(int(s.scroll_dx))
+                    pyautogui.scroll(int(s.scroll_dy))
+                    self.msleep(max(0, int(s.scroll_interval_ms)))
             return (True, None)
         except Exception as e:
             self.log.emit(f"!! scroll error: {e}")
@@ -2146,7 +2230,7 @@ class MacroRunner(QThread):
         """
         required: set[str] = set()
         builtins = {"data", "seq"}
-        pattern = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+        pattern = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}|\{([A-Za-z_][A-Za-z0-9_]*)\}")
         target_fields = ("key_string", "ocr_expected_text")
 
         for step in self.steps:
@@ -2154,7 +2238,8 @@ class MacroRunner(QThread):
                 raw = getattr(step, field_name, None)
                 if not isinstance(raw, str) or "{" not in raw:
                     continue
-                for token in pattern.findall(raw):
+                for m in pattern.finditer(raw):
+                    token = m.group(1) or m.group(2)
                     if token in builtins:
                         continue
                     required.add(token)
@@ -2298,26 +2383,16 @@ class MacroRunner(QThread):
             return t
         text = re.sub(r"[#@?]", replace_random, text)
 
-        # Variable context substitution: {varname}
-        def replace_var(match):
-            name = match.group(1)
-            if name in self.variable_context:
-                return str(self.variable_context[name])
-            return match.group(0)
-
-        text = re.sub(r"\{(\w+)\}", replace_var, text)
-        
+        mapping: dict[str, object] = dict(self.variable_context or {})
         if self._data_list and 0 <= self._data_index < len(self._data_list):
-            # Convenience token for "current row primary value" (first CSV column)
-            text = text.replace("{data}", str(self._data_list[self._data_index]))
-            # Replace {column_name} with value from current row
+            mapping["data"] = str(self._data_list[self._data_index])
             row_vals = self._get_current_row_values()
             if row_vals:
                 for idx, col in enumerate(self._data_columns):
                     if idx < len(row_vals):
-                        text = text.replace(f"{{{col}}}", row_vals[idx])
-                        
-        return text
+                        mapping[str(col)] = row_vals[idx]
+
+        return TemplateProcessor.render(text, mapping)
 
     def _get_current_row_values(self) -> list[str] | None:
         if self._data_row_values is not None and 0 <= self._data_index < len(self._data_row_values):

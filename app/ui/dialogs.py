@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QMenu, QGridLayout, QApplication, QShortcut,
     QRadioButton, QStackedWidget
 )
-from PyQt5.QtCore import Qt, QTimer, QEventLoop, QSettings, QSize
+from PyQt5.QtCore import Qt, QTimer, QEventLoop, QSettings, QSize, QEvent
 from PyQt5.QtGui import QIcon, QPixmap, QKeySequence
 
 from ..core.models import StepData
@@ -862,6 +862,7 @@ class NotImageDialog(BaseDialog):
         self._legacy_settings = QSettings(LEGACY_SETTINGS_ORG, LEGACY_SETTINGS_APP)
         self._migrate_recent_paths()
         self.undo_stack = UndoStack()
+        self._key_recording = False
         # Jump If summary label placeholder to avoid attribute errors before UI build
         self.lblJumpSummary = QLabel("조건을 설정해주세요.")
         self.lblOcrJumpSummary = QLabel("조건을 설정해주세요.")
@@ -986,6 +987,7 @@ class NotImageDialog(BaseDialog):
         # Ensure main grouped UI is built
         self._init_groups()
         self._refresh_visibility()
+        self._update_key_record_ui()
         
         btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         btns.accepted.connect(self.accept)
@@ -1091,6 +1093,7 @@ class NotImageDialog(BaseDialog):
         self.lblKeyMode = QLabel("Mode:")
         self.cbKeyMode = QComboBox()
         self.cbKeyMode.addItems(["text", "key", "key_down", "key_up", "key_hold"])
+        self.cbKeyMode.currentTextChanged.connect(self._refresh_visibility)
         mode = "text"
         if self._step:
             if self._step.type == "keyboard":
@@ -1102,7 +1105,18 @@ class NotImageDialog(BaseDialog):
             self.cbKeyMode.setCurrentIndex(idx)
         keyLayout.addRow(self.lblKeyMode, self.cbKeyMode)
         self.edKey = QLineEdit(self._step.key_string if self._step else "")
-        keyLayout.addRow("Key String:", self.edKey)
+        keyRow = QWidget()
+        keyRowLayout = QHBoxLayout(keyRow)
+        keyRowLayout.setContentsMargins(0, 0, 0, 0)
+        keyRowLayout.setSpacing(6)
+        keyRowLayout.addWidget(self.edKey, 1)
+        self.btnKeyRecord = QPushButton("REC")
+        self.btnKeyRecord.setCheckable(True)
+        self.btnKeyRecord.setFixedWidth(52)
+        self.btnKeyRecord.setToolTip("특수키를 눌러 Key String에 자동 입력")
+        self.btnKeyRecord.toggled.connect(self._on_toggle_key_record)
+        keyRowLayout.addWidget(self.btnKeyRecord)
+        keyLayout.addRow("Key String:", keyRow)
         self.lblKeyHint = QLabel("#=random A-Z, @=random a-z, ?=random 0-9, {seq}=increment")
         self.lblKeyHint.setStyleSheet("color:#888; font-size:10px;")
         self.lblKeyHint.setWordWrap(True)
@@ -1765,6 +1779,99 @@ class NotImageDialog(BaseDialog):
             self.groupRunMacro.setVisible(True)
             if not self.edRunMacroPath.text().strip():
                 self.edRunMacroPath.setText(self._default_macro_path())
+        self._update_key_record_ui()
+
+    def _current_key_capture_mode(self) -> str:
+        t = str(self.cbType.currentText() or "").lower()
+        if t == "keyboard":
+            return str(self.cbKeyMode.currentText() or "text").lower()
+        return t
+
+    def _can_record_key_name(self) -> bool:
+        return self._current_key_capture_mode() in {"key", "key_down", "key_up", "key_hold"}
+
+    def _set_key_recording(self, enabled: bool) -> None:
+        active = bool(enabled) and self._can_record_key_name()
+        if active == self._key_recording:
+            if hasattr(self, "btnKeyRecord") and bool(self.btnKeyRecord.isChecked()) != active:
+                self.btnKeyRecord.blockSignals(True)
+                self.btnKeyRecord.setChecked(active)
+                self.btnKeyRecord.blockSignals(False)
+            return
+        self._key_recording = active
+        app = QApplication.instance()
+        if app:
+            try:
+                if active:
+                    app.installEventFilter(self)
+                else:
+                    app.removeEventFilter(self)
+            except Exception:
+                pass
+        if hasattr(self, "btnKeyRecord"):
+            self.btnKeyRecord.blockSignals(True)
+            self.btnKeyRecord.setChecked(active)
+            self.btnKeyRecord.setText("REC..." if active else "REC")
+            self.btnKeyRecord.setStyleSheet("color:#ff7b7b; font-weight:600;" if active else "")
+            self.btnKeyRecord.blockSignals(False)
+
+    def _on_toggle_key_record(self, checked: bool) -> None:
+        self._set_key_recording(bool(checked))
+
+    def _update_key_record_ui(self) -> None:
+        if not hasattr(self, "btnKeyRecord"):
+            return
+        allowed = (not self.groupKey.isHidden()) and self._can_record_key_name()
+        self.btnKeyRecord.setEnabled(allowed)
+        if not allowed:
+            self._set_key_recording(False)
+
+    def _capture_recorded_key(self, event) -> bool:
+        key = int(event.key())
+        if key in (Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta):
+            return True
+        key_map = {
+            Qt.Key_Return: "enter",
+            Qt.Key_Enter: "enter",
+            Qt.Key_Tab: "tab",
+            Qt.Key_Backtab: "tab",
+            Qt.Key_Escape: "esc",
+            Qt.Key_Space: "space",
+            Qt.Key_Backspace: "backspace",
+            Qt.Key_Delete: "delete",
+            Qt.Key_Home: "home",
+            Qt.Key_End: "end",
+            Qt.Key_Insert: "insert",
+            Qt.Key_PageUp: "pageup",
+            Qt.Key_PageDown: "pagedown",
+            Qt.Key_Up: "up",
+            Qt.Key_Down: "down",
+            Qt.Key_Left: "left",
+            Qt.Key_Right: "right",
+        }
+        key_name = key_map.get(key)
+        if key_name is None and Qt.Key_F1 <= key <= Qt.Key_F24:
+            key_name = f"f{(key - Qt.Key_F1) + 1}"
+        if key_name is None:
+            text = str(event.text() or "").strip()
+            if text:
+                key_name = text.lower()
+        if not key_name:
+            return False
+        self.edKey.setText(key_name)
+        self._set_key_recording(False)
+        self.edKey.setFocus()
+        return True
+
+    def eventFilter(self, obj, event):
+        if self._key_recording and event is not None and event.type() == QEvent.KeyPress:
+            if self._capture_recorded_key(event):
+                return True
+        return super().eventFilter(obj, event)
+
+    def closeEvent(self, event):
+        self._set_key_recording(False)
+        super().closeEvent(event)
 
     def _populate_variable_suggestions(self):
         """Populate Jump If variable suggestions from OCR store steps + system vars."""
