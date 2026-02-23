@@ -90,3 +90,31 @@ def test_option_toolbar_is_split_into_core_and_advanced_rows(monkeypatch, qapp, 
     assert win.chkDry.isVisible() is True
 
     win.close()
+
+
+def test_excel_mode_visual_feedback_updates_core_row_and_badge(monkeypatch, qapp, qtbot):
+    from app.main import MainWindow
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.show()
+    qapp.processEvents()
+
+    assert hasattr(win, "lblBatchModeBadge")
+    assert win.lblBatchModeBadge.isVisible() is False
+    assert "transparent" in win._opt_core_row.styleSheet()
+
+    win.chkExcelDataMode.setChecked(True)
+    qapp.processEvents()
+    assert win.lblBatchModeBadge.isVisible() is True
+    assert "#E6F4EA" in win._opt_core_row.styleSheet()
+    assert "Excel Batch Mode Activated" in win.statusBar().currentMessage()
+
+    win.chkExcelDataMode.setChecked(False)
+    qapp.processEvents()
+    assert win.lblBatchModeBadge.isVisible() is False
+    assert "transparent" in win._opt_core_row.styleSheet()
+    assert "Standard Mode Activated" in win.statusBar().currentMessage()
+
+    win.close()

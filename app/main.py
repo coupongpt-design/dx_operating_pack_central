@@ -417,6 +417,7 @@ class MainWindow(QMainWindow):
         self._opt_root_layout.setSpacing(4)
 
         self._opt_core_row = QWidget()
+        self._opt_core_row.setObjectName("optCoreRow")
         self._opt_core_layout = QHBoxLayout(self._opt_core_row)
         self._opt_core_layout.setContentsMargins(0, 0, 0, 0)
         self._opt_core_layout.setSpacing(6)
@@ -516,6 +517,17 @@ class MainWindow(QMainWindow):
         self.lblExcelStatus.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         _opt_core_add(self.lblExcelStatus)
 
+        self.lblBatchModeBadge = QLabel("BATCH MODE ACTIVE")
+        self.lblBatchModeBadge.setObjectName("batchModeBadge")
+        self.lblBatchModeBadge.setStyleSheet(
+            "QLabel#batchModeBadge {"
+            "background-color: #1B5E20; color: white;"
+            "padding: 2px 8px; border-radius: 10px; font-weight: 600;"
+            "}"
+        )
+        self.lblBatchModeBadge.hide()
+        _opt_core_add(self.lblBatchModeBadge)
+
         self._opt_core_layout.addStretch(0)
 
         # Advanced row: secondary runtime options
@@ -534,6 +546,8 @@ class MainWindow(QMainWindow):
         # For backward compatibility with existing methods
         self.edTargetWindow = self.edTargetTitle
         self.chkDebugOverlay.toggled.connect(lambda v: self.debug_overlay.setVisible(v))
+        self.chkExcelDataMode.toggled.connect(self._on_excel_mode_toggled)
+        self._apply_excel_mode_visual_state(self.chkExcelDataMode.isChecked(), announce=False)
         
         # Menu Bar
         menubar = self.menuBar()
@@ -1242,6 +1256,26 @@ class MainWindow(QMainWindow):
         )
         if path:
             self.edExcelDataPath.setText(path)
+
+    def _apply_excel_mode_visual_state(self, enabled: bool, *, announce: bool = False) -> None:
+        is_enabled = bool(enabled)
+        if hasattr(self, "_opt_core_row"):
+            if is_enabled:
+                self._opt_core_row.setStyleSheet(
+                    "QWidget#optCoreRow { background-color: #E6F4EA; border-radius: 6px; }"
+                )
+            else:
+                self._opt_core_row.setStyleSheet(
+                    "QWidget#optCoreRow { background-color: transparent; border-radius: 6px; }"
+                )
+        if hasattr(self, "lblBatchModeBadge"):
+            self.lblBatchModeBadge.setVisible(is_enabled)
+        if announce and hasattr(self, "statusBar"):
+            mode_msg = "Excel Batch Mode Activated" if is_enabled else "Standard Mode Activated"
+            self.statusBar().showMessage(mode_msg, 2200)
+
+    def _on_excel_mode_toggled(self, enabled: bool) -> None:
+        self._apply_excel_mode_visual_state(enabled, announce=self.isVisible())
 
     def _get_excel_text_template(self) -> str:
         for step in self.steps:
