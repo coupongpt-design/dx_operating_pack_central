@@ -9,6 +9,13 @@ import json
 DEFAULT_SCHEMA_VERSION = 1
 DEFAULT_ROLE_ORDER = ("planner", "implementer", "reviewer", "tester", "documenter")
 COMPACT_ROLE_ORDER = ("planner", "implementer", "reviewer")
+PRECISION_FILE_MARKERS = (
+    "stepdata",
+    "models.py",
+    "serial",
+    "runner",
+    "signal",
+)
 
 
 @dataclass(frozen=True)
@@ -222,10 +229,22 @@ class MultiRoleAIOrchestrator:
         self.compact_output_chars = max(200, int(compact_output_chars))
         self.precision_output_chars = max(self.compact_output_chars, int(precision_output_chars))
 
-    def select_mode(self, task: str, context: str = "") -> str:
+    def select_mode(
+        self,
+        task: str,
+        context: str = "",
+        changed_files: Sequence[str] | None = None,
+    ) -> str:
         task_text = _clean_text(task).lower()
         context_text = _clean_text(context).lower()
+        changed_list = [str(row or "").strip().lower() for row in (changed_files or []) if str(row or "").strip()]
         score = 0
+
+        # AGENTS-aligned hard triggers
+        if len(changed_list) >= 5:
+            return "precision"
+        if any(any(marker in path for marker in PRECISION_FILE_MARKERS) for path in changed_list):
+            return "precision"
 
         if len(task_text) >= 180:
             score += 1
@@ -263,12 +282,13 @@ class MultiRoleAIOrchestrator:
         context: str = "",
         mode: str = "auto",
         role_ids: Sequence[str] | None = None,
+        changed_files: Sequence[str] | None = None,
     ) -> OrchestrationResult:
         task_text = _clean_text(task)
         if not task_text:
             raise ValueError("task is required")
 
-        mode_value = self._resolve_mode(mode, task_text, context)
+        mode_value = self._resolve_mode(mode, task_text, context, changed_files=changed_files)
         selected_role_ids = self._resolve_role_ids(mode_value, role_ids)
         output_limit = (
             self.precision_output_chars if mode_value == "precision" else self.compact_output_chars
@@ -308,10 +328,17 @@ class MultiRoleAIOrchestrator:
             summary=summary,
         )
 
-    def _resolve_mode(self, mode: str, task: str, context: str) -> str:
+    def _resolve_mode(
+        self,
+        mode: str,
+        task: str,
+        context: str,
+        *,
+        changed_files: Sequence[str] | None = None,
+    ) -> str:
         raw = _clean_text(mode).lower()
         if raw in ("", "auto"):
-            return self.select_mode(task, context)
+            return self.select_mode(task, context, changed_files=changed_files)
         if raw not in ("compact", "precision"):
             raise ValueError(f"unsupported mode: {mode}")
         return raw

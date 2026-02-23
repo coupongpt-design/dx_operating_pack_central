@@ -1,4 +1,5 @@
 import json
+from argparse import Namespace
 
 import pytest
 
@@ -38,6 +39,26 @@ def test_multi_role_ai_auto_switches_to_precision():
     assert result.mode == "precision"
     assert len(result.turns) == 5
     assert result.role_ids == ["planner", "implementer", "reviewer", "tester", "documenter"]
+
+
+def test_multi_role_ai_auto_switches_to_precision_on_changed_files_threshold():
+    orchestrator = MultiRoleAIOrchestrator()
+    result = orchestrator.run(
+        task="작업",
+        mode="auto",
+        changed_files=["a.py", "b.py", "c.py", "d.py", "e.py"],
+    )
+    assert result.mode == "precision"
+
+
+def test_multi_role_ai_auto_switches_to_precision_on_risk_files():
+    orchestrator = MultiRoleAIOrchestrator()
+    result = orchestrator.run(
+        task="작업",
+        mode="auto",
+        changed_files=["app/core/runner.py"],
+    )
+    assert result.mode == "precision"
 
 
 def test_multi_role_ai_raises_for_unknown_role():
@@ -158,3 +179,58 @@ def test_multi_role_ai_accepts_custom_role_definition():
 def test_multi_role_ai_rejects_empty_roles():
     with pytest.raises(ValueError):
         MultiRoleAIOrchestrator(roles=[])
+
+
+def test_run_multi_role_ai_hard_gate_blocks_on_guardian_fail(monkeypatch, tmp_path):
+    import tools.run_multi_role_ai as cli
+
+    class FakeOrchestrator:
+        def __init__(self, roles=None):
+            self.roles = roles
+
+        def run(self, **kwargs):
+            return OrchestrationResult(
+                task="t",
+                context="",
+                mode="precision",
+                role_ids=["planner", "implementer", "reviewer"],
+                turns=[
+                    RoleTurn(role_id="planner", title="Planner", prompt="p", response="plan"),
+                    RoleTurn(role_id="implementer", title="Implementer", prompt="p", response="impl"),
+                    RoleTurn(role_id="reviewer", title="Reviewer", prompt="p", response='{"is_approved": false}'),
+                ],
+                summary="s",
+            )
+
+    rollback_called = {}
+
+    def fake_rollback(_baseline):
+        rollback_called["called"] = True
+        return {"attempted": True, "targets": ["x.py"], "rolled_back": ["x.py"], "failed": []}
+
+    monkeypatch.setattr(cli, "ROOT", str(tmp_path))
+    monkeypatch.setattr(cli, "MultiRoleAIOrchestrator", FakeOrchestrator)
+    monkeypatch.setattr(cli, "parse_args", lambda: Namespace(
+        task="task",
+        context="ctx",
+        mode="auto",
+        roles="",
+        roles_file="",
+        format="json",
+        changed_file=[],
+    ))
+    monkeypatch.setattr(cli, "_collect_git_state", lambda: {"tracked": set(), "untracked": set()})
+    monkeypatch.setattr(cli, "_safe_git_diff", lambda: "")
+    monkeypatch.setattr(cli, "_auto_rollback_changes", fake_rollback)
+
+    rc = cli.main()
+    assert rc == 1
+    assert rollback_called.get("called") is True
+
+    base = tmp_path / "logs" / "ai_sessions"
+    dirs = sorted(base.glob("*"))
+    assert dirs
+    artifact_dir = dirs[-1]
+    assert (artifact_dir / "planner_plan.md").exists()
+    assert (artifact_dir / "executor_diff.json").exists()
+    assert (artifact_dir / "guardian_report.json").exists()

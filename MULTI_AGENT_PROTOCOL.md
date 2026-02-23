@@ -18,6 +18,10 @@
     - `Tests:`
     - `- targeted: PASS / FAIL`
     - `- full suite: <exact pytest -q summary line if executed>`
+- Waste-reduction gate (mandatory):
+  - Max 4 `rg` queries and max 2 file opens per task.
+  - Use write-first search order.
+  - No full-file dumps.
 
 2. Guardian (read-only verifier)
 - Does not edit code.
@@ -83,6 +87,9 @@ Check:
 - steps direct mutation patterns (including rebinding)
 - Runner/goto branching stability (prefer step_id, safe fallback)
 - Serialization/backward compatibility
+- Monkey patching risk checks:
+  - Is there any ad-hoc code not present in Planner scope?
+  - Is there any shortcut that bypasses thread safety / UI access rules?
 - Docs sync requirements if behavior change
 - Tests: required gates satisfied?
 Output:

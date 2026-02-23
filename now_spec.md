@@ -23,6 +23,15 @@
 - Undo/Redo: Command 패턴, 모든 CRUD/Move/중복을 `_push_command` 경유, Ctrl+Z/Ctrl+Y.
 - Scenario Wizard: 기존 수동 스텝 편집과 독립된 별도 버튼/다이얼로그 제공. `추천/전체/검색` 템플릿 목록, 필수값 입력, 오류/경고 검증, 생성 스텝 미리보기 후 `AddStepsCommand`로 삽입. 템플릿 카탈로그는 46종이며(`app/core/scenario_wizard_templates.json`), 갱신용 생성 스크립트는 `tools/generate_scenario_wizard_templates.py`. 사용자 템플릿은 별도 카탈로그(`app/core/scenario_wizard_user_templates.json`)로 저장/병합되며, 기본 템플릿은 읽기 전용 정책을 유지. 사용자 편집 팝업에서 `custom_flow` 흐름 편집(샌드위치 삽입/삭제 Lazy-Check/저장 전 Validator 리포트)도 지원. 데이터 템플릿은 CSV/XLSX 경로를 입력받고 문자열 필드에 컬럼 토큰 삽입 버튼(`{column}`)을 제공.
 - Multi-role AI Orchestration(개발 보조): `app/core/multi_role_ai.py`에서 역할별(Planner/Implementer/Reviewer/Tester/Documenter) 파이프라인을 순차 실행하고, `tools/run_multi_role_ai.py`로 CLI 실행. `auto` 모드에서 task/context 복잡도를 기반으로 `compact`(3역할) 또는 `precision`(5역할) 체인을 자동 선택.
+  - `changed_files` 힌트 기반 Precision 강제 트리거를 지원(파일 수 5개 이상 또는 `stepdata/serialization/runner/signal` 핵심 경로 포함 시 강제 Precision).
+  - Guardian 하드 게이트: reviewer/guardian 결과가 `is_approved=false` 또는 `FAIL`이면 프로세스를 종료 코드 1로 차단.
+  - 실패 시 baseline 대비 신규 tracked 변경 파일 rollback 시도(`git checkout -- <file>`).
+  - 세션 아티팩트를 `logs/ai_sessions/{timestamp}/`에 저장:
+    - `planner_plan.md`
+    - `executor_diff.json`
+    - `guardian_report.json`
+- Multi-Manager pending 자동 복구: `SessionManager`가 `runner_provider(sess)`를 통해 pending 세션의 runner 재생성을 시도하고, 세션별 backoff로 재시도 간격을 제어한다. recovery가 최대 시도/최대 대기 임계치를 넘기면 `pending -> error`로 승격한다.
+- Global Input Lock: `app/core/input_lock.py`의 `GlobalInputManager`를 통해 물리 입력 구간을 전역 직렬화한다. `MacroRunner`는 lock wait/acquire/release/timeout을 JSONL 이벤트로 기록하고, timeout은 step failure로 전파된다.
 - Sub-scripts: `run_macro` 액션, 콜 스택+재귀 가드(깊이 5), 변수 컨텍스트 공유.
 - Window Management: 제목 기반 find/activate, 1px 흔들기로 렌더링 글리치 복구; 제목 비어있거나 미발견 시 경고 후 계속.
 - Window Selector: 필터(`title:`, `class:`, `proc:`, `!exclude`) 지원, 프로세스명 미확인 항목은 제목만 표시.
@@ -41,6 +50,24 @@
   - `.macro` 로드 시 신규 구조와 레거시(`scenario.json + images/*.png`)를 동시 지원.
   - 이미지 경로 로딩에서 `../`, 절대경로, 드라이브 경로를 차단해 unsafe 경로 참조를 방어.
   - `.macro`의 `meta.target_window` 저장/복원 지원.
+- Data Orchestration V2 Step 2C(UI 통합):
+  - 메인 UI에서 `Excel Data Mode`를 활성화하면 `.xlsx` 행 데이터를 `JobQueueManager`로 적재해 멀티 세션(`SessionJobAdapter`) 병렬 실행.
+  - 옵션 툴바는 가로 스크롤 컨테이너로 구성되어 작은 창 폭에서도 컨트롤 접근이 가능.
+  - `Excel Data Mode` 체크박스와 병렬도(`P:`)는 고정 크기 정책으로 우선 가시성 유지.
+  - 엑셀 경로 필드는 elide 표시를 사용해 좁은 폭에서 텍스트 말줄임으로 표시되며 내부 full path 값은 유지.
+  - 옵션 바에 `Auto Enter` 체크박스를 제공하며, 활성 시 텍스트 입력 액션 뒤 Enter 키를 자동 입력.
+  - `excelOrchEvent`/`excelOrchFinished` 시그널로 진행률/상태 라벨을 스레드 안전하게 갱신.
+  - 완료 시 `ExcelResultExporter`로 `_status`, `_error_reason`이 포함된 결과 파일 자동 저장.
+  - Stop 버튼으로 실행 중 어댑터를 안전 중지하고 기존 단일 매크로 실행 경로와 공존.
+  - 텍스트 데이터 바인딩은 `TemplateProcessor` 공통 경로로 처리되며, 미치환 플레이스홀더(`{{var}}`, `{var}`)가 남으면 실행을 실패 처리해 원문 타이핑을 차단.
+  - Excel 실행기 텍스트 우선순위는 `스텝 템플릿 > payload(text/message)`이며, 사용자 지정 `{{ }}` 템플릿이 기본 message 열보다 먼저 적용된다.
+  - 플레이스홀더 키 매핑은 대소문자 무시를 지원(`user_name`/`USER_NAME`).
+  - Excel payload runner 물리 입력(`pyautogui.write`, `Ctrl+V`)은 `Global Input Lock`으로 직렬화되어 멀티 워커 환경에서 입력/클립보드 간섭을 방지.
+  - Excel 실행 로그는 워커와 치환 결과를 함께 표시한다(예: `[Worker 1] 처리 중: {{USER_NAME}} -> 김철수`).
+  - Hotkey Run은 Run 버튼과 같은 분기(`_on_run_button_clicked`)를 사용해 Excel 모드 ON/OFF에 따라 동일 경로로 실행.
+- Action Step 편집 UX:
+  - `Key String` 옆 `[REC]` 버튼으로 특수키를 직접 눌러 키 이름(`enter`, `tab`, `f1`, `esc`) 자동 입력 가능.
+  - `key`/`key_down`/`key_up`/`key_hold` 모드에서만 활성화되어 `text` 입력 모드와 간섭하지 않음.
 - Packaging MVP:
   - PyInstaller 스펙(`ImageMacro.spec`)과 빌드 스크립트(`tools/build_exe.ps1`) 제공.
   - GitHub Actions 수동 빌드 워크플로우(`.github/workflows/build-exe.yml`) 제공.
@@ -143,7 +170,7 @@
 - 스모크 실행 진입점:
   - `python run_smoke_suite.py --quick` (핵심 런타임/매칭 게이트)
   - `python run_smoke_suite.py` (핵심 게이트 + 전체 health check)
-- 최신 로컬 기준: `python -m pytest -q` = `366 passed, 1 skipped`.
+- 최신 로컬 기준: `python -m pytest -q` = `418 passed, 1 skipped`.
 
 ### 규칙 적용 가드
 - 규칙은 2단 구조로 운용:
@@ -164,6 +191,10 @@
     - targeted 테스트 후 커밋
     - 리스크 트리거 시 full pytest 필수
     - 커밋 메시지에 테스트 결과 블록(`targeted`, `full suite`) 필수
+  - Waste-Reduction Protocol:
+    - 검색/열람 예산(`rg` 4회, 파일 open 2회)
+    - write-first 검색 순서
+    - full-file dump 금지 및 delta-only 출력
 - 헬스 체크 기준: `python run_health_check.py` = `SYSTEM HEALTHY`.
 
 ## 8. CI/CD Gate

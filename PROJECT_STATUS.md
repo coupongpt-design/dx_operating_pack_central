@@ -21,6 +21,24 @@
   - `load_data_file`가 CSV/XLSX(`openpyxl`)를 공통 로드
   - 시나리오 마법사 입력 필드에 컬럼 매핑 버튼(`{column}` 토큰 삽입) 추가
   - 템플릿 생성 전 데이터 검증(누락 컬럼 Error, 빈 행 Warning, 데이터 파일 파싱 상태 안내) 추가
+  - Step 2C(UI 통합) 완료:
+    - 옵션 툴바에 `Excel Data Mode`/파일 선택/병렬도/진행률/상태 표시 추가
+    - 옵션 툴바를 가로 스크롤 컨테이너로 변경해 창 축소 시 위젯 잘림을 방지
+    - `Excel Data Mode`/`P:`는 고정 크기 정책으로 우선 노출, 경로 필드는 elide 표시로 폭 축소 대응
+    - Run 버튼에서 Excel 모드 분기 실행(기존 단일 `run_macro` 경로와 공존)
+    - `JobQueueManager` + `SessionJobAdapter` + `ExcelDataLoader/ExcelResultExporter`를 메인 UI에 연결
+    - 작업 완료 시 결과 `.xlsx` 자동 저장, 중지 버튼으로 안전 정지
+- 데이터 바인딩 안정화:
+  - Excel 실행기 텍스트 경로를 `TemplateProcessor` 공통 치환으로 통일
+  - `{{var}}`/`{var}` 미치환 값은 fail-fast 처리(원문 타이핑 금지)
+  - Step 템플릿 fallback에서 `StepData.type`/`keyboard_mode` 필드를 기준으로 텍스트 템플릿 탐색
+  - Excel 실행기 우선순위를 `스텝 템플릿 > payload(text/message)`로 조정해 사용자 지정 `{{ }}`가 기본 message 열보다 우선 적용
+  - 헤더 매핑은 대소문자 무시 치환(`user_name`/`USER_NAME`)을 지원
+  - Excel 실행기 물리 입력(`typewrite`/클립보드 paste) 구간에 `Global Input Lock` 적용으로 멀티 워커 입력 간섭 방지
+  - Excel 실행 진행 로그에 워커/치환 결과를 표시(`job_dispatched` 이벤트 기준, 예: `[Worker 1] 처리 중: {{USER_NAME}} -> 김철수`)
+  - Hotkey Run도 Run 버튼과 동일 분기(`_on_run_button_clicked`)로 통일해 Excel 모드 실행 경로 일관화
+  - 메인 옵션 바에 `Auto Enter` 체크박스 추가: 활성 시 텍스트 입력 액션 뒤 `enter` 자동 입력(일반 Runner + Excel payload runner 동시 적용)
+  - Action Step 다이얼로그 `Key String` 옆 `[REC]` 버튼 추가: key/key_down/key_up/key_hold 모드에서 특수키를 눌러 키 이름 자동 입력
 - 사용자 템플릿 관리(B안): 기본 템플릿 읽기 전용 + 팝업 `복제 저장`/`사용자 편집`/`사용자 삭제` 지원.
 - custom_flow 편집 UI 연동 완료:
   - 사용자 템플릿 편집 팝업에서 `흐름 편집 열기` 제공
@@ -102,11 +120,30 @@
   - 리스크 트리거 시 `python -m pytest -q` 필수
   - `git diff` 의도치 않은 변경 점검 후에만 커밋
   - 커밋 메시지에 테스트 결과 블록(`targeted`, `full suite`) 필수
+- Waste-Reduction Protocol 추가(강제):
+  - task당 `rg` 검색 4회/파일 open 2회 예산
+  - 중복 검색 금지 + write-first 검색 순서 강제
+  - full-file dump 금지 + delta-only 출력 계약
 - 멀티 역할 AI 실행 코어 추가:
   - `app/core/multi_role_ai.py` (역할 오케스트레이션, auto 모드 전환, 결과 요약/렌더링)
   - `tools/run_multi_role_ai.py` (CLI 실행 진입점)
   - `app/core/multi_role_ai_roles.example.json` (커스텀 역할 정의 예시)
   - `tests/test_multi_role_ai.py` (역할 체인/모드 전환/검증 단위 테스트)
+  - Guardian Hard Gate 강화:
+    - `run_multi_role_ai.py`에서 reviewer/guardian 응답이 `is_approved=false` 또는 `FAIL`이면 즉시 종료 코드 1로 차단
+    - 실패 시 baseline 대비 신규 tracked 변경 파일 자동 rollback 시도(`git checkout -- <file>`)
+    - 세션 아티팩트 저장: `logs/ai_sessions/{timestamp}/planner_plan.md`, `executor_diff.json`, `guardian_report.json`
+  - 모드 동기화 강화:
+    - `MultiRoleAIOrchestrator.select_mode()`가 `changed_files` 힌트를 받아 AGENTS 트리거와 동일하게 Precision 강제
+    - 트리거: 변경 파일 수 5개 이상 또는 `stepdata/serialization/runner/signal` 핵심 파일 경로 포함
+- Multi-Manager pending 자동 복구 강화:
+  - `SessionManager._switch_context()`에 세션별 recovery backoff 추가(매 tick 재시도 방지)
+  - UI에서 `runner_provider(sess)`를 주입받아 pending 세션 runner 지연 생성 허용
+  - pending이 최대 시도 횟수/최대 대기 시간 초과 시 `error`로 승격 및 원인 로그 기록
+- Global Input Lock 도입:
+  - `GlobalInputManager`(context manager, timeout)로 물리 입력(마우스/키보드) 구간 단일화
+  - `MacroRunner` 입력 스텝에서 lock wait/acquire/release/timeout 이벤트를 구조화 로그(JSONL)에 기록
+  - lock timeout 발생 시 스텝 실패 경로로 전파되어 stop_on_fail 정책과 일관 동작
 
 ## 파일 포맷
 - JSON 저장: 메타데이터 포함 JSON(`meta`/`repeat`/`steps`), 레거시 리스트 JSON 역호환.
@@ -118,7 +155,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `366 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `418 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 

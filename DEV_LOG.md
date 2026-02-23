@@ -1,5 +1,44 @@
 # 개발 로그
 
+## [2026-02-23] 세션 40
+- **목표**: Multi-Agent 운영 체계에 Guardian Hard Gate/롤백/세션 아티팩트 저장을 반영하고 모드 트리거를 AGENTS 규칙과 동기화.
+- **변경사항**:
+  - `app/core/multi_role_ai.py`
+    - `run(..., changed_files=...)`/`select_mode(..., changed_files=...)` 지원 추가.
+    - AGENTS 트리거 동기화: 변경 파일 수 5개 이상 또는 `stepdata/serialization/runner/signal` 경로 포함 시 `precision` 강제.
+  - `tools/run_multi_role_ai.py`
+    - reviewer/guardian 응답에서 `is_approved=false` 또는 `FAIL` 탐지 시 하드게이트(`exit code 1`) 적용.
+    - 실패 시 baseline 대비 신규 tracked 변경 파일 자동 rollback 시도(`git checkout -- <file>`).
+    - 세션 아티팩트 저장 추가:
+      - `logs/ai_sessions/{timestamp}/planner_plan.md`
+      - `logs/ai_sessions/{timestamp}/executor_diff.json`
+      - `logs/ai_sessions/{timestamp}/guardian_report.json`
+  - `MULTI_AGENT_PROTOCOL.md`
+    - Guardian 체크리스트에 Monkey Patching 징후 탐지 항목 추가.
+  - `tests/test_multi_role_ai.py`
+    - `changed_files` 기반 precision 강제 테스트 추가.
+    - Guardian FAIL 시 CLI 차단 + rollback 호출 + 아티팩트 생성 테스트 추가.
+- **테스트**:
+  - Targeted: `python -m pytest -q tests/test_multi_role_ai.py`
+  - 결과: `13 passed in 0.06s`
+  - Full: `python -m pytest -q`
+  - 결과: `418 passed, 1 skipped in 20.21s`
+
+## [2026-02-23] 세션 39
+- **목표**: Action Step 편집성 개선(키 녹화), Excel 실행 UX 가시성/로그 개선, 텍스트 입력 편의 옵션 추가.
+- **변경사항**:
+  - `NotImageDialog` 키 입력 영역에 `[REC]` 버튼 추가.
+  - REC 활성 시 `enter/tab/f1/esc` 등 키를 눌러 `Key String` 자동 입력.
+  - REC는 `key/key_down/key_up/key_hold` 모드에서만 활성화되도록 제한하여 `text` 입력 모드 간섭 차단.
+  - 메인 옵션 바에 `Auto Enter` 체크박스 추가.
+  - `MacroRunner`/Excel payload runner에 `auto_enter_after_text` 경로를 연결해 텍스트 입력 뒤 Enter 자동 입력 지원.
+  - Excel 오케스트레이션 진행 로그에 워커와 치환 결과를 표시하도록 추가(`job_dispatched` 이벤트 기반).
+- **테스트**:
+  - Targeted: `python -m pytest -q tests/test_action_dialog_flows.py tests/test_excel_payload_runner_template.py tests/test_excel_toolbar_responsive.py tests/test_runner_logic.py`
+  - 결과: `64 passed in 1.37s`
+  - Full: `python -m pytest -q`
+  - 결과: `415 passed, 1 skipped in 20.32s`
+
 ## [2025-11-25] 세션 1
 - **목표**: Undo/Redo & 서브스크립트 구현, 테스트/헬스 체크 통합.
 - **변경사항**:
@@ -1199,3 +1238,119 @@
 - **검증**:
   - `python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py`
   - 리스크 트리거(규칙 파일 다중 수정)로 `python -m pytest -q` 전체 실행
+
+## [2026-02-22] 세션 63 — Waste-Reduction Protocol 강제 반영
+- **목표**: 검색/열람/출력 낭비를 줄이고 증거 중심 답변을 강제.
+- **변경 사항**:
+  - `AGENTS.md`에 Waste-Reduction Protocol(검색 예산/중복 금지/write-first/no dump/output contract) 추가.
+  - SYNC_BLOCK에 동일 핵심 라인 추가(정본/미러 정합 유지).
+  - `.cursorrules` 상세본에 Waste-Reduction 상세 섹션 추가.
+  - `MULTI_AGENT_PROTOCOL.md` Executor 역할에 Waste-reduction gate 반영.
+  - 상태 문서(`PROJECT_STATUS.md`, `now_spec.md`)에 운영 원칙 반영.
+- **검증**:
+  - `python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py`
+  - 리스크 트리거(규칙 파일 다중 수정)로 `python -m pytest -q` 전체 실행
+ 
+## [2026-02-23] Session 64 - Multi-Manager pending auto-recovery 
+- Changes: 
+  - app/core/session_manager.py: added per-session recovery backoff, optional runner_provider, pending escalation to error after thresholds. 
+  - app/ui/tabs/manager_tab.py: inject runner provider via SessionManager constructor. 
+  - tests/test_session_manager.py: added backoff recovery and escalation tests. 
+- Verification: 
+  - python -m pytest -q tests/test_session_manager.py tests/test_manager_tab_integration.py > 8 passed in 0.58s 
+  - python -m pytest -q > 368 passed, 1 skipped in 11.79s
+ 
+## [2026-02-23] Session 65 - Global Input Lock (timeout + JSONL events) 
+- Changes: 
+  - app/core/input_lock.py: added context-manager based GlobalInputManager and InputLockTimeoutError. 
+  - app/core/runner.py: wired global input lock into keyboard/mouse physical input paths. 
+  - app/core/runner.py: structured events added (input_lock_waiting/acquired/released/timeout). 
+  - tests/test_input_lock_runner.py: added lock timeout and runner log behavior tests. 
+- Verification: 
+  - python -m pytest -q tests/test_input_lock_runner.py tests/test_runner_structured_jsonl.py tests/test_runner_logic.py > 27 passed in 5.64s 
+  - python -m pytest -q > 371 passed, 1 skipped in 14.35s
+
+## [2026-02-23] Session 66 - Data Orchestration V2 Step 2C (UI integration)
+- Changes:
+  - `app/main.py`
+    - Added Excel orchestration UI controls (`Excel Data Mode`, file picker, parallelism, progress bar, status label).
+    - Added run-path branching: Excel mode uses orchestrator flow while legacy single-macro `run_macro` path remains intact.
+    - Integrated `JobQueueManager` + `SessionJobAdapter` + `ExcelDataLoader/ExcelResultExporter`.
+    - Added signal-based runtime updates (`excelOrchEvent`, `excelOrchFinished`) and safe stop/close cleanup.
+  - `tests/test_ui_orchestration_integration.py`
+    - Added success-flow integration test (load Excel -> run adapters -> export output file).
+    - Added stop-flow integration test (manual stop -> safe shutdown, no forced export).
+- Verification:
+  - `python -m pytest -q tests/test_ui_orchestration_integration.py tests/test_ui_integration.py tests/test_data_orchestration_v2.py tests/test_session_adapter_v2.py tests/test_excel_io.py` -> `41 passed in 6.02s`
+  - `python -m pytest -q` -> `385 passed, 1 skipped in 16.75s`
+
+## [2026-02-23] Session 67 - Total System Audit (binding/test integrity/concurrency)
+- Changes:
+  - Runtime binding path audit + repair
+    - `app/main.py`: Excel fallback template selector fixed to use `StepData.type` and `keyboard_mode` (legacy `action_type`/`key_mode`도 호환).
+    - `app/main.py`: Excel text output remains centralized via `TemplateProcessor`; unresolved placeholders fail fast.
+  - Test integrity hardening
+    - `tests/test_excel_payload_runner_template.py`: switched from ad-hoc namespace to real `StepData`; added keyboard-text fallback case.
+    - `tests/test_ui_orchestration_integration.py`: added black-box fallback scenario (`{{user_name}}` from step template + Excel row value), and unresolved-placeholder failure scenario (no raw typing + FAILED export row).
+    - `tests/test_integration_core_logic_patch_guard.py`: integration tests에서 핵심 바인딩/큐/락 경로 monkeypatch 금지 가드 추가.
+  - Concurrency/retry effectiveness tests
+    - `tests/test_data_orchestration_v2.py`: added retry-backoff timing gate and `is_fully_done` inflight strictness test.
+    - `tests/test_input_lock_runner.py`: added two-runner concurrent execution serialization test (`max_active == 1`) for shared global input lock.
+- Verification:
+  - `python -m pytest -q tests/test_excel_payload_runner_template.py tests/test_ui_orchestration_integration.py tests/test_data_orchestration_v2.py tests/test_session_adapter_v2.py tests/test_input_lock_runner.py tests/test_integration_core_logic_patch_guard.py` -> `25 passed in 5.88s`
+  - `python -m pytest -q` -> `397 passed, 1 skipped in 18.07s`
+
+## [2026-02-23] Session 68 - Excel 멀티 워커 입력 직렬화(Global Input Lock)
+- Summary:
+  - `app/main.py` Excel payload runner 입력 경로에 전역 입력 락을 적용해 멀티 워커 간 키보드/클립보드 간섭을 차단.
+  - 비-ASCII 텍스트(`Ctrl+V`)와 ASCII 타입라이트(`pyautogui.write`) 모두 lock acquire 범위 안에서 실행하도록 통일.
+  - Hotkey Run이 기존 `run_macro()` 고정 호출을 우회하지 않도록 `_on_run_button_clicked()` 경유로 통일.
+- Code:
+  - `app/main.py`
+    - `from .core.input_lock import get_global_input_manager` 추가
+    - `_ExcelPayloadRunner.__init__`에 전역 입력 락 매니저/timeout 초기화
+    - `_paste_text`를 `keyboard_paste` 락 범위로 감싸 clipboard set/paste/restore 전체를 원자화
+    - ASCII `pyautogui.write`도 `keyboard_typewrite` 락 범위에서 실행
+    - `_act_run_from_hotkey` -> `_on_run_button_clicked()` 호출로 분기 일치
+  - `tests/test_excel_payload_runner_template.py`
+    - `_FakeInputLockManager` 추가
+    - `test_excel_payload_runner_ascii_write_is_locked` 추가
+    - `test_excel_payload_runner_non_ascii_paste_is_locked` 추가
+    - 기존 `test_excel_payload_runner_uses_clipboard_paste_for_non_ascii` 유지
+- Verification:
+  - `python -m pytest -q tests/test_excel_payload_runner_template.py tests/test_ui_orchestration_integration.py` -> `13 passed in 5.68s`
+  - `python -m pytest -q` -> `402 passed, 1 skipped in 20.04s`
+
+## [2026-02-23] Session 69 - Excel 모드 툴바 반응형 가시성 보강
+- Summary:
+  - 창 폭 축소 시 Excel 컨트롤이 사라지던 문제를 해결하기 위해 옵션 툴바를 가로 스크롤 컨테이너로 전환.
+  - `Excel Data Mode`와 병렬도(`P:`)를 고정 크기/고정 정책으로 설정해 우선 가시성 보장.
+  - 엑셀 경로 입력 필드는 `ElidedPathLineEdit`로 교체해 화면에는 말줄임 표시, 내부 값은 full path 유지.
+- Code:
+  - `app/main.py`
+    - `ElidedPathLineEdit` 추가(`text()`는 full path 반환, 표시 텍스트는 `Qt.ElideRight`).
+    - 옵션 툴바를 `QScrollArea + QHBoxLayout` 구조로 변경.
+    - Excel 우선 컨트롤(`Excel Data Mode`, `P:`) 고정 크기 정책 적용.
+  - `tests/test_excel_toolbar_responsive.py` 신규:
+    - `test_excel_toolbar_priority_controls_are_fixed`
+    - `test_excel_path_field_elides_but_keeps_full_text`
+- Verification:
+  - `python -m pytest -q tests/test_excel_toolbar_responsive.py tests/test_ui_orchestration_integration.py` -> `8 passed in 5.13s`
+
+## [2026-02-23] Session 70 - Excel 템플릿 우선순위/대소문자 매핑 보강
+- Summary:
+  - Excel payload runner의 텍스트 결정 우선순위를 `스텝 템플릿 > payload(text/message)`로 변경.
+  - `TemplateProcessor`에 대소문자 무시 placeholder lookup fallback을 추가해 `user_name`/`USER_NAME` 모두 매핑되도록 보강.
+- Code:
+  - `app/main.py`
+    - `execute_job()`에서 먼저 `_get_excel_text_template()`를 렌더링하고, 템플릿이 없을 때만 payload(`text`/`message`) 사용.
+  - `app/core/template_processor.py`
+    - 키 exact match 실패 시 lower-case 맵 fallback으로 치환.
+  - `tests/test_excel_payload_runner_template.py`
+    - payload-only 경로 테스트 명확화(템플릿 없을 때)
+    - 템플릿 우선 + 대소문자 무시 매핑 테스트 추가.
+  - `tests/test_ui_orchestration_integration.py`
+    - `USER_NAME` 템플릿이 message 열보다 우선 적용되는 UI 통합 테스트 추가.
+- Verification:
+  - `python -m pytest -q tests/test_template_processor.py tests/test_excel_payload_runner_template.py tests/test_ui_orchestration_integration.py` -> `17 passed in 5.30s`
+  - `python -m pytest -q` -> `406 passed, 1 skipped in 20.40s`
