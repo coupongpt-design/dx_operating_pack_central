@@ -39,6 +39,10 @@
   - Hotkey Run도 Run 버튼과 동일 분기(`_on_run_button_clicked`)로 통일해 Excel 모드 실행 경로 일관화
   - 메인 옵션 바에 `Auto Enter` 체크박스 추가: 활성 시 텍스트 입력 액션 뒤 `enter` 자동 입력(일반 Runner + Excel payload runner 동시 적용)
   - Action Step 다이얼로그 `Key String` 옆 `[REC]` 버튼 추가: key/key_down/key_up/key_hold 모드에서 특수키를 눌러 키 이름 자동 입력
+- 조건부 액션 위저드(MVP) 추가:
+  - Scenario 탭에 `조건 위저드` 버튼 추가(질문형 QDialog 진입점)
+  - 질문 기반 입력(의도/찾을 텍스트/성공 동작/실패 동작)으로 `ocr_jump_if + jump_if(실패 라우팅) + click_point/comment` 스텝 조합 자동 생성
+  - 생성 스텝은 `AddStepsCommand`로 삽입되어 Undo/Redo 경로와 호환
 - 사용자 템플릿 관리(B안): 기본 템플릿 읽기 전용 + 팝업 `복제 저장`/`사용자 편집`/`사용자 삭제` 지원.
 - custom_flow 편집 UI 연동 완료:
   - 사용자 템플릿 편집 팝업에서 `흐름 편집 열기` 제공
@@ -155,7 +159,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `418 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `427 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 

@@ -1354,3 +1354,23 @@
 - Verification:
   - `python -m pytest -q tests/test_template_processor.py tests/test_excel_payload_runner_template.py tests/test_ui_orchestration_integration.py` -> `17 passed in 5.30s`
   - `python -m pytest -q` -> `406 passed, 1 skipped in 20.40s`
+
+## [2026-02-23] Session 71 - UI 현대화 Stage 2-1 PR-1 (조건부 액션 위저드 MVP)
+- Summary:
+  - Scenario 탭에 `조건 위저드` 버튼을 추가해 질문형 입력으로 OCR 조건 분기 스텝 생성을 지원.
+  - 새 스키마 없이 기존 `StepData`만 조합해 `ocr_jump_if`, `jump_if`, `click_point`, `comment` 흐름을 생성.
+  - 생성 스텝은 `AddStepsCommand`로 삽입되어 Undo/Redo 경로를 그대로 유지.
+- Code:
+  - `app/ui/dialogs.py`
+    - `ConditionalActionWizardDialog` 추가(의도/텍스트/성공 동작/실패 동작 질문 UI).
+    - 실패 경로 전용 `jump_if` 라우팅 스텝을 자동 생성해 성공 클릭 경로와 충돌하지 않도록 구성.
+  - `app/main.py`
+    - `btnConditionalWizard` 추가 및 `open_conditional_action_wizard()` 연결.
+    - 위저드 생성 스텝을 시나리오 선택 다음(또는 끝)에 `AddStepsCommand`로 삽입.
+  - `tests/test_conditional_wizard_generation.py` 신규:
+    - 질문 조합별 생성 스텝 타입/타겟 매핑 검증
+    - `AddStepsCommand` + `UndoStack` 호환 검증
+    - 메인 버튼 클릭 삽입 경로 검증
+- Verification:
+  - `python -m pytest -q tests/test_conditional_wizard_generation.py` -> `4 passed in 0.48s`
+  - `python -m pytest -q` -> `427 passed, 1 skipped in 20.52s`

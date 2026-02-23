@@ -24,7 +24,7 @@ from PyQt5.QtGui import QKeySequence, QIcon, QPixmap, QPainter, QColor, QFont
 
 from .ui.dialogs import (
     ImageStepDialog, NotImageDialog, BranchStepDialog, TargetDialog,
-    RecordingSettingsDialog
+    RecordingSettingsDialog, ConditionalActionWizardDialog
 )
 from .ui.tabs.manager_tab import ManagerTab
 from .core.models import TriggerData, StepData, RepeatConfig
@@ -319,6 +319,12 @@ class MainWindow(QMainWindow):
         self.btnScenarioWizard.setStyleSheet("background: #6D4C41; color: white; padding: 10px; font-weight: bold;")
         self.btnScenarioWizard.setToolTip("고급 활용 예시 템플릿을 선택해 스텝을 자동 생성합니다.")
         btn_layout.addWidget(self.btnScenarioWizard, 4, 0, 1, 2)
+
+        self.btnConditionalWizard = QPushButton("조건 위저드")
+        self.btnConditionalWizard.clicked.connect(self.open_conditional_action_wizard)
+        self.btnConditionalWizard.setStyleSheet("background: #455A64; color: white; padding: 10px; font-weight: bold;")
+        self.btnConditionalWizard.setToolTip("질문형 입력으로 OCR/분기 스텝을 자동 생성합니다.")
+        btn_layout.addWidget(self.btnConditionalWizard, 5, 0, 1, 2)
         
         scenario_layout.addLayout(btn_layout)
         
@@ -3466,6 +3472,34 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
 
     # --- Command-pattern overrides for step CRUD (uses UndoStack) ---
+    def open_conditional_action_wizard(self):
+        try:
+            dlg = ConditionalActionWizardDialog(self.steps, self)
+            if dlg.exec_() != QDialog.Accepted:
+                return
+
+            new_steps = dlg.build_steps()
+            if not new_steps:
+                self.warn("Conditional wizard generated no steps.")
+                return
+
+            insert_index = len(self.steps)
+            try:
+                selected_row = int(self.list.currentRow())
+            except Exception:
+                selected_row = -1
+            if 0 <= selected_row < len(self.steps):
+                insert_index = selected_row + 1
+
+            focus_index = insert_index + len(new_steps) - 1
+            self._push_command(
+                AddStepsCommand(self.steps, new_steps, index=insert_index),
+                focus_index=focus_index,
+            )
+            self.info(f"Conditional wizard added {len(new_steps)} steps.")
+        except Exception as e:
+            self.err(f"Error in conditional wizard: {e}")
+
     def open_scenario_wizard(self):
         try:
             dlg = ScenarioWizardDialog(self)

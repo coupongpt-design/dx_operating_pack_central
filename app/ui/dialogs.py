@@ -93,6 +93,209 @@ class BaseDialog(QDialog):
         except Exception as e:
             self._warn_once("robust_restore_root", f"Dialog robust restore routine failed: {e}")
 
+
+class ConditionalActionWizardDialog(QDialog):
+    """Question-driven helper that generates OCR/jump/click step combinations."""
+
+    def __init__(self, all_steps: list[StepData] | None = None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("조건 위저드")
+        self.setModal(True)
+        self.resize(620, 380)
+        self._all_steps = list(all_steps or [])
+
+        root = QVBoxLayout(self)
+        hint = QLabel(
+            "질문에 답하면 OCR 조건 + 분기 + 클릭 스텝을 자동 생성합니다.\n"
+            "MVP: 기존 StepData를 조합하며 새 스키마를 만들지 않습니다."
+        )
+        hint.setWordWrap(True)
+        hint.setStyleSheet("color:#9aa;")
+        root.addWidget(hint)
+
+        form = QFormLayout()
+        self.cbIntent = QComboBox()
+        self.cbIntent.addItem("특정 텍스트가 보이면 클릭", "ocr_text_then_click")
+        form.addRow("1) 의도 선택", self.cbIntent)
+
+        self.edFindText = QLineEdit()
+        self.edFindText.setPlaceholderText("예: 완료, 확인, START")
+        form.addRow("2) 찾을 텍스트", self.edFindText)
+
+        self.cbOperator = QComboBox()
+        self.cbOperator.addItem("같음 (==)", "==")
+        self.cbOperator.addItem("다름 (!=)", "!=")
+        form.addRow("비교 방식", self.cbOperator)
+
+        self.cbSuccessAction = QComboBox()
+        self.cbSuccessAction.addItem("좌표 클릭", "click_point")
+        self.cbSuccessAction.addItem("지정 스텝으로 이동", "jump_target")
+        form.addRow("3) 성공 시 동작", self.cbSuccessAction)
+
+        click_row = QWidget()
+        click_layout = QHBoxLayout(click_row)
+        click_layout.setContentsMargins(0, 0, 0, 0)
+        click_layout.setSpacing(6)
+        self.spClickX = QSpinBox()
+        self.spClickY = QSpinBox()
+        self.spClickX.setRange(-99999, 99999)
+        self.spClickY.setRange(-99999, 99999)
+        self.btnPickClick = QPushButton("좌표 선택")
+        self.btnPickClick.clicked.connect(self._on_pick_click)
+        click_layout.addWidget(QLabel("X"))
+        click_layout.addWidget(self.spClickX)
+        click_layout.addWidget(QLabel("Y"))
+        click_layout.addWidget(self.spClickY)
+        click_layout.addWidget(self.btnPickClick)
+        self._success_click_label = QLabel("성공 클릭 좌표")
+        form.addRow(self._success_click_label, click_row)
+        self._click_row = click_row
+
+        self.cbSuccessTarget = QComboBox()
+        self._populate_target_combo(self.cbSuccessTarget)
+        self._success_target_label = QLabel("성공 이동 대상")
+        form.addRow(self._success_target_label, self.cbSuccessTarget)
+
+        self.cbFailAction = QComboBox()
+        self.cbFailAction.addItem("다음 스텝 진행", "continue")
+        self.cbFailAction.addItem("지정 스텝으로 이동", "jump_target")
+        form.addRow("4) 실패 시 동작", self.cbFailAction)
+
+        self.cbFailTarget = QComboBox()
+        self._populate_target_combo(self.cbFailTarget)
+        self._fail_target_label = QLabel("실패 이동 대상")
+        form.addRow(self._fail_target_label, self.cbFailTarget)
+
+        root.addLayout(form)
+
+        self.cbSuccessAction.currentIndexChanged.connect(self._refresh_visibility)
+        self.cbFailAction.currentIndexChanged.connect(self._refresh_visibility)
+        self._refresh_visibility()
+
+        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
+        btns.accepted.connect(self.accept)
+        btns.rejected.connect(self.reject)
+        root.addWidget(btns)
+
+    def _populate_target_combo(self, combo: QComboBox) -> None:
+        combo.clear()
+        combo.addItem("(대상 선택)", None)
+        for s in self._all_steps:
+            try:
+                label = f"[{getattr(s, 'type', '?')}] {getattr(s, 'name', '')}"
+                combo.addItem(label, getattr(s, "id", None))
+            except Exception:
+                continue
+
+    def _refresh_visibility(self) -> None:
+        success_mode = self.cbSuccessAction.currentData() or "click_point"
+        fail_mode = self.cbFailAction.currentData() or "continue"
+
+        show_click = (success_mode == "click_point")
+        show_success_target = (success_mode == "jump_target")
+        show_fail_target = (fail_mode == "jump_target")
+
+        self._success_click_label.setVisible(show_click)
+        self._click_row.setVisible(show_click)
+        self._success_target_label.setVisible(show_success_target)
+        self.cbSuccessTarget.setVisible(show_success_target)
+        self._fail_target_label.setVisible(show_fail_target)
+        self.cbFailTarget.setVisible(show_fail_target)
+
+    def _on_pick_click(self):
+        x, y = safe_select_point(self)
+        if x is not None and y is not None:
+            self.spClickX.setValue(int(x))
+            self.spClickY.setValue(int(y))
+
+    @staticmethod
+    def _new_step_id() -> str:
+        return str(uuid.uuid4())[:8]
+
+    def _validate_inputs(self) -> None:
+        text = self.edFindText.text().strip()
+        if not text:
+            raise ValueError("찾을 텍스트를 입력해주세요.")
+        if (self.cbSuccessAction.currentData() == "jump_target") and not self.cbSuccessTarget.currentData():
+            raise ValueError("성공 이동 대상을 선택해주세요.")
+        if (self.cbFailAction.currentData() == "jump_target") and not self.cbFailTarget.currentData():
+            raise ValueError("실패 이동 대상을 선택해주세요.")
+
+    def accept(self):
+        try:
+            self._validate_inputs()
+        except ValueError as e:
+            QMessageBox.warning(self, "조건 위저드", str(e))
+            return
+        super().accept()
+
+    def build_steps(self) -> list[StepData]:
+        self._validate_inputs()
+        intent = self.cbIntent.currentData() or "ocr_text_then_click"
+        if intent != "ocr_text_then_click":
+            raise ValueError(f"지원하지 않는 의도: {intent}")
+
+        expected_text = self.edFindText.text().strip()
+        op = self.cbOperator.currentData() or "=="
+        success_mode = self.cbSuccessAction.currentData() or "click_point"
+        fail_mode = self.cbFailAction.currentData() or "continue"
+
+        check_id = self._new_step_id()
+        route_id = self._new_step_id()
+        click_id = self._new_step_id()
+        tail_id = self._new_step_id()
+
+        success_target_id = click_id
+        if success_mode == "jump_target":
+            success_target_id = self.cbSuccessTarget.currentData()
+
+        fail_target_id = tail_id
+        if fail_mode == "jump_target":
+            fail_target_id = self.cbFailTarget.currentData()
+
+        check = StepData(
+            id=check_id,
+            name=f"WZ OCR 조건: {expected_text[:20]}",
+            type="ocr_jump_if",
+            condition_operator=op,
+            condition_value=expected_text,
+            target_true_id=success_target_id,
+            ocr_preprocess_mode="none",
+            ocr_lang="eng",
+        )
+
+        # Unconditional router for FALSE path:
+        # when condition is FALSE, this step is executed and always jumps to fail target.
+        route = StepData(
+            id=route_id,
+            name="WZ 실패 라우팅",
+            type="jump_if",
+            condition_var="__wiz_gate__",
+            condition_operator="!=",
+            condition_value="__WIZ_SENTINEL__",
+            target_true_id=fail_target_id,
+        )
+
+        tail = StepData(
+            id=tail_id,
+            name="WZ 조건 분기 끝",
+            type="comment",
+            comment="Conditional wizard anchor",
+        )
+
+        generated: list[StepData] = [check, route]
+        if success_mode == "click_point":
+            click_step = StepData(
+                id=click_id,
+                name="WZ 성공 클릭",
+                type="click_point",
+                click_x=self.spClickX.value(),
+                click_y=self.spClickY.value(),
+            )
+            generated.append(click_step)
+        generated.append(tail)
+        return generated
+
 class ImageStepDialog(BaseDialog):
     def __init__(self, step: StepData, parent=None):
         super().__init__(parent)

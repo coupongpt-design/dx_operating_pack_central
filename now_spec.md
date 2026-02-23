@@ -68,6 +68,10 @@
 - Action Step 편집 UX:
   - `Key String` 옆 `[REC]` 버튼으로 특수키를 직접 눌러 키 이름(`enter`, `tab`, `f1`, `esc`) 자동 입력 가능.
   - `key`/`key_down`/`key_up`/`key_hold` 모드에서만 활성화되어 `text` 입력 모드와 간섭하지 않음.
+- 조건부 액션 위저드(Stage 2-1 PR-1):
+  - Scenario 탭 `조건 위저드` 버튼에서 질문형 QDialog를 열어 OCR 조건 분기 스텝을 자동 생성.
+  - 생성 스텝은 기존 타입 조합(`ocr_jump_if` + 실패 라우팅 `jump_if` + 성공 `click_point`/`jump_target` + 앵커 `comment`)만 사용.
+  - 삽입은 `AddStepsCommand` 경로를 사용해 Undo/Redo와 완전 호환.
 - Packaging MVP:
   - PyInstaller 스펙(`ImageMacro.spec`)과 빌드 스크립트(`tools/build_exe.ps1`) 제공.
   - GitHub Actions 수동 빌드 워크플로우(`.github/workflows/build-exe.yml`) 제공.
