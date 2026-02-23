@@ -15,11 +15,19 @@ Risk snapshot: create pre-refactor commit for runner/signal/StepData
 Session close: status clean + intended diff + required tests green
 Post-task gate: targeted tests first; run full pytest on risk trigger; commit only if tests pass and diff is clean
 Commit message tests block: include targeted PASS/FAIL and full-suite exact pytest summary line when executed
+Waste budget: max 4 rg queries/task; max 2 file opens; if exceeded stop with top2 hypotheses + 1 missing info + next minimal query
+No duplicate queries: no repeated keyword+file search; plan queries once; refine only with new evidence
+Search order: WRITES -> STATE TRANSITIONS -> CALLERS -> UI labels last
+No full dumps: no type/cat full files; use context windows only
+Output contract: 2-5 snippets + 3-line definition + exact change locations + targeted tests
+Markdown handoff integrity: when markdown-only delivery is requested, include all required handoff content in one outer block; keep required content outside that block at zero; verify fence integrity before send
 Thread/UI safety: worker threads never touch UI directly; use pyqtSignal
 State ownership: MainWindow owns steps/UndoStack; dialogs return data only
 Command rule: no direct self.steps CRUD/reorder; use _push_command(...)
 Data integrity: StepData changes require model+serialization+runner+tests; defaults backward-safe
+Strict data binding: action runners must use centralized template replacement before text output; unresolved placeholders must never be typed
 Quality gate: focused tests for core; full pytest for risky changes; health_check for runtime-sensitive
+Data-binding test rule: no monkeypatch of internal binding logic in integration tests; verify end-to-end value trace to final output
 Mutation guard: keep tests/test_rule_guard_steps_mutation.py passing
 Sync guard: keep tests/test_rule_docs_sync.py passing
 Docs sync: DEV_LOG.md + PROJECT_STATUS.md + now_spec.md on meaningful behavior changes
@@ -113,6 +121,10 @@ Sync policy: AGENTS.md canonical; .cursorrules mirrors this block only; directio
    - tests
 2. Preserve backward compatibility by default.
 3. No partial production logic edits.
+4. Strict data binding for text actions:
+   - Action runners must pass text through centralized placeholder replacement before output.
+   - `pyautogui.write()`/`pyautogui.typewrite()` must not receive unresolved placeholders (`{{var}}`, `{var}`).
+5. If unresolved placeholders remain, route to failure path (fail fast) instead of raw typing.
 
 ## 8) Quality Gate (Expanded)
 1. Core changes: focused tests immediately.
@@ -121,6 +133,9 @@ Sync policy: AGENTS.md canonical; .cursorrules mirrors this block only; directio
 4. Guard tests must stay green:
    - `tests/test_rule_guard_steps_mutation.py`
    - `tests/test_rule_docs_sync.py`
+5. Integration tests for data-binding paths:
+   - Do not monkeypatch internal business-logic bind/replace functions.
+   - Mock only external side-effect endpoints and verify end-to-end value trace.
 
 ## 9) Documentation Sync
 - For meaningful behavior changes, update:
@@ -134,7 +149,29 @@ Sync policy: AGENTS.md canonical; .cursorrules mirrors this block only; directio
 - CMD quoting can be brittle; prefer small commands and minimal pattern complexity.
 - Never modify `backups/`.
 
-## 11) Git Governance (Detailed)
+## 11) Waste-Reduction Protocol (Detailed)
+1. Search Budget:
+   - Max 4 `rg` queries per task.
+   - Max 2 file opens (no full-file dumps).
+   - If exceeded, stop and output:
+     - top 2 hypotheses
+     - 1 missing critical info
+     - next minimal query only
+2. No Duplicate Queries:
+   - Do not repeat same keyword+file search.
+   - List planned queries once.
+   - Refine only with new evidence.
+3. Write-First Rule:
+   - Search order: WRITES -> STATE TRANSITIONS -> CALLERS -> UI labels last.
+4. No Full File Dumps:
+   - Full `type`/`cat` prohibited.
+   - Use context windows only (`-A/-B`).
+5. Output Contract:
+   - 2-5 relevant snippets (`file:line`)
+   - 3-line definition summary
+   - exact change locations + targeted tests
+
+## 12) Git Governance (Detailed)
 1. Local repository must stay Git-tracked.
 2. Before edits:
    - `git status`
@@ -165,7 +202,7 @@ Sync policy: AGENTS.md canonical; .cursorrules mirrors this block only; directio
      - `- targeted: PASS / FAIL`
      - `- full suite: <exact pytest -q summary line if executed>`
 
-## 12) Sync/Conflict Policy
+## 13) Sync/Conflict Policy
 1. Canonical source: `AGENTS.md`.
 2. Mirror scope in this file:
    - Only the block between `SYNC_BLOCK_START/END`.
