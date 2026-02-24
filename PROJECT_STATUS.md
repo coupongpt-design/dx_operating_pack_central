@@ -180,6 +180,12 @@
   - 좌표 변환: `to_overlay_point(global_x, global_y)`로 DPI/가상 화면 환경에서 마커 위치 보정.
   - 리소스 재사용: `get_shared()` 공유 인스턴스 경로로 오버레이 재생성 비용 방지.
   - 검증: `tests/test_coordinate_overlay_mapping.py`로 마커 payload/클릭 관통 속성/공유 인스턴스 재사용 초안 검증.
+- Stage 3-2 PR-3-2-2 StepList Coordinate Preview Signals:
+  - `StepList` 신호 확장: `coordinatePreviewRequested(dict)`, `coordinatePreviewCleared()`.
+  - Hover/Selection 연동: `itemEntered`, `currentItemChanged`에서 좌표 스텝 payload emit.
+  - 이탈/무좌표 스텝 정리: `leaveEvent` 또는 좌표 없는 선택 시 `coordinatePreviewCleared` emit.
+  - payload 스키마: `{x, y, index, type, image_path(옵션)}`.
+  - 중복 emit 억제: 동일 payload signature 캐시로 불필요한 재발행 방지.
 
 ## 파일 포맷
 - JSON 저장: 메타데이터 포함 JSON(`meta`/`repeat`/`steps`), 레거시 리스트 JSON 역호환.
@@ -191,7 +197,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `448 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `450 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 

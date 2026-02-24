@@ -1572,3 +1572,22 @@
 - Verification:
   - `python -m pytest -q tests/test_coordinate_overlay_mapping.py tests/test_visual_capturer.py` -> `6 passed in 2.36s`
   - `python -m pytest -q` -> `448 passed, 1 skipped in 25.25s`
+
+## [2026-02-24] Session 80 - UI 현대화 Stage 3-2 PR-3-2-2 (StepList 좌표 프리뷰 이벤트 발행)
+- Summary:
+  - `StepList`에 좌표 프리뷰 전용 신호(`coordinatePreviewRequested`, `coordinatePreviewCleared`)를 추가.
+  - Hover(`itemEntered`)와 Selection(`currentItemChanged`)에서 좌표 스텝 payload를 송출하도록 구현.
+  - 좌표 없는 스텝 선택/리스트 이탈 시 clear 신호를 emit하여 오버레이 잔상 경로를 정리.
+  - 동일 payload 재발행을 signature 캐시로 억제해 빠른 포인터 이동 시 불필요한 이벤트를 줄임.
+- Code:
+  - `app/ui/widgets.py`:
+    - 신호 추가: `coordinatePreviewRequested(dict)`, `coordinatePreviewCleared()`.
+    - 이벤트 핸들러 추가: `_on_item_entered`, `_on_current_item_changed`, `leaveEvent`.
+    - payload 추출/필터링: `_extract_coordinate_payload`, `_emit_coordinate_preview_for_item`.
+    - 좌표 필드(`click_x`, `click_y`) 기반 스텝만 송출, optional `image_path` 포함.
+  - `tests/test_coordinate_overlay_mapping.py` 확장:
+    - 좌표 스텝 선택 시 `coordinatePreviewRequested` payload 검증.
+    - 무좌표 스텝 선택 전환 시 `coordinatePreviewCleared` 신호 검증.
+- Verification:
+  - `python -m pytest -q tests/test_coordinate_overlay_mapping.py tests/test_visual_drag_drop_logic.py` -> `8 passed in 1.14s`
+  - `python -m pytest -q` -> `450 passed, 1 skipped in 21.63s`

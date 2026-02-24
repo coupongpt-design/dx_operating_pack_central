@@ -5,6 +5,7 @@ import pytest
 
 pytest.importorskip("pytestqt")
 from PyQt5.QtCore import QPoint, Qt
+from PyQt5.QtTest import QSignalSpy
 from PyQt5.QtWidgets import QApplication
 
 
@@ -56,3 +57,68 @@ def test_coordinate_overlay_shared_instance_reuse(qapp):
     a = CoordinateGuideOverlay.get_shared()
     b = CoordinateGuideOverlay.get_shared()
     assert a is b
+
+
+def test_step_list_coordinate_preview_signal_on_selection(qapp, qtbot):
+    from app.core.models import StepData
+    from app.ui.widgets import StepList
+
+    lst = StepList()
+    qtbot.addWidget(lst)
+
+    step = StepData(
+        id="s1",
+        name="Click Step",
+        type="click_point",
+        click_x=321,
+        click_y=654,
+        image_path="images/sample.png",
+    )
+    lst.add_step_item(step)
+
+    requested_spy = QSignalSpy(lst.coordinatePreviewRequested)
+    cleared_spy = QSignalSpy(lst.coordinatePreviewCleared)
+
+    lst.setCurrentRow(0)
+    qtbot.waitUntil(lambda: len(requested_spy) >= 1, timeout=1000)
+
+    payload = requested_spy[-1][0]
+    assert payload["x"] == 321
+    assert payload["y"] == 654
+    assert payload["index"] == 1
+    assert payload["type"] == "click_point"
+    assert payload["image_path"] == "images/sample.png"
+    assert len(cleared_spy) == 0
+
+
+def test_step_list_coordinate_preview_cleared_on_non_coordinate_selection(qapp, qtbot):
+    from app.core.models import StepData
+    from app.ui.widgets import StepList
+
+    lst = StepList()
+    qtbot.addWidget(lst)
+
+    coord_step = StepData(
+        id="s1",
+        name="Coord",
+        type="click_point",
+        click_x=10,
+        click_y=20,
+    )
+    non_coord_step = StepData(
+        id="s2",
+        name="Wait",
+        type="wait",
+        wait_ms=500,
+    )
+    lst.add_step_item(coord_step)
+    lst.add_step_item(non_coord_step)
+
+    requested_spy = QSignalSpy(lst.coordinatePreviewRequested)
+    cleared_spy = QSignalSpy(lst.coordinatePreviewCleared)
+
+    lst.setCurrentRow(0)
+    qtbot.waitUntil(lambda: len(requested_spy) >= 1, timeout=1000)
+
+    lst.setCurrentRow(1)
+    qtbot.waitUntil(lambda: len(cleared_spy) >= 1, timeout=1000)

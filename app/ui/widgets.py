@@ -196,10 +196,14 @@ class StepList(QListWidget):
     requestRename = pyqtSignal(int, str)
     orderChanged = pyqtSignal()
     flowPreviewRequested = pyqtSignal(list)
+    coordinatePreviewRequested = pyqtSignal(dict)
+    coordinatePreviewCleared = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setSelectionMode(self.ExtendedSelection)
+        self.setMouseTracking(True)
+        self.viewport().setMouseTracking(True)
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         self.setDragDropMode(self.InternalMove)
@@ -234,6 +238,9 @@ class StepList(QListWidget):
         }
         self._flow_preview_interval_sec = 0.03
         self._last_flow_preview_emit_at = 0.0
+        self._last_coordinate_preview_sig = None
+        self.itemEntered.connect(self._on_item_entered)
+        self.currentItemChanged.connect(self._on_current_item_changed)
 
     def _calc_item_height(self, flow_hint: str = "", excel_preview: str = "") -> int:
         height = 50
@@ -242,6 +249,71 @@ class StepList(QListWidget):
         if str(excel_preview or "").strip():
             height += 16
         return max(50, height)
+
+    def _extract_coordinate_payload(self, item: QListWidgetItem | None):
+        if item is None:
+            return None
+        row = self.row(item)
+        if row < 0:
+            return None
+        step = item.data(Qt.UserRole)
+        if step is None:
+            return None
+        x = getattr(step, "click_x", None)
+        y = getattr(step, "click_y", None)
+        if x is None or y is None:
+            return None
+        try:
+            xx = int(x)
+            yy = int(y)
+        except Exception:
+            return None
+
+        payload = {
+            "x": xx,
+            "y": yy,
+            "index": row + 1,
+            "type": str(getattr(step, "type", "") or ""),
+        }
+        image_path = (
+            getattr(step, "anchor_image_path", None)
+            or getattr(step, "image_path", None)
+            or None
+        )
+        if image_path:
+            payload["image_path"] = str(image_path)
+        return payload
+
+    @staticmethod
+    def _preview_signature(payload: dict | None):
+        if not payload:
+            return None
+        return (
+            int(payload.get("x", 0)),
+            int(payload.get("y", 0)),
+            int(payload.get("index", 0)),
+            str(payload.get("type", "")),
+            str(payload.get("image_path", "")),
+        )
+
+    def _emit_coordinate_preview_for_item(self, item: QListWidgetItem | None):
+        payload = self._extract_coordinate_payload(item)
+        sig = self._preview_signature(payload)
+        if sig is None:
+            if self._last_coordinate_preview_sig is not None:
+                self._last_coordinate_preview_sig = None
+                self.coordinatePreviewCleared.emit()
+            return
+        if sig == self._last_coordinate_preview_sig:
+            return
+        self._last_coordinate_preview_sig = sig
+        self.coordinatePreviewRequested.emit(payload)
+
+    def _on_item_entered(self, item: QListWidgetItem):
+        self._emit_coordinate_preview_for_item(item)
+
+    def _on_current_item_changed(self, current: QListWidgetItem, _previous: QListWidgetItem):
+        self._emit_coordinate_preview_for_item(current)
 
     def add_step_item(self, step: StepData, flow_hint: str = "", excel_preview: str = "", tooltip: str = ""):
         item = QListWidgetItem(self)
@@ -504,6 +576,12 @@ class StepList(QListWidget):
         self.flowPreviewRequested.emit([])
         self._last_flow_preview_emit_at = 0.0
         super().dragLeaveEvent(event)
+
+    def leaveEvent(self, event):
+        if self._last_coordinate_preview_sig is not None:
+            self._last_coordinate_preview_sig = None
+            self.coordinatePreviewCleared.emit()
+        super().leaveEvent(event)
 
     def mouseReleaseEvent(self, event):
         if self._rubber_active and self._rubber_band:

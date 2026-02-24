@@ -176,6 +176,12 @@
   - 좌표계: 물리 화면 bounds + 가상 화면 geometry 스케일 매핑으로 DPI 차이 환경 대응.
   - 확장 준비: `bbox` 전달 시 점선 박스 렌더링(이미지 스텝 가이드 확장용).
   - 검증: `tests/test_coordinate_overlay_mapping.py`(마커 상태, 클릭 관통, 공유 인스턴스 재사용).
+- StepList 좌표 프리뷰 이벤트 (Stage 3-2 PR-3-2-2):
+  - `StepList`가 `coordinatePreviewRequested(dict)`/`coordinatePreviewCleared()` 신호를 제공.
+  - Hover(`itemEntered`)와 Selection(`currentItemChanged`)에서 좌표 스텝 payload를 emit.
+  - payload는 `x/y/index/type/image_path(옵션)`를 포함하며, 좌표 없는 스텝은 clear 경로로 정리.
+  - `leaveEvent` 시 clear 신호를 emit해 오버레이 잔상 제거.
+  - 동일 payload 반복 emit은 signature 캐시로 억제.
 - 조건 위저드(Conditional Wizard):
   - 의도 템플릿:
     - `ocr_text_then_click`
@@ -217,7 +223,7 @@
 - 스모크 실행 진입점:
   - `python run_smoke_suite.py --quick` (핵심 런타임/매칭 게이트)
   - `python run_smoke_suite.py` (핵심 게이트 + 전체 health check)
-- 최신 로컬 기준: `python -m pytest -q` = `448 passed, 1 skipped`.
+- 최신 로컬 기준: `python -m pytest -q` = `450 passed, 1 skipped`.
 
 ### 규칙 적용 가드
 - 규칙은 2단 구조로 운용:
