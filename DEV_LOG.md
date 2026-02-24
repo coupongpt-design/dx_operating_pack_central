@@ -1499,3 +1499,33 @@
 - Verification:
   - `python -m pytest -q tests/test_logic_path_simulator.py tests/test_visual_drag_drop_logic.py tests/test_scenario_flow_hints.py tests/test_conditional_wizard_generation.py tests/test_excel_toolbar_responsive.py` -> `24 passed in 1.24s`
   - `python -m pytest -q` -> `439 passed, 1 skipped in 21.09s`
+
+## [2026-02-24] Session 77 - UI 현대화 Stage 2-2 PR-3 (Smart Snap)
+- Summary:
+  - 위저드 세트 스텝 보호를 위해 Smart Snap 로직을 `sync_order()` 경로에 추가.
+  - `collect_step_group(seed_index)` 유틸로 `WZ` 마커 + 내부 참조 ID를 결합해 논리 그룹을 추론.
+  - 세트 일부만 드래그해도 그룹 전체를 블록 이동으로 보정하고, 재배치 후 legacy 인덱스 필드를 자동 재정규화.
+  - 그룹 분리/댕글링 연결 발생 시 Flow Arrow Lane 경고 edge와 토스트/상태바 경고를 즉시 노출.
+- Code:
+  - `app/main.py`
+    - Smart Snap 옵션 플래그(`chkSmartSnap`) 추가 및 `QSettings` 로드/저장 연동.
+    - 그룹 추론/보정 유틸 추가:
+      - `_smart_snap_enabled`
+      - `_step_has_wz_marker`
+      - `_extract_step_ref_ids`
+      - `collect_step_group`
+      - `_collect_wz_groups`
+      - `_normalize_legacy_jump_indices`
+      - `_apply_smart_snap_reorder`
+    - `sync_order` 확장:
+      - Smart Snap 재배치 적용
+      - focus step 유지
+      - 경고 조건 시 Flow warning edge + 토스트/상태바 알림.
+  - `tests/test_smart_snap_logic.py` 신규:
+    - WZ 그룹 인식 검증.
+    - 세트 동반 이동 + legacy 인덱스 재정규화 검증.
+    - dangling 경고 edge 렌더링 검증.
+- Verification:
+  - `python -m pytest -q tests/test_smart_snap_logic.py tests/test_visual_drag_drop_logic.py tests/test_main_trigger_scheduler_integration.py` -> `28 passed in 2.47s`
+  - `python -m pytest -q tests/test_conditional_wizard_generation.py` -> `6 passed in 0.51s`
+  - `python -m pytest -q` -> `442 passed, 1 skipped in 20.98s`

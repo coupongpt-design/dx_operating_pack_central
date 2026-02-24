@@ -17,9 +17,9 @@ from PyQt5.QtWidgets import (
     QMessageBox, QCheckBox, QSpinBox, QDoubleSpinBox, QGroupBox, 
     QFormLayout, QPlainTextEdit, QTabWidget, QGridLayout, QAction,
     QMenu, QMenuBar, QShortcut, QInputDialog, QTimeEdit, QTableWidget, QTableWidgetItem,
-    QDialog, QLineEdit, QComboBox, QProgressBar, QScrollArea, QSizePolicy, QFrame
+    QDialog, QLineEdit, QComboBox, QProgressBar, QScrollArea, QSizePolicy, QFrame, QToolTip
 )
-from PyQt5.QtCore import Qt, QTimer, QSettings, QSize, QEventLoop, QRect, QTime, QStandardPaths, pyqtSignal
+from PyQt5.QtCore import Qt, QTimer, QSettings, QSize, QEventLoop, QRect, QTime, QStandardPaths, pyqtSignal, QPoint
 from PyQt5.QtGui import QKeySequence, QIcon, QPixmap, QPainter, QColor, QFont
 
 from .ui.dialogs import (
@@ -146,6 +146,7 @@ class MainWindow(QMainWindow):
         self._flow_preview_cache: dict[tuple, list[tuple[int, int, str, str]]] = {}
         self._flow_preview_active: bool = False
         self._simulated_indices: set[int] = set()
+        self._smart_snap_enabled_default: bool = True
         self._macro_paused_ui: bool = False
         self._record_show_summary = False
         self._was_minimized = False
@@ -589,6 +590,11 @@ class MainWindow(QMainWindow):
         self.chkAutoEnterAfterText.setToolTip("텍스트 입력 액션 뒤에 Enter 키를 자동 입력합니다.")
         self.chkAutoEnterAfterText.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         _opt_adv_add(self.chkAutoEnterAfterText)
+        self.chkSmartSnap = QCheckBox("Smart Snap")
+        self.chkSmartSnap.setToolTip("WZ 세트 스텝 이동 시 내부 흐름이 깨지지 않도록 그룹 이동/보정을 수행합니다.")
+        self.chkSmartSnap.setChecked(True)
+        self.chkSmartSnap.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        _opt_adv_add(self.chkSmartSnap)
         _opt_adv_sep()
         _opt_adv_add(self.chkDry)
         _opt_adv_add(self.chkAutoMin)
@@ -999,21 +1005,292 @@ class MainWindow(QMainWindow):
         self.mouse_timer.start(100)
 
     # --- List Management ---
+    def _smart_snap_enabled(self) -> bool:
+        if hasattr(self, "chkSmartSnap"):
+            try:
+                return bool(self.chkSmartSnap.isChecked())
+            except Exception:
+                return bool(self._smart_snap_enabled_default)
+        return bool(self._smart_snap_enabled_default)
+
+    @staticmethod
+    def _step_uid(step: StepData, fallback_index: int | None = None) -> str:
+        raw = str(getattr(step, "id", "") or "").strip()
+        if raw:
+            return raw
+        if fallback_index is None:
+            return "__missing_id__"
+        return f"__idx_{fallback_index}"
+
+    @staticmethod
+    def _step_has_wz_marker(step: StepData) -> bool:
+        name = str(getattr(step, "name", "") or "")
+        comment = str(getattr(step, "comment", "") or "")
+        combined = f"{name} {comment}".lower()
+        return "wz" in combined
+
+    @staticmethod
+    def _extract_step_ref_ids(step: StepData) -> set[str]:
+        refs: set[str] = set()
+        for field_name in (
+            "start_loop_id",
+            "target_true_id",
+            "target_false_id",
+            "jump_to_step_id",
+            "on_match_goto_id",
+            "branch_on_fail_goto_id",
+            "branch_true_goto_id",
+            "branch_false_goto_id",
+            "pixel_success_goto_id",
+        ):
+            value = str(getattr(step, field_name, "") or "").strip()
+            if value:
+                refs.add(value)
+        return refs
+
+    @staticmethod
+    def _positions_are_contiguous(positions: list[int]) -> bool:
+        if len(positions) <= 1:
+            return True
+        seq = sorted(int(p) for p in positions)
+        return all((b - a) == 1 for a, b in zip(seq, seq[1:]))
+
+    def collect_step_group(self, seed_index: int, steps: list[StepData] | None = None) -> list[int]:
+        step_list = list(steps if steps is not None else self.steps)
+        if seed_index < 0 or seed_index >= len(step_list):
+            return []
+
+        ids = [self._step_uid(step, i) for i, step in enumerate(step_list)]
+        id_to_index = {sid: i for i, sid in enumerate(ids)}
+
+        refs_out: dict[str, set[str]] = {sid: set() for sid in ids}
+        refs_in: dict[str, set[str]] = {sid: set() for sid in ids}
+        for i, step in enumerate(step_list):
+            sid = ids[i]
+            for target_id in self._extract_step_ref_ids(step):
+                if target_id not in id_to_index:
+                    continue
+                refs_out[sid].add(target_id)
+                refs_in[target_id].add(sid)
+
+        wz_ids = {ids[i] for i, step in enumerate(step_list) if self._step_has_wz_marker(step)}
+        if not wz_ids:
+            return [seed_index]
+
+        candidates: set[str] = set(wz_ids)
+        for sid in list(wz_ids):
+            candidates.update(refs_out.get(sid, set()))
+            candidates.update(refs_in.get(sid, set()))
+
+        seed_id = ids[seed_index]
+        contiguous_ids: set[str] = set()
+        if self._step_has_wz_marker(step_list[seed_index]):
+            left = seed_index
+            right = seed_index
+            while left - 1 >= 0 and self._step_has_wz_marker(step_list[left - 1]):
+                left -= 1
+            while right + 1 < len(step_list) and self._step_has_wz_marker(step_list[right + 1]):
+                right += 1
+            contiguous_ids = {ids[i] for i in range(left, right + 1)}
+            candidates.update(contiguous_ids)
+            for sid in contiguous_ids:
+                candidates.update(refs_out.get(sid, set()))
+                candidates.update(refs_in.get(sid, set()))
+
+        if seed_id not in candidates and not self._step_has_wz_marker(step_list[seed_index]):
+            return [seed_index]
+        candidates.add(seed_id)
+
+        stack = [seed_id]
+        visited: set[str] = set()
+        while stack:
+            sid = stack.pop()
+            if sid in visited:
+                continue
+            visited.add(sid)
+            neighbors = (refs_out.get(sid, set()) | refs_in.get(sid, set())) & candidates
+            for nxt in neighbors:
+                if nxt not in visited:
+                    stack.append(nxt)
+
+        if contiguous_ids:
+            visited.update(contiguous_ids)
+
+        if not visited:
+            return [seed_index]
+        return sorted(id_to_index[sid] for sid in visited if sid in id_to_index)
+
+    def _collect_wz_groups(self, steps: list[StepData]) -> list[list[str]]:
+        groups: list[list[str]] = []
+        consumed: set[str] = set()
+        for idx, step in enumerate(steps):
+            sid = self._step_uid(step, idx)
+            if sid in consumed or not self._step_has_wz_marker(step):
+                continue
+            group_indices = self.collect_step_group(idx, steps=steps)
+            if len(group_indices) < 2:
+                consumed.add(sid)
+                continue
+            group_ids = [self._step_uid(steps[i], i) for i in sorted(group_indices)]
+            groups.append(group_ids)
+            consumed.update(group_ids)
+        return groups
+
+    def _normalize_legacy_jump_indices(self, ordered_steps: list[StepData]) -> list[StepData]:
+        normalized = [copy.deepcopy(step) for step in ordered_steps]
+        id_to_index = {
+            self._step_uid(step, idx): idx
+            for idx, step in enumerate(normalized)
+        }
+        for step in normalized:
+            true_target_id = str(
+                getattr(step, "target_true_id", None)
+                or getattr(step, "jump_to_step_id", None)
+                or ""
+            ).strip()
+            false_target_id = str(
+                getattr(step, "target_false_id", None)
+                or getattr(step, "branch_on_fail_goto_id", None)
+                or getattr(step, "branch_false_goto_id", None)
+                or ""
+            ).strip()
+            start_loop_id = str(getattr(step, "start_loop_id", None) or "").strip()
+
+            true_index = id_to_index.get(true_target_id) if true_target_id else None
+            false_index = id_to_index.get(false_target_id) if false_target_id else None
+            loop_start_index = id_to_index.get(start_loop_id) if start_loop_id else None
+
+            if hasattr(step, "target_true_index"):
+                step.target_true_index = true_index
+            if hasattr(step, "jump_to_index"):
+                step.jump_to_index = true_index
+            if hasattr(step, "target_false_index"):
+                step.target_false_index = false_index
+            if hasattr(step, "start_loop_index"):
+                setattr(step, "start_loop_index", loop_start_index)
+        return normalized
+
+    def _apply_smart_snap_reorder(self, proposed_steps: list[StepData]) -> tuple[list[StepData], dict]:
+        ordered_steps = list(proposed_steps)
+        ordered_ids = [self._step_uid(step, i) for i, step in enumerate(ordered_steps)]
+        id_to_step = {self._step_uid(step, i): step for i, step in enumerate(ordered_steps)}
+        old_steps = list(self.steps)
+        old_index_by_id = {self._step_uid(step, i): i for i, step in enumerate(old_steps)}
+        wz_groups = self._collect_wz_groups(old_steps)
+        adjusted_groups = 0
+
+        for group_ids in wz_groups:
+            if any(gid not in id_to_step for gid in group_ids):
+                continue
+            current_positions = [ordered_ids.index(gid) for gid in group_ids]
+            sorted_positions = sorted(current_positions)
+            current_order = [ordered_ids[pos] for pos in sorted_positions]
+            already_stable = self._positions_are_contiguous(sorted_positions) and current_order == group_ids
+            if already_stable:
+                continue
+
+            adjusted_groups += 1
+            anchor_id = max(
+                group_ids,
+                key=lambda gid: abs(ordered_ids.index(gid) - old_index_by_id.get(gid, ordered_ids.index(gid))),
+            )
+            anchor_pos = ordered_ids.index(anchor_id)
+            stripped = [sid for sid in ordered_ids if sid not in group_ids]
+            insert_pos = sum(1 for sid in ordered_ids[:anchor_pos] if sid not in group_ids)
+            ordered_ids = stripped[:insert_pos] + list(group_ids) + stripped[insert_pos:]
+
+        reordered = [id_to_step[sid] for sid in ordered_ids if sid in id_to_step]
+        normalized = self._normalize_legacy_jump_indices(reordered)
+        preview_edges = self._build_flow_preview_edges(normalized)
+
+        group_split = False
+        for group_ids in wz_groups:
+            if any(gid not in ordered_ids for gid in group_ids):
+                continue
+            positions = [ordered_ids.index(gid) for gid in group_ids]
+            if not self._positions_are_contiguous(positions):
+                group_split = True
+                break
+
+        dangling = any((len(edge) >= 4 and str(edge[3]) == "dangling") for edge in preview_edges)
+        return normalized, {
+            "adjusted_groups": adjusted_groups,
+            "group_split": group_split,
+            "dangling": dangling,
+            "preview_edges": preview_edges,
+        }
+
+    def _show_toast(self, message: str, timeout_ms: int = 2400):
+        try:
+            local_pos = QPoint(24, max(24, int(self.opt_toolbar.height()) + 8))
+            global_pos = self.mapToGlobal(local_pos)
+            QToolTip.showText(global_pos, message, self, self.rect(), timeout_ms)
+        except Exception:
+            if hasattr(self, "statusBar"):
+                self.statusBar().showMessage(message, timeout_ms)
+
     def sync_order(self):
-        new_steps = []
+        proposed_steps: list[StepData] = []
         for i in range(self.list.count()):
             item = self.list.item(i)
             step = item.data(Qt.UserRole)
-            new_steps.append(step)
-        if new_steps == self.steps:
+            if step is not None:
+                proposed_steps.append(step)
+        if proposed_steps == self.steps:
             return
+
+        focused_step_id = ""
         focus_index = None
         try:
-            focus_index = self.list.currentRow()
+            current_row = int(self.list.currentRow())
+            focus_index = current_row
+            if 0 <= current_row < self.list.count():
+                item = self.list.item(current_row)
+                focused = item.data(Qt.UserRole) if item else None
+                focused_step_id = str(getattr(focused, "id", "") or "")
         except Exception:
             focus_index = None
-        self._push_command(ReorderStepsCommand(self.steps, new_steps), focus_index=focus_index)
+
+        snap_meta = {
+            "adjusted_groups": 0,
+            "group_split": False,
+            "dangling": False,
+            "preview_edges": [],
+        }
+        if self._smart_snap_enabled():
+            reordered_steps, snap_meta = self._apply_smart_snap_reorder(proposed_steps)
+        else:
+            reordered_steps = self._normalize_legacy_jump_indices(proposed_steps)
+            snap_meta["preview_edges"] = self._build_flow_preview_edges(reordered_steps)
+            snap_meta["dangling"] = any((len(edge) >= 4 and str(edge[3]) == "dangling") for edge in snap_meta["preview_edges"])
+
+        if reordered_steps == self.steps:
+            return
+
+        if focused_step_id:
+            for idx, step in enumerate(reordered_steps):
+                if str(getattr(step, "id", "") or "") == focused_step_id:
+                    focus_index = idx
+                    break
+
+        self._push_command(ReorderStepsCommand(self.steps, reordered_steps), focus_index=focus_index)
         self._flow_preview_active = False
+
+        has_warning = bool(snap_meta.get("group_split") or snap_meta.get("dangling"))
+        if has_warning:
+            if hasattr(self.list, "set_flow_edges"):
+                self.list.set_flow_edges(snap_meta.get("preview_edges") or [])
+            reason_bits = []
+            if snap_meta.get("group_split"):
+                reason_bits.append("그룹 분리")
+            if snap_meta.get("dangling"):
+                reason_bits.append("dangling 연결")
+            reason = ", ".join(reason_bits) if reason_bits else "흐름 경고"
+            msg = f"Smart Snap 경고: {reason}"
+            self.warn(msg)
+            if hasattr(self, "statusBar"):
+                self.statusBar().showMessage(msg, 4500)
+            self._show_toast(msg, timeout_ms=2200)
 
     def run_from_index(self, idx):
         self.run_macro(start_index=idx)
@@ -2251,6 +2528,9 @@ class MainWindow(QMainWindow):
             self.chkHumanMode.setChecked(human)
             dbg = st.value("general/debug_overlay", False, type=bool)
             self.chkDebugOverlay.setChecked(dbg)
+            smart_snap = st.value("general/smart_snap", True, type=bool)
+            if hasattr(self, "chkSmartSnap"):
+                self.chkSmartSnap.setChecked(bool(smart_snap))
             perf_playback = st.value("general/perf_playback", True, type=bool)
             if hasattr(self, "chkPerfPlayback"):
                 self.chkPerfPlayback.setChecked(perf_playback)
@@ -2279,6 +2559,8 @@ class MainWindow(QMainWindow):
             if not getattr(self, "_general_settings_signals_connected", False):
                 self.chkHumanMode.toggled.connect(lambda _: self._save_general_settings())
                 self.chkDebugOverlay.toggled.connect(lambda _: self._save_general_settings())
+                if hasattr(self, "chkSmartSnap"):
+                    self.chkSmartSnap.toggled.connect(lambda _: self._save_general_settings())
                 if hasattr(self, "chkPerfPlayback"):
                     self.chkPerfPlayback.toggled.connect(lambda _: self._save_general_settings())
                 if hasattr(self, "chkPerfRecording"):
@@ -2294,6 +2576,8 @@ class MainWindow(QMainWindow):
             st = QSettings("ImageMacro", "MVP")
             st.setValue("general/human_mode", self.chkHumanMode.isChecked())
             st.setValue("general/debug_overlay", self.chkDebugOverlay.isChecked())
+            if hasattr(self, "chkSmartSnap"):
+                st.setValue("general/smart_snap", bool(self.chkSmartSnap.isChecked()))
             if hasattr(self, "chkPerfPlayback"):
                 st.setValue("general/perf_playback", self.chkPerfPlayback.isChecked())
             if hasattr(self, "chkPerfRecording"):

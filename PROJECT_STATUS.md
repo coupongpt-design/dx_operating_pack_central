@@ -164,6 +164,11 @@
   - `LogicPathSimulator` 코어 추가: `jump_if`/`ocr_jump_if`/`image_branch`/loop 경로를 실행 없이 예측.
   - Scenario 탭에 `경로 시뮬레이션` 버튼 + `센서 성공 가정` 체크박스 추가.
   - 시뮬레이션 방문 스텝을 리스트에서 청록 하이라이트로 표시하고 전이 로그/경고를 로그창에 출력.
+- Stage 2-2 PR-3 Smart Snap:
+  - `collect_step_group(seed_index)` 추가: `WZ` 마커(name/comment) + 내부 참조 ID(`start_loop_id`, `target_true_id`, `target_false_id`, `jump_to_step_id`, `on_match_goto_id`, `branch_on_fail_goto_id`) 기반 그룹 추론.
+  - `sync_order()`에 Smart Snap 재배치 로직 적용: 세트 스텝 일부만 드래그해도 그룹 전체를 동반 이동하고 상대 순서를 유지.
+  - 재정렬 직후 legacy 인덱스 필드(`jump_to_index`, `target_true_index`, `target_false_index`)를 새 순서 기준으로 자동 재정규화.
+  - 그룹 분리/댕글링 감지 시 Flow Arrow Lane 경고 edge(`dangling`)와 토스트/상태바 경고를 즉시 표시.
 
 ## 파일 포맷
 - JSON 저장: 메타데이터 포함 JSON(`meta`/`repeat`/`steps`), 레거시 리스트 JSON 역호환.
@@ -175,7 +180,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `439 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `442 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 

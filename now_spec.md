@@ -158,6 +158,12 @@
   - 루프 예측: `start_loop`/`end_loop`의 `loop_count` 및 무한루프(`count=0`)를 추적
   - 안전장치: `max_hops` 초과 시 종료 + warning
   - UI: Scenario 탭 `경로 시뮬레이션` 버튼 실행 시 방문 스텝 청록 하이라이트 + 시뮬레이션 로그 출력
+- Smart Snap (Stage 2-2 PR-3):
+  - 옵션 플래그: Advanced 옵션 행 `Smart Snap` 체크박스(기본 ON, `QSettings` 연동).
+  - 그룹 추론: `collect_step_group(seed_index)`가 `WZ` 마커 + 내부 참조 ID 그래프를 결합해 세트 스텝을 인식.
+  - 재정렬 보정: 세트 일부만 이동해도 전체 블록을 동반 이동(`sync_order` 경로)하고 내부 상대 순서를 유지.
+  - 레거시 보정: 재배치 후 `jump_to_index`, `target_true_index`, `target_false_index`를 새 순서 기준으로 재정규화.
+  - 경고 피드백: 그룹 분리 또는 dangling 연결이 감지되면 Flow Arrow Lane 경고 edge + 토스트/상태바 경고 표시.
 - 조건 위저드(Conditional Wizard):
   - 의도 템플릿:
     - `ocr_text_then_click`
@@ -199,7 +205,7 @@
 - 스모크 실행 진입점:
   - `python run_smoke_suite.py --quick` (핵심 런타임/매칭 게이트)
   - `python run_smoke_suite.py` (핵심 게이트 + 전체 health check)
-- 최신 로컬 기준: `python -m pytest -q` = `439 passed, 1 skipped`.
+- 최신 로컬 기준: `python -m pytest -q` = `442 passed, 1 skipped`.
 
 ### 규칙 적용 가드
 - 규칙은 2단 구조로 운용:
