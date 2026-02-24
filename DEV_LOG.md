@@ -1644,3 +1644,24 @@
 - Verification:
   - `python -m pytest -q tests/test_smart_recorder_core.py` -> `3 passed in 0.10s`
   - `python -m pytest -q` -> `456 passed, 1 skipped in 22.15s`
+
+## [2026-02-24] Session 83 - UI 현대화 Stage 3-3 PR-3-3-2 (Smart Transformer)
+- Summary:
+  - Raw Event 기반 지능형 변환 코어 `SmartTransformer`를 추가해 텍스트 병합/분리 로직을 구현.
+  - 클릭 release 이벤트 시 `click_point`와 `image_click`을 동시 제안하는 `SmartProposal` 생성 경로를 추가.
+- Code:
+  - `app/core/smart_recorder.py`(신규):
+    - `SmartStep`, `SmartProposal`, `SmartTransformer` 구현
+    - 텍스트 병합:
+      - 연속 printable 키는 버퍼 병합
+      - flush 조건: 이동/수정 키, modifier(ctrl/alt/win), typed gap(기본 1.5초), finalize
+    - 클릭 시각 제안:
+      - 클릭 좌표 주변 캡처(기본 60x60) -> `images/record_prop_*.png` 저장
+      - `click_point` + `image_click` 제안 객체 동시 반환
+  - `tests/test_smart_recorder_transformer.py`(신규):
+    - `Hello` 연속 입력이 `type_text` 1개로 병합되는지 검증
+    - `Hello + LeftArrow + !`가 `type_text / key_press / type_text`로 분리되는지 검증
+    - 클릭 이벤트에서 듀얼 제안과 이미지 파일 생성이 정상인지 검증
+- Verification:
+  - `python -m pytest -q tests/test_smart_recorder_transformer.py tests/test_smart_recorder_core.py` -> `6 passed in 0.19s`
+  - `python -m pytest -q` -> `459 passed, 1 skipped in 25.98s`

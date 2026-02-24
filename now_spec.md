@@ -228,7 +228,7 @@
 - 스모크 실행 진입점:
   - `python run_smoke_suite.py --quick` (핵심 런타임/매칭 게이트)
   - `python run_smoke_suite.py` (핵심 게이트 + 전체 health check)
-- 최신 로컬 기준: `python -m pytest -q` = `456 passed, 1 skipped`.
+- 최신 로컬 기준: `python -m pytest -q` = `459 passed, 1 skipped`.
 
 ### Smart Recorder Raw Event Core (Stage 3-3 PR-3-3-1)
 - `InputRecorder`는 스텝 생성 경로와 별개로 Raw Event 스트림을 제공:
@@ -238,6 +238,17 @@
   - `lock_hwnd`를 기준으로 `WindowFromPoint`/Foreground HWND를 루트 핸들로 정규화해 자기 창 이벤트를 제외.
 - 제어키 소비:
   - ESC/F12는 `control_event_received("stop_hotkey")`로만 전달되고 스텝 변환/큐 적재되지 않음.
+
+### Smart Recorder Transform Core (Stage 3-3 PR-3-3-2)
+- 신규 모듈: `app/core/smart_recorder.py`
+- `SmartTransformer`:
+  - Raw key stream을 받아 `type_text`/`key_press` 스마트 분리 생성
+  - `typed_gap`(기본 1.5초) 기준 타임아웃 flush
+  - flush 키: `backspace/delete/left/right/up/down/home/end/tab/enter`
+  - modifier(`ctrl/alt/win`) 입력 시 텍스트 버퍼를 flush하고 키 스텝으로 분리
+- `SmartProposal`:
+  - 클릭 release 이벤트에서 `click_point` + `image_click` 동시 제안
+  - 캡처 provider 기반 60x60 주변 이미지 저장(`images/record_prop_*.png`) 및 경로 연결
 
 ### 규칙 적용 가드
 - 규칙은 2단 구조로 운용:
