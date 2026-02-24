@@ -170,6 +170,12 @@
   - 자동 생성: 캡처 이미지를 `images/smart_capture_*.png`로 저장하고 `StepData`(`anchor_image_path`, `image_path`, `png_bytes`)를 자동 구성.
   - 자동 삽입: `AddStepsCommand`로 현재 선택 스텝 다음 위치에 삽입해 Undo/Redo와 완전 호환.
   - 안정성: 매크로/Excel 실행 중 캡처를 차단하고 취소(ESC/우클릭) 시 파일 생성 없이 clean 종료.
+- Coordinate Guide Overlay (Stage 3-2 PR-3-2-1):
+  - 코어 오버레이: `CoordinateGuideOverlay`가 전체화면 투명 레이어에 십자선/레이저 포인트/라벨을 렌더링.
+  - API: `show_marker(...)`, `clear_marker()`, `to_overlay_point(...)`, `get_shared()`.
+  - 좌표계: 물리 화면 bounds + 가상 화면 geometry 스케일 매핑으로 DPI 차이 환경 대응.
+  - 확장 준비: `bbox` 전달 시 점선 박스 렌더링(이미지 스텝 가이드 확장용).
+  - 검증: `tests/test_coordinate_overlay_mapping.py`(마커 상태, 클릭 관통, 공유 인스턴스 재사용).
 - 조건 위저드(Conditional Wizard):
   - 의도 템플릿:
     - `ocr_text_then_click`
@@ -211,7 +217,7 @@
 - 스모크 실행 진입점:
   - `python run_smoke_suite.py --quick` (핵심 런타임/매칭 게이트)
   - `python run_smoke_suite.py` (핵심 게이트 + 전체 health check)
-- 최신 로컬 기준: `python -m pytest -q` = `445 passed, 1 skipped`.
+- 최신 로컬 기준: `python -m pytest -q` = `448 passed, 1 skipped`.
 
 ### 규칙 적용 가드
 - 규칙은 2단 구조로 운용:

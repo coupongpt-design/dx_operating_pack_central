@@ -174,6 +174,12 @@
   - 반투명 오버레이에서 드래그 캡처 시 좌표/크기(`X,Y,W,H`)를 실시간 표시.
   - 캡처 완료 즉시 `images/` 폴더에 PNG 저장 후 `image_click` 또는 `wait_for_image` 스텝을 자동 생성.
   - 생성 스텝은 `AddStepsCommand`로 현재 선택 위치 다음에 삽입(Undo/Redo 호환).
+- Stage 3-2 PR-3-2-1 Coordinate Guide Overlay:
+  - `CoordinateGuideOverlay` 코어 추가: 십자선 + 레이저 포인트 + `#번호 타입` 라벨을 전체 화면 투명 오버레이에 표시.
+  - API 제공: `show_marker(x, y, step_idx, step_type, bbox=None)`, `clear_marker()`.
+  - 좌표 변환: `to_overlay_point(global_x, global_y)`로 DPI/가상 화면 환경에서 마커 위치 보정.
+  - 리소스 재사용: `get_shared()` 공유 인스턴스 경로로 오버레이 재생성 비용 방지.
+  - 검증: `tests/test_coordinate_overlay_mapping.py`로 마커 payload/클릭 관통 속성/공유 인스턴스 재사용 초안 검증.
 
 ## 파일 포맷
 - JSON 저장: 메타데이터 포함 JSON(`meta`/`repeat`/`steps`), 레거시 리스트 JSON 역호환.
@@ -185,7 +191,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `445 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `448 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 

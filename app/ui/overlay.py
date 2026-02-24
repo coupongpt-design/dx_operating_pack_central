@@ -191,3 +191,164 @@ class VisualImageCaptureOverlay(QWidget):
             pass
         dlg.deleteLater()
         return result["rect"], result["crop"], result["virt"]
+
+
+class CoordinateGuideOverlay(QWidget):
+    _shared_instance = None
+
+    def __init__(self, parent=None):
+        super().__init__(
+            parent,
+            flags=Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool | Qt.NoDropShadowWindowHint,
+        )
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        self.setAttribute(Qt.WA_DeleteOnClose, False)
+
+        self._marker_visible = False
+        self._marker_global = (0, 0)
+        self._marker_local = QPoint()
+        self._marker_label = ""
+        self._bbox_global = None
+        self._bbox_local = None
+        self._last_marker = {}
+
+        self._phys_bounds = self._detect_physical_bounds()
+        self._virt_geom = QRect()
+        self._sx = 1.0
+        self._sy = 1.0
+        self._refresh_geometry_and_scale()
+        self.hide()
+
+    @classmethod
+    def get_shared(cls, parent=None):
+        if cls._shared_instance is None:
+            cls._shared_instance = cls(parent=parent)
+        return cls._shared_instance
+
+    @staticmethod
+    def _detect_physical_bounds():
+        try:
+            with mss.mss() as sct:
+                mon = sct.monitors[0]
+                return (
+                    int(mon["left"]),
+                    int(mon["top"]),
+                    int(mon["width"]),
+                    int(mon["height"]),
+                )
+        except Exception:
+            screen = QApplication.primaryScreen()
+            if not screen:
+                return (0, 0, 1, 1)
+            vg = screen.virtualGeometry()
+            return (int(vg.x()), int(vg.y()), int(vg.width()), int(vg.height()))
+
+    def _refresh_geometry_and_scale(self):
+        screen = QApplication.primaryScreen()
+        if not screen:
+            self._virt_geom = QRect(0, 0, 1, 1)
+            self.setGeometry(self._virt_geom)
+            self._sx = 1.0
+            self._sy = 1.0
+            return
+
+        self._virt_geom = screen.virtualGeometry()
+        self.setGeometry(self._virt_geom)
+
+        phys_left, phys_top, phys_w, phys_h = self._phys_bounds
+        virt_w = max(1, int(self._virt_geom.width()))
+        virt_h = max(1, int(self._virt_geom.height()))
+        self._sx = virt_w / float(max(1, int(phys_w)))
+        self._sy = virt_h / float(max(1, int(phys_h)))
+        self._phys_bounds = (int(phys_left), int(phys_top), int(phys_w), int(phys_h))
+
+    def to_overlay_point(self, global_x: int, global_y: int) -> QPoint:
+        self._refresh_geometry_and_scale()
+        phys_left, phys_top, _phys_w, _phys_h = self._phys_bounds
+        mapped_global_x = self._virt_geom.x() + (float(global_x) - float(phys_left)) * self._sx
+        mapped_global_y = self._virt_geom.y() + (float(global_y) - float(phys_top)) * self._sy
+
+        local_x = int(round(mapped_global_x - self.geometry().x()))
+        local_y = int(round(mapped_global_y - self.geometry().y()))
+        local_x = max(0, min(local_x, max(0, self.width() - 1)))
+        local_y = max(0, min(local_y, max(0, self.height() - 1)))
+        return QPoint(local_x, local_y)
+
+    def _to_overlay_rect(self, rect_global: QRect) -> QRect:
+        p1 = self.to_overlay_point(int(rect_global.x()), int(rect_global.y()))
+        p2 = self.to_overlay_point(int(rect_global.x() + rect_global.width()), int(rect_global.y() + rect_global.height()))
+        return QRect(p1, p2).normalized()
+
+    def show_marker(self, x: int, y: int, step_idx, step_type: str, bbox=None):
+        self._marker_global = (int(x), int(y))
+        self._marker_local = self.to_overlay_point(int(x), int(y))
+        self._marker_label = f"#{step_idx} {step_type}" if step_idx is not None else str(step_type or "")
+
+        self._bbox_global = None
+        self._bbox_local = None
+        if bbox is not None:
+            if isinstance(bbox, QRect):
+                self._bbox_global = QRect(bbox)
+            elif isinstance(bbox, (tuple, list)) and len(bbox) >= 4:
+                self._bbox_global = QRect(int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))
+            if self._bbox_global is not None:
+                self._bbox_local = self._to_overlay_rect(self._bbox_global)
+
+        self._last_marker = {
+            "global": self._marker_global,
+            "local": QPoint(self._marker_local),
+            "step_idx": step_idx,
+            "step_type": str(step_type or ""),
+            "label": self._marker_label,
+            "bbox_global": QRect(self._bbox_global) if isinstance(self._bbox_global, QRect) else None,
+            "bbox_local": QRect(self._bbox_local) if isinstance(self._bbox_local, QRect) else None,
+        }
+        self._marker_visible = True
+        self.show()
+        self.raise_()
+        self.update()
+
+    def clear_marker(self):
+        self._marker_visible = False
+        self._bbox_global = None
+        self._bbox_local = None
+        self._last_marker = {}
+        self.hide()
+        self.update()
+
+    def paintEvent(self, _event):
+        if not self._marker_visible:
+            return
+
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        x = int(self._marker_local.x())
+        y = int(self._marker_local.y())
+
+        # Crosshair lines.
+        p.setPen(QPen(QColor(80, 220, 255, 100), 1))
+        p.drawLine(0, y, self.width(), y)
+        p.drawLine(x, 0, x, self.height())
+
+        # Laser point.
+        p.setPen(QPen(QColor(0, 230, 255, 230), 2))
+        p.setBrush(QColor(0, 230, 255, 190))
+        p.drawEllipse(QPoint(x, y), 5, 5)
+        p.setBrush(Qt.NoBrush)
+        p.drawEllipse(QPoint(x, y), 10, 10)
+
+        # Optional bbox.
+        if isinstance(self._bbox_local, QRect) and self._bbox_local.width() > 1 and self._bbox_local.height() > 1:
+            p.setPen(QPen(QColor(255, 200, 80, 185), 1, Qt.DashLine))
+            p.drawRect(self._bbox_local)
+
+        # Label.
+        label = self._marker_label or "step"
+        lx = min(self.width() - 180, x + 14)
+        ly = max(18, y - 14)
+        label_rect = QRect(int(lx), int(ly), 176, 22)
+        p.fillRect(label_rect, QColor(0, 0, 0, 130))
+        p.setPen(QColor(220, 250, 255, 230))
+        p.drawText(label_rect.adjusted(6, 0, -6, 0), Qt.AlignVCenter | Qt.AlignLeft, label)

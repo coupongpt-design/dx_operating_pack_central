@@ -1554,3 +1554,21 @@
 - Verification:
   - `python -m pytest -q tests/test_visual_capturer.py tests/test_excel_toolbar_responsive.py tests/test_main_trigger_scheduler_integration.py` -> `33 passed in 2.60s`
   - `python -m pytest -q` -> `445 passed, 1 skipped in 21.21s`
+
+## [2026-02-24] Session 79 - UI 현대화 Stage 3-2 PR-3-2-1 (Coordinate Guide Overlay 코어)
+- Summary:
+  - 스텝 좌표를 실제 화면 위에 표시하는 좌표 가이드 오버레이 코어를 추가.
+  - 십자선/레이저 포인트/`#번호 타입` 라벨 렌더링과 `bbox` 점선 박스(옵션) 렌더링을 지원.
+  - 오버레이는 마우스 클릭 관통(`WA_TransparentForMouseEvents`)과 공유 인스턴스 재사용(`get_shared`) 경로를 제공.
+- Code:
+  - `app/ui/overlay.py`:
+    - `CoordinateGuideOverlay` 추가.
+    - API: `show_marker(...)`, `clear_marker()`, `to_overlay_point(...)`, `get_shared(...)`.
+    - DPI/가상 화면 보정: `_detect_physical_bounds()`, `_refresh_geometry_and_scale()` 구현.
+  - `tests/test_coordinate_overlay_mapping.py` 신규:
+    - `show_marker` payload 저장 상태 검증.
+    - 클릭 관통 속성(`WA_TransparentForMouseEvents`) 검증.
+    - 공유 인스턴스 재사용 검증.
+- Verification:
+  - `python -m pytest -q tests/test_coordinate_overlay_mapping.py tests/test_visual_capturer.py` -> `6 passed in 2.36s`
+  - `python -m pytest -q` -> `448 passed, 1 skipped in 25.25s`
