@@ -1441,3 +1441,31 @@
 - Verification:
   - `python -m pytest -q tests/test_conditional_wizard_generation.py tests/test_scenario_flow_hints.py tests/test_excel_toolbar_responsive.py` -> `18 passed in 1.14s`
   - `python -m pytest -q` -> `433 passed, 1 skipped in 21.76s`
+
+## [2026-02-24] Session 75 - UI 현대화 Stage 2-2 PR-1 (실시간 Flow Preview)
+- Summary:
+  - 드래그 중 임시 순서를 받아 실시간 Flow Preview를 렌더링하는 경로를 추가.
+  - Flow edge에 상태(`ok`, `self_jump`, `dangling`)를 부여하고, 상태별 색상/점선 경고를 적용.
+  - Drop/drag-leave 시 프리뷰를 해제하고 최종 `sync_order()` 경로와 충돌 없이 정리되도록 연결.
+- Code:
+  - `app/ui/widgets.py`
+    - `flowPreviewRequested = pyqtSignal(list)` 추가.
+    - `dragMoveEvent`에 30ms throttle + 임시 순서 계산(`_build_drag_preview_order`) 구현.
+    - `dropEvent`/`dragLeaveEvent`에서 프리뷰 해제 emit.
+    - `set_flow_edges`/`paintEvent` 확장: status 기반 렌더(`self_jump` 주황, `dangling` 빨강 점선).
+  - `app/main.py`
+    - `_build_flow_preview_edges(temp_steps)` 추가:
+      - 상태 판정(`ok/self_jump/dangling`)
+      - `(order_hash, edge_source_hash)` 캐시 적용.
+    - `_on_flow_preview_requested(preview_rows)` 추가:
+      - 임시 순서 렌더 적용/해제.
+    - `StepList.flowPreviewRequested` 연결 + reorder 후 프리뷰 상태 정리.
+  - `tests/test_visual_drag_drop_logic.py` 신규:
+    - 상태 판정 정확성 검증(`ok/self_jump/dangling`).
+    - preview cache hit 검증.
+    - preview apply/clear 동작 검증.
+  - `tests/test_scenario_flow_hints.py`
+    - edge 튜플 포맷(상태 포함) 기대값 갱신.
+- Verification:
+  - `python -m pytest -q tests/test_visual_drag_drop_logic.py tests/test_scenario_flow_hints.py tests/test_conditional_wizard_generation.py tests/test_excel_toolbar_responsive.py` -> `21 passed in 1.80s`
+  - `python -m pytest -q` -> `436 passed, 1 skipped in 22.25s`

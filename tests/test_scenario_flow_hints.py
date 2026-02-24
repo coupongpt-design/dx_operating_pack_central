@@ -108,8 +108,8 @@ def test_refresh_step_list_builds_flow_edges_for_jump_and_loop(monkeypatch, qapp
 
     assert hasattr(win.list, "_flow_edges")
     edges = set(win.list._flow_edges)
-    assert (1, 2, "jump_true") in edges
-    assert (3, 0, "loop_back") in edges
+    assert (1, 2, "jump_true", "ok") in edges
+    assert (3, 0, "loop_back", "ok") in edges
 
     win.close()
 
@@ -136,7 +136,7 @@ def test_refresh_step_list_builds_flow_edges_for_step_fail_and_match_routes(monk
     win.refresh_step_list()
 
     edges = set(win.list._flow_edges)
-    assert (0, 2, "jump_true") in edges
-    assert (0, 1, "jump_false") in edges
+    assert (0, 2, "jump_true", "ok") in edges
+    assert (0, 1, "jump_false", "ok") in edges
 
     win.close()

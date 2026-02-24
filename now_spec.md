@@ -146,6 +146,11 @@
   - 변수 매핑은 헤더 대소문자를 구분하지 않음(`user_name` == `USER_NAME`)
   - 리스트 좌측 Arrow Lane에 jump/branch/loop edge를 색상별로 그려 흐름 도약 지점을 시각화
   - Arrow Lane edge 수집은 `target_true/false`, `on_match_goto_id`, `branch_on_fail_goto_id`, `start_loop_id`를 함께 반영
+  - 드래그 중에는 임시 순서 기반 Flow Preview를 표시하며 edge 상태를 구분:
+    - `ok`: 기본 색
+    - `self_jump`: 주황 경고
+    - `dangling`: 빨강 점선 경고
+  - Flow Preview 계산은 `(order_hash, edge_source_hash)` 캐시로 중복 계산을 방지
 - 조건 위저드(Conditional Wizard):
   - 의도 템플릿:
     - `ocr_text_then_click`
@@ -187,7 +192,7 @@
 - 스모크 실행 진입점:
   - `python run_smoke_suite.py --quick` (핵심 런타임/매칭 게이트)
   - `python run_smoke_suite.py` (핵심 게이트 + 전체 health check)
-- 최신 로컬 기준: `python -m pytest -q` = `433 passed, 1 skipped`.
+- 최신 로컬 기준: `python -m pytest -q` = `436 passed, 1 skipped`.
 
 ### 규칙 적용 가드
 - 규칙은 2단 구조로 운용:

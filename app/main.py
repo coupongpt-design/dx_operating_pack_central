@@ -141,6 +141,8 @@ class MainWindow(QMainWindow):
         self._excel_payload_by_job_id: dict[str, dict] = {}
         self._excel_preview_cache_path: str = ""
         self._excel_preview_payload: dict = {}
+        self._flow_preview_cache: dict[tuple, list[tuple[int, int, str, str]]] = {}
+        self._flow_preview_active: bool = False
         self._macro_paused_ui: bool = False
         self._record_show_summary = False
         self._was_minimized = False
@@ -194,6 +196,7 @@ class MainWindow(QMainWindow):
         self.list.requestDeleteMany.connect(self.delete_steps_at)
         self.list.requestRename.connect(self.rename_step_at)
         self.list.itemChanged.connect(self._on_list_item_renamed)
+        self.list.flowPreviewRequested.connect(self._on_flow_preview_requested)
         
         # Toolbar
         self.toolbar = self.addToolBar("Main Toolbar")
@@ -995,6 +998,7 @@ class MainWindow(QMainWindow):
         except Exception:
             focus_index = None
         self._push_command(ReorderStepsCommand(self.steps, new_steps), focus_index=focus_index)
+        self._flow_preview_active = False
 
     def run_from_index(self, idx):
         self.run_macro(start_index=idx)
@@ -1673,6 +1677,125 @@ class MainWindow(QMainWindow):
             _append(getattr(step, "branch_on_fail_goto_id", None), "jump_false")
 
         return edges
+
+    def _build_flow_preview_edges(self, temp_steps: list[StepData]) -> list[tuple[int, int, str, str]]:
+        order_hash = tuple(str(getattr(s, "id", "") or "") for s in temp_steps)
+        edge_source_hash = tuple(
+            (
+                str(getattr(s, "id", "") or ""),
+                str(getattr(s, "type", "") or "").lower(),
+                str(getattr(s, "target_true_id", "") or getattr(s, "jump_to_step_id", "") or ""),
+                str(getattr(s, "target_false_id", "") or getattr(s, "branch_on_fail_goto_id", "") or ""),
+                str(getattr(s, "branch_true_goto_id", "") or ""),
+                str(getattr(s, "branch_false_goto_id", "") or ""),
+                str(getattr(s, "on_match_goto_id", "") or ""),
+                str(getattr(s, "start_loop_id", "") or ""),
+            )
+            for s in temp_steps
+        )
+        cache_key = (order_hash, edge_source_hash)
+        cached = self._flow_preview_cache.get(cache_key)
+        if cached is not None:
+            return [tuple(e) for e in cached]
+
+        id_to_index = {str(getattr(s, "id", "") or ""): i for i, s in enumerate(temp_steps)}
+        edges: list[tuple[int, int, str, str]] = []
+        seen: set[tuple[int, int, str, str]] = set()
+
+        def _append(src_idx: int, target_id, kind: str):
+            if not target_id:
+                return
+            dst_idx = id_to_index.get(str(target_id))
+            status = "ok"
+            dst = src_idx
+            if dst_idx is None:
+                status = "dangling"
+            else:
+                dst = int(dst_idx)
+                if dst == src_idx:
+                    status = "self_jump"
+            edge = (src_idx, dst, kind, status)
+            if edge in seen:
+                return
+            seen.add(edge)
+            edges.append(edge)
+
+        for src_idx, step in enumerate(temp_steps):
+            stype = str(getattr(step, "type", "") or "").lower()
+            if stype in {"jump_if", "ocr_jump_if"}:
+                _append(
+                    src_idx,
+                    getattr(step, "target_true_id", None) or getattr(step, "jump_to_step_id", None),
+                    "jump_true",
+                )
+                _append(
+                    src_idx,
+                    getattr(step, "target_false_id", None) or getattr(step, "branch_on_fail_goto_id", None),
+                    "jump_false",
+                )
+                continue
+            if stype == "image_branch":
+                _append(
+                    src_idx,
+                    getattr(step, "target_true_id", None) or getattr(step, "branch_true_goto_id", None),
+                    "branch_true",
+                )
+                _append(
+                    src_idx,
+                    getattr(step, "target_false_id", None) or getattr(step, "branch_false_goto_id", None),
+                    "branch_false",
+                )
+                continue
+            if stype == "end_loop":
+                _append(src_idx, getattr(step, "start_loop_id", None), "loop_back")
+                continue
+            _append(src_idx, getattr(step, "on_match_goto_id", None), "jump_true")
+            _append(src_idx, getattr(step, "branch_on_fail_goto_id", None), "jump_false")
+
+        self._flow_preview_cache[cache_key] = [tuple(e) for e in edges]
+        if len(self._flow_preview_cache) > 96:
+            # simple bounded cache (insertion-order in modern dicts)
+            oldest_key = next(iter(self._flow_preview_cache.keys()))
+            self._flow_preview_cache.pop(oldest_key, None)
+        return edges
+
+    def _on_flow_preview_requested(self, preview_rows: list):
+        if not hasattr(self, "list") or not hasattr(self.list, "set_flow_edges"):
+            return
+        if not preview_rows:
+            if self._flow_preview_active:
+                id_to_index = {str(getattr(s, "id", "") or ""): i for i, s in enumerate(self.steps)}
+                self.list.set_flow_edges(self._collect_step_flow_edges(id_to_index))
+                self._flow_preview_active = False
+            return
+
+        temp_steps: list[StepData] = []
+        used_obj_ids: set[int] = set()
+        for raw in preview_rows:
+            try:
+                row = int(raw)
+            except Exception:
+                continue
+            if row < 0 or row >= self.list.count():
+                continue
+            item = self.list.item(row)
+            if item is None:
+                continue
+            step = item.data(Qt.UserRole)
+            if step is None:
+                continue
+            temp_steps.append(step)
+            used_obj_ids.add(id(step))
+        if len(temp_steps) != len(self.steps):
+            for step in self.steps:
+                if id(step) in used_obj_ids:
+                    continue
+                temp_steps.append(step)
+        if not temp_steps:
+            return
+
+        self.list.set_flow_edges(self._build_flow_preview_edges(temp_steps))
+        self._flow_preview_active = True
 
     def _build_step_excel_preview(self, step: StepData, payload: dict) -> str:
         if not payload:

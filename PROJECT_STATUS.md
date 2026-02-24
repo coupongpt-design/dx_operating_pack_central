@@ -156,6 +156,10 @@
   - 의도 3종 지원: `텍스트 보이면 클릭`, `텍스트 미검출 재시도 후 중단`, `이미지 확인 후 클릭/분기`
   - 의도별 입력 UI를 동적 노출(텍스트/이미지 경로/재시도/타임아웃/성공·실패 라우팅)
   - 생성 스텝은 기존 타입 조합만 사용(`ocr_jump_if`, `ocr_check_text`, `wait_for_image`, `start_loop/end_loop`, `jump_if`, `click_point`, `comment`)
+- Stage 2-2 PR-1 실시간 Flow Preview:
+  - StepList 드래그 중 임시 순서를 throttle emit(`flowPreviewRequested`)하여 화살표를 실시간 재계산.
+  - 프리뷰 edge 상태를 `ok/self_jump/dangling`으로 판정해 색상/점선으로 경고 표시.
+  - `(order_hash, edge_source_hash)` 캐시로 중복 계산을 줄이고 drop/leave 시 프리뷰를 해제.
 
 ## 파일 포맷
 - JSON 저장: 메타데이터 포함 JSON(`meta`/`repeat`/`steps`), 레거시 리스트 JSON 역호환.
@@ -167,7 +171,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `433 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `436 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 

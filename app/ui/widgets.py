@@ -1,4 +1,5 @@
 import logging
+import time
 from PyQt5.QtWidgets import (
     QListWidget, QListWidgetItem, QMenu, QAbstractItemView,
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QRubberBand, QLineEdit
@@ -168,6 +169,7 @@ class StepList(QListWidget):
     requestRunFrom = pyqtSignal(int)
     requestRename = pyqtSignal(int, str)
     orderChanged = pyqtSignal()
+    flowPreviewRequested = pyqtSignal(list)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -199,6 +201,12 @@ class StepList(QListWidget):
             "branch_false": QColor("#E57373"),
             "loop_back": QColor("#BA68C8"),
         }
+        self._flow_status_colors = {
+            "self_jump": QColor("#FFA726"),
+            "dangling": QColor("#EF5350"),
+        }
+        self._flow_preview_interval_sec = 0.03
+        self._last_flow_preview_emit_at = 0.0
 
     def _calc_item_height(self, flow_hint: str = "", excel_preview: str = "") -> int:
         height = 50
@@ -240,9 +248,10 @@ class StepList(QListWidget):
             src = int(e[0])
             dst = int(e[1])
             kind = str(e[2]) if len(e) >= 3 else "jump_true"
+            status = str(e[3]) if len(e) >= 4 else "ok"
             if src < 0 or dst < 0:
                 continue
-            safe_edges.append((src, dst, kind))
+            safe_edges.append((src, dst, kind, status))
         self._flow_edges = safe_edges
         self.viewport().update()
 
@@ -283,6 +292,8 @@ class StepList(QListWidget):
         self.refresh_indices()
         self.viewport().update()
         self.orderChanged.emit()
+        self.flowPreviewRequested.emit([])
+        self._last_flow_preview_emit_at = 0.0
         self._inline_edit_item = None
 
     def paintEvent(self, event):
@@ -295,7 +306,11 @@ class StepList(QListWidget):
         lane_step_x = 6
         edge_count = max(1, len(self._flow_edges))
 
-        for edge_idx, (src, dst, kind) in enumerate(self._flow_edges):
+        for edge_idx, edge in enumerate(self._flow_edges):
+            if len(edge) >= 4:
+                src, dst, kind, status = edge[0], edge[1], edge[2], edge[3]
+            else:
+                src, dst, kind, status = edge[0], edge[1], edge[2], "ok"
             if src >= self.count() or dst >= self.count():
                 continue
             src_item = self.item(src)
@@ -315,7 +330,11 @@ class StepList(QListWidget):
             end_y = dst_rect.center().y()
             lane_x = lane_base_x + (edge_idx % min(6, edge_count)) * lane_step_x
             color = self._flow_colors.get(kind, QColor("#8FB3D9"))
+            if status in self._flow_status_colors:
+                color = self._flow_status_colors[status]
             pen = QPen(color, 1.8)
+            if status == "dangling":
+                pen.setStyle(Qt.DashLine)
             painter.setPen(pen)
 
             if src == dst:
@@ -330,6 +349,30 @@ class StepList(QListWidget):
             right = QPoint(lane_x + 4, end_y - 6 * arrow_dir)
             painter.setBrush(color)
             painter.drawPolygon(QPolygon([tip, left, right]))
+
+    def _build_drag_preview_order(self, pos) -> list[int]:
+        count = self.count()
+        if count <= 1:
+            return []
+        selected_rows = sorted({self.row(it) for it in self.selectedItems()})
+        if not selected_rows:
+            return []
+
+        target_item = self.itemAt(pos)
+        drop_row = count
+        if target_item is not None:
+            drop_row = self.row(target_item)
+            target_rect = self.visualItemRect(target_item)
+            if not target_rect.isNull() and pos.y() > target_rect.center().y():
+                drop_row += 1
+        drop_row = max(0, min(count, drop_row))
+
+        all_rows = list(range(count))
+        moving_rows = [r for r in all_rows if r in selected_rows]
+        remaining_rows = [r for r in all_rows if r not in selected_rows]
+        insert_pos = sum(1 for r in remaining_rows if r < drop_row)
+        preview_rows = remaining_rows[:insert_pos] + moving_rows + remaining_rows[insert_pos:]
+        return preview_rows
 
     def show_menu(self, pos):
         it = self.itemAt(pos)
@@ -394,6 +437,20 @@ class StepList(QListWidget):
             self._rubber_band.setGeometry(rect)
             return
         super().mouseMoveEvent(event)
+
+    def dragMoveEvent(self, event):
+        now = time.monotonic()
+        if (now - self._last_flow_preview_emit_at) >= self._flow_preview_interval_sec:
+            preview_rows = self._build_drag_preview_order(event.pos())
+            if preview_rows:
+                self.flowPreviewRequested.emit(preview_rows)
+            self._last_flow_preview_emit_at = now
+        super().dragMoveEvent(event)
+
+    def dragLeaveEvent(self, event):
+        self.flowPreviewRequested.emit([])
+        self._last_flow_preview_emit_at = 0.0
+        super().dragLeaveEvent(event)
 
     def mouseReleaseEvent(self, event):
         if self._rubber_active and self._rubber_band:
