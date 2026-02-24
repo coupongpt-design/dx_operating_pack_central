@@ -15,6 +15,11 @@
 - 서브스크립트(`run_macro`) 지원: 콜 스택, 공유 변수 컨텍스트, 재귀 가드(깊이 5).
 - Undo/Redo 완전 연결: `MainWindow` CRUD/이동/복제 모두 `_push_command` + UndoStack, Ctrl+Z/Ctrl+Y.
 - 녹화기 최적화: 거리+시간 필터, 드래그 경로 리샘플링, 메트릭 UI 표시.
+- Smart Recorder 코어 보강(Stage 3-3 PR-3-3-1):
+  - `InputRecorder` Raw Event 채널 추가(`raw_event_received`)
+  - HWND 기반 셀프 캡처 제외(`lock_hwnd` 루트 핸들 비교)
+  - ESC/F12 제어키 소비(`control_event_received: stop_hotkey`)로 스텝 변환 차단
+  - 세션 시작/종료 시 큐/버퍼/리스너 정리 강화
 - 창 관리: 대상 창 입력 + Find/Fix/Selector UI, 실행 전 자동 포커스/리프레시(창 미발견 시 경고 후 진행).
 - 시나리오 마법사: 기존 수동 편집과 분리된 별도 버튼/다이얼로그, `추천/전체/검색` 템플릿 선택 + 필수 입력 + 생성 미리보기/검증 + 삽입 위치 선택(선택 다음/끝) 지원. 템플릿 카탈로그 46종(채팅/키보드/마우스/파일/OCR 분기 + 리니지류 실전 템플릿) 운영.
 - 데이터 주도 자동화 V2:
@@ -202,7 +207,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `453 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `456 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 

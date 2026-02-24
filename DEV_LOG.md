@@ -1622,3 +1622,25 @@
 - Verification:
   - `python -m pytest -q tests/test_coordinate_overlay_mapping.py tests/test_excel_toolbar_responsive.py` -> `16 passed in 1.93s`
   - `python -m pytest -q` -> `453 passed, 1 skipped in 21.75s`
+
+## [2026-02-24] Session 82 - UI 현대화 Stage 3-3 PR-3-3-1 (Recorder Raw Stream + Self-Filter)
+- Summary:
+  - `InputRecorder`에 `raw_event_received(dict)`, `control_event_received(str)` 채널을 추가해 Smart Recorder용 Raw Event 스트림을 확보.
+  - `lock_hwnd`를 기준으로 HWND 루트 비교 필터를 적용해 앱 자체 UI 이벤트(셀프 캡처)를 기록/송출에서 제외.
+  - ESC/F12를 제어 이벤트(`stop_hotkey`)로 소비하도록 처리해 스텝 변환에서 제외.
+  - 세션 시작/종료 시 큐/버퍼/리스너를 재초기화하고 worker stop 경로를 보강해 세션 안정성을 개선.
+- Code:
+  - `app/core/recorder.py`:
+    - Win32 HWND 조회/정규화 헬퍼(`_window_from_point`, `_foreground_hwnd`, `_normalize_hwnd`) 추가
+    - 셀프-캡처 필터(`_is_self_capture_hwnd`) 추가
+    - Raw/Control 이벤트 emit 헬퍼(`_emit_raw_event`, `_emit_control_event`) 추가
+    - `_on_key_press/_on_key_release/_on_click`에 표준 Raw payload 송출 및 stop hotkey 소비 로직 추가
+    - `_on_move/_on_scroll`에 self-window 제외 가드 추가
+    - `start/stop/_process_queue`에 큐/리스너 정리 로직 보강
+  - `tests/test_smart_recorder_core.py`(신규):
+    - self-window click exclusion 검증
+    - ESC stop hotkey consume(스텝 비기록) 검증
+    - raw callback 예외 swallow + raw payload 송출 검증
+- Verification:
+  - `python -m pytest -q tests/test_smart_recorder_core.py` -> `3 passed in 0.10s`
+  - `python -m pytest -q` -> `456 passed, 1 skipped in 22.15s`

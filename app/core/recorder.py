@@ -4,6 +4,7 @@ import queue
 import threading
 import logging
 import math
+import ctypes
 from PyQt5.QtCore import QObject, pyqtSignal, QRect, Qt
 from pynput import keyboard, mouse
 from .models import StepData
@@ -12,6 +13,8 @@ from ..utils.common import hk_normalize, hk_to_tuple, hk_pretty
 class InputRecorder(QObject):
     finished = pyqtSignal(list)
     pausedChanged = pyqtSignal(bool)
+    raw_event_received = pyqtSignal(dict)
+    control_event_received = pyqtSignal(str)
 
     def __init__(self, ignore_rect: QRect | None, parent=None,
                  typed_gap_ms=500,
@@ -24,7 +27,10 @@ class InputRecorder(QObject):
                  lock_hwnd=None,
                  ignore_combos=None,
                  max_queue_size: int = 5000,
-                 move_min_distance_px: int = 3):
+                 move_min_distance_px: int = 3,
+                 raw_event_callback=None,
+                 control_event_callback=None,
+                 stop_hotkeys=None):
         super().__init__(parent)
         self.logger = logging.getLogger(__name__)
 
@@ -83,6 +89,16 @@ class InputRecorder(QObject):
         self._last_drop_log = 0.0
         self._last_move_pos = None  # (x, y)
         self._last_move_ts = 0.0
+        self._raw_mods = set()
+        self._raw_event_callback = raw_event_callback
+        self._control_event_callback = control_event_callback
+        self._self_hwnd = int(lock_hwnd) if lock_hwnd else None
+        self._stop_hotkeys = {
+            hk.lower()
+            for hk in (stop_hotkeys or ("esc", "f12"))
+            if isinstance(hk, str) and hk.strip()
+        }
+        self._win32_available = hasattr(ctypes, "windll") and hasattr(ctypes.windll, "user32")
 
         # Metrics
         self._processed_events = 0
@@ -96,8 +112,81 @@ class InputRecorder(QObject):
             "start_time": 0,
         }
 
+        self._kb = None
+        self._ms = None
+        self._create_listeners()
+
+    def _create_listeners(self):
         self._kb = keyboard.Listener(on_press=self._on_key_press, on_release=self._on_key_release, suppress=False)
         self._ms = mouse.Listener(on_click=self._on_click, on_move=self._on_move, on_scroll=self._on_scroll)
+
+    def _clear_queue(self):
+        while True:
+            try:
+                self._queue.get_nowait()
+                self._queue.task_done()
+            except queue.Empty:
+                break
+
+    def _emit_raw_event(self, payload: dict):
+        try:
+            self.raw_event_received.emit(payload)
+        except Exception:
+            pass
+        if self._raw_event_callback:
+            try:
+                self._raw_event_callback(payload)
+            except Exception as e:
+                self.logger.debug("raw_event callback failed and was ignored: %s", e)
+
+    def _emit_control_event(self, event_name: str):
+        try:
+            self.control_event_received.emit(event_name)
+        except Exception:
+            pass
+        if self._control_event_callback:
+            try:
+                self._control_event_callback(event_name)
+            except Exception as e:
+                self.logger.debug("control callback failed and was ignored: %s", e)
+
+    def _window_from_point(self, x: int, y: int) -> int | None:
+        if not self._win32_available:
+            return None
+        try:
+            class POINT(ctypes.Structure):
+                _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+
+            hwnd = int(ctypes.windll.user32.WindowFromPoint(POINT(int(x), int(y))))
+            return hwnd or None
+        except Exception:
+            return None
+
+    def _foreground_hwnd(self) -> int | None:
+        if not self._win32_available:
+            return None
+        try:
+            hwnd = int(ctypes.windll.user32.GetForegroundWindow())
+            return hwnd or None
+        except Exception:
+            return None
+
+    def _normalize_hwnd(self, hwnd: int | None) -> int | None:
+        if not hwnd:
+            return None
+        if not self._win32_available:
+            return int(hwnd)
+        try:
+            # GA_ROOT = 2
+            root = int(ctypes.windll.user32.GetAncestor(int(hwnd), 2))
+            return root or int(hwnd)
+        except Exception:
+            return int(hwnd)
+
+    def _is_self_capture_hwnd(self, hwnd: int | None) -> bool:
+        if not hwnd or not self._self_hwnd:
+            return False
+        return self._normalize_hwnd(hwnd) == self._normalize_hwnd(self._self_hwnd)
 
     # --- Internal helpers ---
     def _enqueue_event(self, etype: str, *payload):
@@ -183,6 +272,17 @@ class InputRecorder(QObject):
             self.logger.warning("Recorder already running")
             return
         self._active = True
+        self._paused = False
+        self._typed_buf = ""
+        self._mods.clear()
+        self._raw_mods.clear()
+        self._steps = []
+        self._press_pos = None
+        self._is_dragging = False
+        self._drag_points = []
+        self._scroll_acc = (0, 0)
+        self._last_move_pos = None
+        self._clear_queue()
         self._stop_event.clear()
         # reset metrics per session
         self.metrics.update(
@@ -197,6 +297,7 @@ class InputRecorder(QObject):
         if self._worker_thread and not self._worker_thread.is_alive():
             self._worker_thread = threading.Thread(target=self._process_queue, daemon=True)
         self._worker_thread.start()
+        self._create_listeners()
         self._kb.start()
         self._ms.start()
         self._ignore_until = time.time() + 0.25
@@ -205,34 +306,45 @@ class InputRecorder(QObject):
     def stop(self):
         self._active = False
         try:
-            self._kb.stop()
-            self._ms.stop()
-            self._kb.join(timeout=1.0)
-            self._ms.join(timeout=1.0)
-            if self._kb.is_alive():
+            if self._kb:
+                self._kb.stop()
+            if self._ms:
+                self._ms.stop()
+            if self._kb:
+                self._kb.join(timeout=1.0)
+            if self._ms:
+                self._ms.join(timeout=1.0)
+            if self._kb and self._kb.is_alive():
                 self.logger.warning("Keyboard listener did not stop within timeout.")
-            if self._ms.is_alive():
+            if self._ms and self._ms.is_alive():
                 self.logger.warning("Mouse listener did not stop within timeout.")
         except Exception as e:
             self.logger.warning("Failed to stop input listeners cleanly: %s", e)
         
         # Signal worker to stop
-        self._enqueue_event("stop")
+        self._emit_control_event("stop_requested")
+        try:
+            self._queue.put_nowait(("stop", time.time()))
+        except queue.Full:
+            pass
         self._stop_event.set()
         if self._worker_thread.is_alive():
             self._worker_thread.join(timeout=1.0)
-            
+        self._clear_queue()
         self.finished.emit(self._steps)
         return self.metrics
 
     def _process_queue(self):
-        while not self._stop_event.is_set():
+        while True:
             try:
                 # Wait for event
                 event = self._queue.get(timeout=0.1)
             except queue.Empty:
                 # Check flush timers if idle
                 self._check_flush_timers()
+                if self._stop_event.is_set():
+                    self._flush_all(True)
+                    break
                 continue
 
             etype = event[0]
@@ -541,15 +653,68 @@ class InputRecorder(QObject):
     # --- Callbacks (Producer) ---
 
     def _on_key_press(self, k):
+        tok = self._key_token(k)
+        if tok in ('shift', 'ctrl', 'alt', 'win'):
+            self._raw_mods.add(tok)
+        hwnd = self._foreground_hwnd()
+        if tok and tok.lower() in self._stop_hotkeys:
+            self._emit_control_event("stop_hotkey")
+            return
+        if self._is_self_capture_hwnd(hwnd):
+            return
+        self._emit_raw_event({
+            "timestamp": time.time(),
+            "type": "key",
+            "x": None,
+            "y": None,
+            "button": None,
+            "key_code": tok,
+            "modifiers": sorted(self._raw_mods),
+            "hwnd": hwnd,
+            "phase": "press",
+        })
         self._enqueue_event("key_press", k)
 
     def _on_key_release(self, k):
+        tok = self._key_token(k)
+        if tok in ('shift', 'ctrl', 'alt', 'win'):
+            self._raw_mods.discard(tok)
+        hwnd = self._foreground_hwnd()
+        if tok and tok.lower() in self._stop_hotkeys:
+            return
+        if self._is_self_capture_hwnd(hwnd):
+            return
+        self._emit_raw_event({
+            "timestamp": time.time(),
+            "type": "key",
+            "x": None,
+            "y": None,
+            "button": None,
+            "key_code": tok,
+            "modifiers": sorted(self._raw_mods),
+            "hwnd": hwnd,
+            "phase": "release",
+        })
         self._enqueue_event("key_release", k)
 
     def _on_click(self, x, y, button, pressed):
         # Ignore regions first
         if self._in_ignore(x, y):
             return
+        hwnd = self._window_from_point(x, y)
+        if self._is_self_capture_hwnd(hwnd):
+            return
+        self._emit_raw_event({
+            "timestamp": time.time(),
+            "type": "click",
+            "x": int(x),
+            "y": int(y),
+            "button": self._btn_name(button),
+            "key_code": None,
+            "modifiers": sorted(self._raw_mods),
+            "hwnd": hwnd,
+            "phase": "press" if pressed else "release",
+        })
         self._enqueue_event("click", x, y, button, pressed)
 
     def _on_move(self, x, y):
@@ -564,9 +729,13 @@ class InputRecorder(QObject):
         self._last_move_ts = now
         if self._in_ignore(x, y):
             return
+        if self._is_self_capture_hwnd(self._window_from_point(x, y)):
+            return
         self._enqueue_event("move", x, y)
 
     def _on_scroll(self, x, y, dx, dy):
         if self._in_ignore(x, y):
+            return
+        if self._is_self_capture_hwnd(self._window_from_point(x, y)):
             return
         self._enqueue_event("scroll", x, y, dx, dy)
