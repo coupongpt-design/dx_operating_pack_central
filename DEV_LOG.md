@@ -1469,3 +1469,33 @@
 - Verification:
   - `python -m pytest -q tests/test_visual_drag_drop_logic.py tests/test_scenario_flow_hints.py tests/test_conditional_wizard_generation.py tests/test_excel_toolbar_responsive.py` -> `21 passed in 1.80s`
   - `python -m pytest -q` -> `436 passed, 1 skipped in 22.25s`
+
+## [2026-02-24] Session 76 - UI 현대화 Stage 2-2 PR-2 (Logic Path Simulator)
+- Summary:
+  - 실제 실행 없이 현재 스텝/엑셀 컨텍스트 기준의 예상 실행 경로를 계산하는 `LogicPathSimulator`를 추가.
+  - Scenario 탭에 `경로 시뮬레이션` 버튼과 `센서 성공 가정` 토글을 추가해 OCR/이미지 의존 분기를 가상 실행 가능하게 구성.
+  - 시뮬레이션 결과 방문 스텝을 청록색으로 하이라이트하고, 경로/경고를 로그창에 출력.
+- Code:
+  - `app/core/logic_path_simulator.py` 신규:
+    - `SimulationReport`, `SimulationTransition`, `LogicPathSimulator` 구현.
+    - 지원 경로:
+      - `jump_if`, `ocr_jump_if`, `image_branch`
+      - sensor-step(`wait_for_image`, `ocr_check_text`, `image_click`, `pixel_check`, `compare_images`)의 match/fail 분기
+      - `start_loop`/`end_loop` loop counter 추적
+      - `max_hops` 종료 가드
+  - `app/main.py`
+    - `run_logic_simulation()`, `_build_simulation_context()`, `clear_logic_simulation_highlight()` 추가.
+    - Scenario 탭 버튼/체크박스 추가:
+      - `btnSimulate`
+      - `chkSensorAssume`
+    - 시뮬레이션 결과를 `StepList.set_simulated_indices()`로 하이라이트 연동.
+  - `app/ui/widgets.py`
+    - `StepItemWidget`에 simulated 시각 상태(청록 배경) 추가.
+    - `StepList.set_simulated_indices()` 추가.
+  - `tests/test_logic_path_simulator.py` 신규:
+    - jump_if 컨텍스트 분기 검증.
+    - 무한 루프 `max_hops` 가드 검증.
+    - MainWindow 시뮬레이션 실행 시 하이라이트 반영 검증.
+- Verification:
+  - `python -m pytest -q tests/test_logic_path_simulator.py tests/test_visual_drag_drop_logic.py tests/test_scenario_flow_hints.py tests/test_conditional_wizard_generation.py tests/test_excel_toolbar_responsive.py` -> `24 passed in 1.24s`
+  - `python -m pytest -q` -> `439 passed, 1 skipped in 21.09s`

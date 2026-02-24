@@ -20,6 +20,7 @@ class StepItemWidget(QWidget):
         self.excel_preview = str(excel_preview or "")
         self._active = False
         self._failed = False
+        self._simulated = False
         self.setObjectName("stepItemWidget")
         self.setAttribute(Qt.WA_StyledBackground, True)
         self._init_ui()
@@ -111,6 +112,20 @@ class StepItemWidget(QWidget):
                 "border-radius: 6px;"
                 "}"
             )
+        elif self._simulated:
+            style = (
+                "#stepItemWidget {"
+                "background-color: #16363a;"
+                "border: 1px solid #36c0c8;"
+                "border-radius: 6px;"
+                "}"
+            )
+            self.title_label.setStyleSheet("font-weight: bold; font-size: 13px; color: #d7fbff;")
+            self.desc_label.setStyleSheet("font-size: 11px; color: #9edfe5;")
+            self.flow_label.setStyleSheet("font-size: 11px; color: #9edfe5;")
+            self.preview_label.setStyleSheet("font-size: 11px; color: #9ac6ca;")
+            self.setStyleSheet(style)
+            return
         else:
             style = (
                 "#stepItemWidget {"
@@ -120,6 +135,10 @@ class StepItemWidget(QWidget):
                 "}"
             )
         self.setStyleSheet(style)
+        self.title_label.setStyleSheet("font-weight: bold; font-size: 13px; color: #ddd;")
+        self.desc_label.setStyleSheet("font-size: 11px; color: #888;")
+        self.flow_label.setStyleSheet("font-size: 11px; color: #8fb3d9;")
+        self.preview_label.setStyleSheet("font-size: 11px; color: #8a8a8a;")
 
     def set_active(self, active: bool):
         active = bool(active)
@@ -133,6 +152,13 @@ class StepItemWidget(QWidget):
         if self._failed == failed:
             return
         self._failed = failed
+        self._apply_state_style()
+
+    def set_simulated(self, simulated: bool):
+        simulated = bool(simulated)
+        if self._simulated == simulated:
+            return
+        self._simulated = simulated
         self._apply_state_style()
 
     def _get_icon_color(self):
@@ -193,6 +219,7 @@ class StepList(QListWidget):
         self._inline_edit_item = None
         self._active_row = None
         self._failed_row = None
+        self._simulated_rows = set()
         self._flow_edges = []
         self._flow_colors = {
             "jump_true": QColor("#4FC3F7"),
@@ -286,6 +313,32 @@ class StepList(QListWidget):
             widget = self.itemWidget(item)
             if hasattr(widget, "set_failed"):
                 widget.set_failed(True)
+
+    def set_simulated_indices(self, rows):
+        incoming = set()
+        for r in rows or []:
+            try:
+                rr = int(r)
+            except Exception:
+                continue
+            if 0 <= rr < self.count():
+                incoming.add(rr)
+
+        for prev in list(self._simulated_rows):
+            if prev in incoming:
+                continue
+            item = self.item(prev)
+            widget = self.itemWidget(item)
+            if hasattr(widget, "set_simulated"):
+                widget.set_simulated(False)
+
+        for row in incoming:
+            item = self.item(row)
+            widget = self.itemWidget(item)
+            if hasattr(widget, "set_simulated"):
+                widget.set_simulated(True)
+
+        self._simulated_rows = incoming
 
     def dropEvent(self, event):
         super().dropEvent(event)

@@ -160,6 +160,10 @@
   - StepList 드래그 중 임시 순서를 throttle emit(`flowPreviewRequested`)하여 화살표를 실시간 재계산.
   - 프리뷰 edge 상태를 `ok/self_jump/dangling`으로 판정해 색상/점선으로 경고 표시.
   - `(order_hash, edge_source_hash)` 캐시로 중복 계산을 줄이고 drop/leave 시 프리뷰를 해제.
+- Stage 2-2 PR-2 Logic Path Simulator:
+  - `LogicPathSimulator` 코어 추가: `jump_if`/`ocr_jump_if`/`image_branch`/loop 경로를 실행 없이 예측.
+  - Scenario 탭에 `경로 시뮬레이션` 버튼 + `센서 성공 가정` 체크박스 추가.
+  - 시뮬레이션 방문 스텝을 리스트에서 청록 하이라이트로 표시하고 전이 로그/경고를 로그창에 출력.
 
 ## 파일 포맷
 - JSON 저장: 메타데이터 포함 JSON(`meta`/`repeat`/`steps`), 레거시 리스트 JSON 역호환.
@@ -171,7 +175,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `436 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `439 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 

@@ -151,6 +151,13 @@
     - `self_jump`: 주황 경고
     - `dangling`: 빨강 점선 경고
   - Flow Preview 계산은 `(order_hash, edge_source_hash)` 캐시로 중복 계산을 방지
+- Logic Path Simulator:
+  - 코어: `app/core/logic_path_simulator.py`
+  - 입력: step list + context(Excel 1행 우선) + `ConditionEvaluator` + `max_hops`
+  - 분기 예측: `jump_if`, `ocr_jump_if`, `image_branch`, sensor-step(`on_match_goto_id`/`branch_on_fail_goto_id`)
+  - 루프 예측: `start_loop`/`end_loop`의 `loop_count` 및 무한루프(`count=0`)를 추적
+  - 안전장치: `max_hops` 초과 시 종료 + warning
+  - UI: Scenario 탭 `경로 시뮬레이션` 버튼 실행 시 방문 스텝 청록 하이라이트 + 시뮬레이션 로그 출력
 - 조건 위저드(Conditional Wizard):
   - 의도 템플릿:
     - `ocr_text_then_click`
@@ -192,7 +199,7 @@
 - 스모크 실행 진입점:
   - `python run_smoke_suite.py --quick` (핵심 런타임/매칭 게이트)
   - `python run_smoke_suite.py` (핵심 게이트 + 전체 health check)
-- 최신 로컬 기준: `python -m pytest -q` = `436 passed, 1 skipped`.
+- 최신 로컬 기준: `python -m pytest -q` = `439 passed, 1 skipped`.
 
 ### 규칙 적용 가드
 - 규칙은 2단 구조로 운용:

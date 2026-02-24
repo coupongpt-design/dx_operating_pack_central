@@ -62,6 +62,8 @@ from .core.session_adapter import SessionJobAdapter
 from .core.excel_io import ExcelDataLoader, ExcelResultExporter
 from .core.template_processor import TemplateProcessor
 from .core.input_lock import get_global_input_manager
+from .core.evaluator import ConditionEvaluator
+from .core.logic_path_simulator import LogicPathSimulator
 
 def _excepthook(type, value, tback):
     sys.__excepthook__(type, value, tback)
@@ -143,6 +145,7 @@ class MainWindow(QMainWindow):
         self._excel_preview_payload: dict = {}
         self._flow_preview_cache: dict[tuple, list[tuple[int, int, str, str]]] = {}
         self._flow_preview_active: bool = False
+        self._simulated_indices: set[int] = set()
         self._macro_paused_ui: bool = False
         self._record_show_summary = False
         self._was_minimized = False
@@ -330,6 +333,17 @@ class MainWindow(QMainWindow):
         self.btnConditionalWizard.setStyleSheet("background: #455A64; color: white; padding: 10px; font-weight: bold;")
         self.btnConditionalWizard.setToolTip("질문형 입력으로 OCR/분기 스텝을 자동 생성합니다.")
         btn_layout.addWidget(self.btnConditionalWizard, 5, 0, 1, 2)
+
+        self.btnSimulate = QPushButton("경로 시뮬레이션")
+        self.btnSimulate.clicked.connect(self.run_logic_simulation)
+        self.btnSimulate.setStyleSheet("background: #00695C; color: white; padding: 8px; font-weight: bold;")
+        self.btnSimulate.setToolTip("실행 없이 현재 데이터 기준 예상 경로를 하이라이트합니다.")
+        btn_layout.addWidget(self.btnSimulate, 6, 0)
+
+        self.chkSensorAssume = QCheckBox("센서 성공 가정")
+        self.chkSensorAssume.setToolTip("OCR/이미지 매칭 결과를 시뮬레이션에서 성공으로 가정합니다.")
+        self.chkSensorAssume.setChecked(False)
+        btn_layout.addWidget(self.chkSensorAssume, 6, 1)
         
         scenario_layout.addLayout(btn_layout)
         
@@ -651,6 +665,7 @@ class MainWindow(QMainWindow):
     def _push_command(self, command, focus_index: int | None = None):
         """Execute a command, refresh UI, and update undo/redo state."""
         self.undo_stack.push(command)
+        self._simulated_indices = set()
         try:
             self.refresh_step_list(focus_index=focus_index)
         except TypeError:
@@ -1084,6 +1099,8 @@ class MainWindow(QMainWindow):
         self.list.setItemWidget(item, new_widget)
         if hasattr(self.list, "set_flow_edges"):
             self.list.set_flow_edges(self._collect_step_flow_edges(id_to_index))
+        if hasattr(self.list, "set_simulated_indices"):
+            self.list.set_simulated_indices(self._simulated_indices)
 
     def refresh_step_list(self, focus_index: int | None = None):
         self.list.clear()
@@ -1098,6 +1115,8 @@ class MainWindow(QMainWindow):
         self.list.refresh_indices()
         if hasattr(self.list, "set_flow_edges"):
             self.list.set_flow_edges(self._collect_step_flow_edges(id_to_index))
+        if hasattr(self.list, "set_simulated_indices"):
+            self.list.set_simulated_indices(self._simulated_indices)
         if focus_index is not None and 0 <= focus_index < self.list.count():
             self.list.setCurrentRow(focus_index)
             self.list.scrollToItem(self.list.item(focus_index))
@@ -1829,6 +1848,85 @@ class MainWindow(QMainWindow):
         if len(shown) > 48:
             shown = shown[:45] + "..."
         return f"데이터 미리보기: {token_label} -> {shown}"
+
+    def _build_simulation_context(self) -> dict:
+        payload = {}
+        path = ""
+        if hasattr(self, "edExcelDataPath"):
+            try:
+                path = str(self.edExcelDataPath.text() or "").strip()
+            except Exception:
+                path = ""
+        if path and os.path.exists(path):
+            try:
+                loaded_rows = ExcelDataLoader.load_rows(path)
+                if loaded_rows:
+                    payload = dict(loaded_rows[0][1] or {})
+            except Exception as e:
+                self.warn(f"Simulation context load failed: {e}")
+        if not payload:
+            payload = self._get_excel_preview_payload()
+        # Case-insensitive alias map for evaluator lookups.
+        lowered = {}
+        for k, v in payload.items():
+            key = str(k or "")
+            lk = key.lower()
+            if lk and lk not in lowered:
+                lowered[lk] = v
+        merged = dict(payload)
+        for lk, v in lowered.items():
+            if lk not in merged:
+                merged[lk] = v
+        return merged
+
+    def clear_logic_simulation_highlight(self):
+        self._simulated_indices = set()
+        if hasattr(self, "list") and hasattr(self.list, "set_simulated_indices"):
+            self.list.set_simulated_indices([])
+
+    def run_logic_simulation(self):
+        if not self.steps:
+            self.warn("시뮬레이션할 스텝이 없습니다.")
+            self.clear_logic_simulation_highlight()
+            return
+
+        context = self._build_simulation_context()
+        assume_sensor = bool(self.chkSensorAssume.isChecked()) if hasattr(self, "chkSensorAssume") else False
+        evaluator = ConditionEvaluator()
+        simulator = LogicPathSimulator(
+            self.steps,
+            context,
+            evaluator=evaluator,
+            max_hops=180,
+            assume_sensor_match=assume_sensor,
+        )
+        start_idx = 0
+        try:
+            current = int(self.list.currentRow())
+            if 0 <= current < len(self.steps):
+                start_idx = current
+        except Exception:
+            start_idx = 0
+
+        report = simulator.simulate(start_index=start_idx)
+        self._simulated_indices = set(int(x) for x in report.visited_indices)
+        if hasattr(self.list, "set_simulated_indices"):
+            self.list.set_simulated_indices(self._simulated_indices)
+
+        if report.visited_indices:
+            visited = " -> ".join(f"#{i+1}" for i in report.visited_indices[:20])
+            if len(report.visited_indices) > 20:
+                visited += " -> ..."
+            self.info(
+                f"[Sim] visited {len(report.visited_indices)} step(s), "
+                f"terminate={report.terminated_reason}, sensor_assume={assume_sensor}"
+            )
+            self.info(f"[Sim] path: {visited}")
+        else:
+            self.info(f"[Sim] no path (terminate={report.terminated_reason})")
+
+        for warning in report.warnings[:5]:
+            self.warn(f"[Sim] {warning}")
 
     def _build_excel_worker_note(self, event: dict) -> str:
         if not isinstance(event, dict):
