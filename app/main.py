@@ -1078,6 +1078,8 @@ class MainWindow(QMainWindow):
         from .ui.widgets import StepItemWidget
         new_widget = StepItemWidget(step, idx + 1, flow_hint=flow_hint, excel_preview=excel_preview)
         self.list.setItemWidget(item, new_widget)
+        if hasattr(self.list, "set_flow_edges"):
+            self.list.set_flow_edges(self._collect_step_flow_edges(id_to_index))
 
     def refresh_step_list(self, focus_index: int | None = None):
         self.list.clear()
@@ -1090,6 +1092,8 @@ class MainWindow(QMainWindow):
             tooltip = "\n".join(tooltip_parts)
             self.add_list_item(s, idx=i, flow_hint=flow_hint, excel_preview=excel_preview, tooltip=tooltip)
         self.list.refresh_indices()
+        if hasattr(self.list, "set_flow_edges"):
+            self.list.set_flow_edges(self._collect_step_flow_edges(id_to_index))
         if focus_index is not None and 0 <= focus_index < self.list.count():
             self.list.setCurrentRow(focus_index)
             self.list.scrollToItem(self.list.item(focus_index))
@@ -1618,6 +1622,47 @@ class MainWindow(QMainWindow):
                 parts.append(f"흐름: 반복 시작 ({loop_count}회)")
 
         return " | ".join(parts)
+
+    def _collect_step_flow_edges(self, id_to_index: dict[str, int]) -> list[tuple[int, int, str]]:
+        edges: list[tuple[int, int, str]] = []
+
+        for src_idx, step in enumerate(self.steps):
+            stype = str(getattr(step, "type", "") or "").lower()
+
+            def _append(target_id, kind: str) -> None:
+                if not target_id:
+                    return
+                dst_idx = id_to_index.get(str(target_id))
+                if dst_idx is None:
+                    return
+                edges.append((src_idx, int(dst_idx), kind))
+
+            if stype in {"jump_if", "ocr_jump_if"}:
+                _append(
+                    getattr(step, "target_true_id", None) or getattr(step, "jump_to_step_id", None),
+                    "jump_true",
+                )
+                _append(
+                    getattr(step, "target_false_id", None) or getattr(step, "branch_on_fail_goto_id", None),
+                    "jump_false",
+                )
+                continue
+
+            if stype == "image_branch":
+                _append(
+                    getattr(step, "target_true_id", None) or getattr(step, "branch_true_goto_id", None),
+                    "branch_true",
+                )
+                _append(
+                    getattr(step, "target_false_id", None) or getattr(step, "branch_false_goto_id", None),
+                    "branch_false",
+                )
+                continue
+
+            if stype == "end_loop":
+                _append(getattr(step, "start_loop_id", None), "loop_back")
+
+        return edges
 
     def _build_step_excel_preview(self, step: StepData, payload: dict) -> str:
         if not payload:

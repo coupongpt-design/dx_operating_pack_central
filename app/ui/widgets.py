@@ -3,8 +3,8 @@ from PyQt5.QtWidgets import (
     QListWidget, QListWidgetItem, QMenu, QAbstractItemView,
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QRubberBand, QLineEdit
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QSize, QRect
-from PyQt5.QtGui import QIcon, QPixmap, QColor, QPainter, QFont
+from PyQt5.QtCore import Qt, pyqtSignal, QSize, QRect, QPoint
+from PyQt5.QtGui import QIcon, QPixmap, QColor, QPainter, QFont, QPen, QPolygon
 from ..core.models import StepData
 from ..utils.common import hk_pretty
 
@@ -27,7 +27,8 @@ class StepItemWidget(QWidget):
 
     def _init_ui(self):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
+        # Keep a left lane for flow arrows rendered by StepList.
+        layout.setContentsMargins(16, 5, 5, 5)
         layout.setSpacing(10)
 
         # Icon Area
@@ -190,6 +191,14 @@ class StepList(QListWidget):
         self._inline_edit_item = None
         self._active_row = None
         self._failed_row = None
+        self._flow_edges = []
+        self._flow_colors = {
+            "jump_true": QColor("#4FC3F7"),
+            "jump_false": QColor("#FFB74D"),
+            "branch_true": QColor("#81C784"),
+            "branch_false": QColor("#E57373"),
+            "loop_back": QColor("#BA68C8"),
+        }
 
     def _calc_item_height(self, flow_hint: str = "", excel_preview: str = "") -> int:
         height = 50
@@ -222,6 +231,20 @@ class StepList(QListWidget):
             if widget:
                 widget.index = i + 1
                 widget.icon_label.setText(str(i + 1))
+
+    def set_flow_edges(self, edges):
+        safe_edges = []
+        for e in edges or []:
+            if not isinstance(e, (tuple, list)) or len(e) < 2:
+                continue
+            src = int(e[0])
+            dst = int(e[1])
+            kind = str(e[2]) if len(e) >= 3 else "jump_true"
+            if src < 0 or dst < 0:
+                continue
+            safe_edges.append((src, dst, kind))
+        self._flow_edges = safe_edges
+        self.viewport().update()
 
     def set_active_index(self, idx: int | None):
         prev = self._active_row
@@ -258,8 +281,55 @@ class StepList(QListWidget):
     def dropEvent(self, event):
         super().dropEvent(event)
         self.refresh_indices()
+        self.viewport().update()
         self.orderChanged.emit()
         self._inline_edit_item = None
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if not self._flow_edges:
+            return
+        painter = QPainter(self.viewport())
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        lane_base_x = 7
+        lane_step_x = 6
+        edge_count = max(1, len(self._flow_edges))
+
+        for edge_idx, (src, dst, kind) in enumerate(self._flow_edges):
+            if src >= self.count() or dst >= self.count():
+                continue
+            src_item = self.item(src)
+            dst_item = self.item(dst)
+            if src_item is None or dst_item is None:
+                continue
+            src_rect = self.visualItemRect(src_item)
+            dst_rect = self.visualItemRect(dst_item)
+            if src_rect.isNull() or dst_rect.isNull():
+                continue
+            if src_rect.bottom() < 0 and dst_rect.bottom() < 0:
+                continue
+            if src_rect.top() > self.viewport().height() and dst_rect.top() > self.viewport().height():
+                continue
+
+            start_y = src_rect.center().y()
+            end_y = dst_rect.center().y()
+            lane_x = lane_base_x + (edge_idx % min(6, edge_count)) * lane_step_x
+            color = self._flow_colors.get(kind, QColor("#8FB3D9"))
+            pen = QPen(color, 1.8)
+            painter.setPen(pen)
+
+            if src == dst:
+                loop_rect = QRect(lane_x - 6, start_y - 6, 12, 12)
+                painter.drawEllipse(loop_rect)
+                continue
+
+            painter.drawLine(lane_x, start_y, lane_x, end_y)
+            arrow_dir = 1 if end_y >= start_y else -1
+            tip = QPoint(lane_x, end_y)
+            left = QPoint(lane_x - 4, end_y - 6 * arrow_dir)
+            right = QPoint(lane_x + 4, end_y - 6 * arrow_dir)
+            painter.setBrush(color)
+            painter.drawPolygon(QPolygon([tip, left, right]))
 
     def show_menu(self, pos):
         it = self.itemAt(pos)

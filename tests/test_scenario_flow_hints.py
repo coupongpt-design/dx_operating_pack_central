@@ -88,3 +88,27 @@ def test_refresh_step_list_shows_case_insensitive_excel_preview(tmp_path, monkey
     assert "김철수" in widget.preview_label.text()
 
     win.close()
+
+
+def test_refresh_step_list_builds_flow_edges_for_jump_and_loop(monkeypatch, qapp, qtbot):
+    from app.core.models import StepData
+    from app.main import MainWindow
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.hide()
+
+    step_start = StepData(id="s1", name="Loop Start", type="start_loop", loop_count=2)
+    step_jump = StepData(id="j1", name="Jump If", type="jump_if", target_true_id="t1")
+    step_target = StepData(id="t1", name="Target", type="comment", comment="ok")
+    step_end = StepData(id="e1", name="Loop End", type="end_loop", start_loop_id="s1")
+    win.steps = [step_start, step_jump, step_target, step_end]
+    win.refresh_step_list()
+
+    assert hasattr(win.list, "_flow_edges")
+    edges = set(win.list._flow_edges)
+    assert (1, 2, "jump_true") in edges
+    assert (3, 0, "loop_back") in edges
+
+    win.close()

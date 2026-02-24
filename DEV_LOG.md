@@ -1394,3 +1394,22 @@
 - Verification:
   - `python -m pytest -q tests/test_scenario_flow_hints.py tests/test_conditional_wizard_generation.py tests/test_excel_toolbar_responsive.py` -> `14 passed in 0.84s`
   - `python -m pytest -q` -> `429 passed, 1 skipped in 20.49s`
+
+## [2026-02-23] Session 73 - UI 현대화 Stage 2-1 PR-3 (Flow Arrow Lane 시각화)
+- Summary:
+  - 시나리오 리스트 좌측에 jump/branch/loop 연결선을 그리는 `Flow Arrow Lane` 렌더링을 추가.
+  - 기존 텍스트 흐름 힌트/Excel 미리보기는 유지하면서 카드 좌측 마진을 조정해 선/화살표와 겹치지 않도록 보강.
+  - `refresh_step_list` 시 edge 집계를 수행해 리스트 위젯에 전달, 편집/갱신 시 즉시 재렌더링되도록 연결.
+- Code:
+  - `app/main.py`
+    - `_collect_step_flow_edges()` 추가(`jump_if`, `ocr_jump_if`, `image_branch`, `end_loop` 대상 edge 수집).
+    - `refresh_step_list`/`refresh_list_item`에서 `StepList.set_flow_edges(...)` 호출.
+  - `app/ui/widgets.py`
+    - `StepList.paintEvent()` 확장: edge별 색상선 + 방향 화살표 렌더링.
+    - `StepItemWidget` 좌측 margin 확장(화살표 lane 확보).
+    - `StepList.set_flow_edges()` 추가.
+  - `tests/test_scenario_flow_hints.py`
+    - 리스트 edge 집계(`jump_true`, `loop_back`) 검증 테스트 추가.
+- Verification:
+  - `python -m pytest -q tests/test_scenario_flow_hints.py tests/test_excel_toolbar_responsive.py tests/test_conditional_wizard_generation.py` -> `15 passed in 5.58s`
+  - `python -m pytest -q` -> `430 passed, 1 skipped in 21.69s`
