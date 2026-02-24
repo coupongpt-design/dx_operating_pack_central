@@ -152,6 +152,10 @@
   - 스텝 카드에 분기/루프 흐름 힌트(점프 대상/루프 복귀/반복 횟수)를 표시
   - Excel 모드에서 텍스트 스텝 `{{변수}}`에 대해 첫 데이터 행 기준 미리보기 표시(헤더 대소문자 무시 매핑)
   - 시나리오 리스트 좌측에 분기/루프 연결선(arrow lane) 렌더링으로 흐름 방향을 시각화
+- Stage 2-1 조건 위저드 의도 확장:
+  - 의도 3종 지원: `텍스트 보이면 클릭`, `텍스트 미검출 재시도 후 중단`, `이미지 확인 후 클릭/분기`
+  - 의도별 입력 UI를 동적 노출(텍스트/이미지 경로/재시도/타임아웃/성공·실패 라우팅)
+  - 생성 스텝은 기존 타입 조합만 사용(`ocr_jump_if`, `ocr_check_text`, `wait_for_image`, `start_loop/end_loop`, `jump_if`, `click_point`, `comment`)
 
 ## 파일 포맷
 - JSON 저장: 메타데이터 포함 JSON(`meta`/`repeat`/`steps`), 레거시 리스트 JSON 역호환.
@@ -163,7 +167,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `430 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `433 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 

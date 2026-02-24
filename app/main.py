@@ -1625,6 +1625,7 @@ class MainWindow(QMainWindow):
 
     def _collect_step_flow_edges(self, id_to_index: dict[str, int]) -> list[tuple[int, int, str]]:
         edges: list[tuple[int, int, str]] = []
+        seen: set[tuple[int, int, str]] = set()
 
         for src_idx, step in enumerate(self.steps):
             stype = str(getattr(step, "type", "") or "").lower()
@@ -1635,7 +1636,11 @@ class MainWindow(QMainWindow):
                 dst_idx = id_to_index.get(str(target_id))
                 if dst_idx is None:
                     return
-                edges.append((src_idx, int(dst_idx), kind))
+                edge = (src_idx, int(dst_idx), kind)
+                if edge in seen:
+                    return
+                seen.add(edge)
+                edges.append(edge)
 
             if stype in {"jump_if", "ocr_jump_if"}:
                 _append(
@@ -1661,6 +1666,11 @@ class MainWindow(QMainWindow):
 
             if stype == "end_loop":
                 _append(getattr(step, "start_loop_id", None), "loop_back")
+                continue
+
+            # Generic step-level branch metadata used by multiple action types.
+            _append(getattr(step, "on_match_goto_id", None), "jump_true")
+            _append(getattr(step, "branch_on_fail_goto_id", None), "jump_false")
 
         return edges
 

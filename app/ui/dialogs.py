@@ -95,7 +95,7 @@ class BaseDialog(QDialog):
 
 
 class ConditionalActionWizardDialog(QDialog):
-    """Question-driven helper that generates OCR/jump/click step combinations."""
+    """Question-driven helper that generates step combinations using existing StepData types."""
 
     def __init__(self, all_steps: list[StepData] | None = None, parent=None):
         super().__init__(parent)
@@ -106,7 +106,7 @@ class ConditionalActionWizardDialog(QDialog):
 
         root = QVBoxLayout(self)
         hint = QLabel(
-            "질문에 답하면 OCR 조건 + 분기 + 클릭 스텝을 자동 생성합니다.\n"
+            "질문에 답하면 OCR/이미지 조건 + 분기 + 클릭 스텝을 자동 생성합니다.\n"
             "MVP: 기존 StepData를 조합하며 새 스키마를 만들지 않습니다."
         )
         hint.setWordWrap(True)
@@ -116,21 +116,64 @@ class ConditionalActionWizardDialog(QDialog):
         form = QFormLayout()
         self.cbIntent = QComboBox()
         self.cbIntent.addItem("특정 텍스트가 보이면 클릭", "ocr_text_then_click")
+        self.cbIntent.addItem("텍스트가 보이지 않으면 재시도 후 중단", "ocr_retry_then_stop")
+        self.cbIntent.addItem("이미지 확인 후 클릭/분기", "image_check_then_click_branch")
         form.addRow("1) 의도 선택", self.cbIntent)
 
         self.edFindText = QLineEdit()
         self.edFindText.setPlaceholderText("예: 완료, 확인, START")
-        form.addRow("2) 찾을 텍스트", self.edFindText)
+        self._find_text_label = QLabel("2) 찾을 텍스트")
+        form.addRow(self._find_text_label, self.edFindText)
 
         self.cbOperator = QComboBox()
         self.cbOperator.addItem("같음 (==)", "==")
         self.cbOperator.addItem("다름 (!=)", "!=")
-        form.addRow("비교 방식", self.cbOperator)
+        self._operator_label = QLabel("비교 방식")
+        form.addRow(self._operator_label, self.cbOperator)
+
+        image_row = QWidget()
+        image_layout = QHBoxLayout(image_row)
+        image_layout.setContentsMargins(0, 0, 0, 0)
+        image_layout.setSpacing(6)
+        self.edImagePath = QLineEdit()
+        self.edImagePath.setPlaceholderText("이미지 파일 경로 (.png/.jpg)")
+        self.btnPickImage = QPushButton("이미지 선택")
+        self.btnPickImage.clicked.connect(self._on_pick_image)
+        image_layout.addWidget(self.edImagePath)
+        image_layout.addWidget(self.btnPickImage)
+        self._image_path_label = QLabel("2) 이미지 경로")
+        form.addRow(self._image_path_label, image_row)
+        self._image_row = image_row
+
+        retry_row = QWidget()
+        retry_layout = QHBoxLayout(retry_row)
+        retry_layout.setContentsMargins(0, 0, 0, 0)
+        retry_layout.setSpacing(6)
+        self.spRetryCount = QSpinBox()
+        self.spRetryCount.setRange(1, 999)
+        self.spRetryCount.setValue(3)
+        self.spRetryDelayMs = QSpinBox()
+        self.spRetryDelayMs.setRange(0, 120000)
+        self.spRetryDelayMs.setValue(500)
+        retry_layout.addWidget(QLabel("재시도 횟수"))
+        retry_layout.addWidget(self.spRetryCount)
+        retry_layout.addWidget(QLabel("재시도 간격(ms)"))
+        retry_layout.addWidget(self.spRetryDelayMs)
+        self._retry_label = QLabel("재시도 설정")
+        form.addRow(self._retry_label, retry_row)
+        self._retry_row = retry_row
+
+        self.spImageTimeoutMs = QSpinBox()
+        self.spImageTimeoutMs.setRange(100, 120000)
+        self.spImageTimeoutMs.setValue(5000)
+        self._image_timeout_label = QLabel("이미지 대기 타임아웃(ms)")
+        form.addRow(self._image_timeout_label, self.spImageTimeoutMs)
 
         self.cbSuccessAction = QComboBox()
         self.cbSuccessAction.addItem("좌표 클릭", "click_point")
         self.cbSuccessAction.addItem("지정 스텝으로 이동", "jump_target")
-        form.addRow("3) 성공 시 동작", self.cbSuccessAction)
+        self._success_action_label = QLabel("3) 성공 시 동작")
+        form.addRow(self._success_action_label, self.cbSuccessAction)
 
         click_row = QWidget()
         click_layout = QHBoxLayout(click_row)
@@ -159,7 +202,8 @@ class ConditionalActionWizardDialog(QDialog):
         self.cbFailAction = QComboBox()
         self.cbFailAction.addItem("다음 스텝 진행", "continue")
         self.cbFailAction.addItem("지정 스텝으로 이동", "jump_target")
-        form.addRow("4) 실패 시 동작", self.cbFailAction)
+        self._fail_action_label = QLabel("4) 실패 시 동작")
+        form.addRow(self._fail_action_label, self.cbFailAction)
 
         self.cbFailTarget = QComboBox()
         self._populate_target_combo(self.cbFailTarget)
@@ -168,9 +212,10 @@ class ConditionalActionWizardDialog(QDialog):
 
         root.addLayout(form)
 
+        self.cbIntent.currentIndexChanged.connect(self._on_intent_changed)
         self.cbSuccessAction.currentIndexChanged.connect(self._refresh_visibility)
         self.cbFailAction.currentIndexChanged.connect(self._refresh_visibility)
-        self._refresh_visibility()
+        self._on_intent_changed()
 
         btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
         btns.accepted.connect(self.accept)
@@ -187,13 +232,82 @@ class ConditionalActionWizardDialog(QDialog):
             except Exception:
                 continue
 
+    def _set_combo_items(self, combo: QComboBox, items: list[tuple[str, str]], preferred: str | None = None) -> None:
+        current = combo.currentData()
+        combo.blockSignals(True)
+        combo.clear()
+        selected_index = 0
+        for i, (label, data) in enumerate(items):
+            combo.addItem(label, data)
+            if preferred is not None and data == preferred:
+                selected_index = i
+            elif preferred is None and current == data:
+                selected_index = i
+        combo.setCurrentIndex(selected_index)
+        combo.blockSignals(False)
+
+    def _on_intent_changed(self) -> None:
+        intent = self.cbIntent.currentData() or "ocr_text_then_click"
+        if intent == "ocr_retry_then_stop":
+            self._set_combo_items(
+                self.cbSuccessAction,
+                [("다음 스텝 진행", "continue"), ("지정 스텝으로 이동", "jump_target")],
+                preferred="continue",
+            )
+            self._set_combo_items(
+                self.cbFailAction,
+                [("재시도 후 중단", "stop"), ("지정 스텝으로 이동", "jump_target")],
+                preferred="stop",
+            )
+            self.edFindText.setPlaceholderText("예: 완료, SUCCESS")
+        elif intent == "image_check_then_click_branch":
+            self._set_combo_items(
+                self.cbSuccessAction,
+                [("좌표 클릭", "click_point"), ("지정 스텝으로 이동", "jump_target")],
+                preferred="click_point",
+            )
+            self._set_combo_items(
+                self.cbFailAction,
+                [("다음 스텝 진행", "continue"), ("지정 스텝으로 이동", "jump_target")],
+                preferred="continue",
+            )
+        else:
+            self._set_combo_items(
+                self.cbSuccessAction,
+                [("좌표 클릭", "click_point"), ("지정 스텝으로 이동", "jump_target")],
+                preferred="click_point",
+            )
+            self._set_combo_items(
+                self.cbFailAction,
+                [("다음 스텝 진행", "continue"), ("지정 스텝으로 이동", "jump_target")],
+                preferred="continue",
+            )
+            self.edFindText.setPlaceholderText("예: 완료, 확인, START")
+        self._refresh_visibility()
+
     def _refresh_visibility(self) -> None:
+        intent = self.cbIntent.currentData() or "ocr_text_then_click"
         success_mode = self.cbSuccessAction.currentData() or "click_point"
         fail_mode = self.cbFailAction.currentData() or "continue"
+
+        use_ocr_text = intent in {"ocr_text_then_click", "ocr_retry_then_stop"}
+        use_image = intent == "image_check_then_click_branch"
+        use_retry = intent == "ocr_retry_then_stop"
 
         show_click = (success_mode == "click_point")
         show_success_target = (success_mode == "jump_target")
         show_fail_target = (fail_mode == "jump_target")
+
+        self._find_text_label.setVisible(use_ocr_text)
+        self.edFindText.setVisible(use_ocr_text)
+        self._operator_label.setVisible(use_ocr_text)
+        self.cbOperator.setVisible(use_ocr_text)
+        self._image_path_label.setVisible(use_image)
+        self._image_row.setVisible(use_image)
+        self._image_timeout_label.setVisible(use_image)
+        self.spImageTimeoutMs.setVisible(use_image)
+        self._retry_label.setVisible(use_retry)
+        self._retry_row.setVisible(use_retry)
 
         self._success_click_label.setVisible(show_click)
         self._click_row.setVisible(show_click)
@@ -208,14 +322,32 @@ class ConditionalActionWizardDialog(QDialog):
             self.spClickX.setValue(int(x))
             self.spClickY.setValue(int(y))
 
+    def _on_pick_image(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "이미지 파일 선택",
+            "",
+            "Image Files (*.png *.jpg *.jpeg *.bmp *.webp)",
+        )
+        if path:
+            self.edImagePath.setText(path)
+
     @staticmethod
     def _new_step_id() -> str:
         return str(uuid.uuid4())[:8]
 
     def _validate_inputs(self) -> None:
-        text = self.edFindText.text().strip()
-        if not text:
-            raise ValueError("찾을 텍스트를 입력해주세요.")
+        intent = self.cbIntent.currentData() or "ocr_text_then_click"
+        if intent in {"ocr_text_then_click", "ocr_retry_then_stop"}:
+            text = self.edFindText.text().strip()
+            if not text:
+                raise ValueError("찾을 텍스트를 입력해주세요.")
+        if intent == "image_check_then_click_branch":
+            path = self.edImagePath.text().strip()
+            if not path:
+                raise ValueError("이미지 파일 경로를 입력해주세요.")
+            if not os.path.exists(path):
+                raise ValueError("이미지 파일을 찾을 수 없습니다.")
         if (self.cbSuccessAction.currentData() == "jump_target") and not self.cbSuccessTarget.currentData():
             raise ValueError("성공 이동 대상을 선택해주세요.")
         if (self.cbFailAction.currentData() == "jump_target") and not self.cbFailTarget.currentData():
@@ -232,9 +364,26 @@ class ConditionalActionWizardDialog(QDialog):
     def build_steps(self) -> list[StepData]:
         self._validate_inputs()
         intent = self.cbIntent.currentData() or "ocr_text_then_click"
-        if intent != "ocr_text_then_click":
-            raise ValueError(f"지원하지 않는 의도: {intent}")
+        if intent == "ocr_text_then_click":
+            return self._build_steps_ocr_text_then_click()
+        if intent == "ocr_retry_then_stop":
+            return self._build_steps_ocr_retry_then_stop()
+        if intent == "image_check_then_click_branch":
+            return self._build_steps_image_check_then_click_branch()
+        raise ValueError(f"지원하지 않는 의도: {intent}")
 
+    def _build_unconditional_route_step(self, target_id: str | None, name: str = "WZ 라우팅") -> StepData:
+        return StepData(
+            id=self._new_step_id(),
+            name=name,
+            type="jump_if",
+            condition_var="__wiz_gate__",
+            condition_operator="!=",
+            condition_value="__WIZ_SENTINEL__",
+            target_true_id=target_id,
+        )
+
+    def _build_steps_ocr_text_then_click(self) -> list[StepData]:
         expected_text = self.edFindText.text().strip()
         op = self.cbOperator.currentData() or "=="
         success_mode = self.cbSuccessAction.currentData() or "click_point"
@@ -264,17 +413,8 @@ class ConditionalActionWizardDialog(QDialog):
             ocr_lang="eng",
         )
 
-        # Unconditional router for FALSE path:
-        # when condition is FALSE, this step is executed and always jumps to fail target.
-        route = StepData(
-            id=route_id,
-            name="WZ 실패 라우팅",
-            type="jump_if",
-            condition_var="__wiz_gate__",
-            condition_operator="!=",
-            condition_value="__WIZ_SENTINEL__",
-            target_true_id=fail_target_id,
-        )
+        route = self._build_unconditional_route_step(fail_target_id, name="WZ 실패 라우팅")
+        route.id = route_id
 
         tail = StepData(
             id=tail_id,
@@ -293,6 +433,133 @@ class ConditionalActionWizardDialog(QDialog):
                 click_y=self.spClickY.value(),
             )
             generated.append(click_step)
+        generated.append(tail)
+        return generated
+
+    def _build_steps_ocr_retry_then_stop(self) -> list[StepData]:
+        expected_text = self.edFindText.text().strip()
+        op = self.cbOperator.currentData() or "=="
+        retry_count = int(self.spRetryCount.value())
+        retry_delay_ms = int(self.spRetryDelayMs.value())
+        success_mode = self.cbSuccessAction.currentData() or "continue"
+        fail_mode = self.cbFailAction.currentData() or "stop"
+
+        loop_id = self._new_step_id()
+        check_id = self._new_step_id()
+        wait_id = self._new_step_id()
+        end_id = self._new_step_id()
+        success_anchor_id = self._new_step_id()
+
+        success_target_id = success_anchor_id
+        if success_mode == "jump_target":
+            success_target_id = self.cbSuccessTarget.currentData()
+
+        start_loop = StepData(
+            id=loop_id,
+            name=f"WZ 재시도 시작 ({retry_count}회)",
+            type="start_loop",
+            loop_count=retry_count,
+        )
+        check = StepData(
+            id=check_id,
+            name=f"WZ 텍스트 확인: {expected_text[:20]}",
+            type="ocr_check_text",
+            condition_operator=op,
+            ocr_expected_text=expected_text,
+            on_match_goto_id=success_target_id,
+            branch_on_fail_goto_id=wait_id,
+            ocr_preprocess_mode="none",
+            ocr_lang="eng",
+        )
+        wait_step = StepData(
+            id=wait_id,
+            name=f"WZ 재시도 대기 ({retry_delay_ms}ms)",
+            type="wait",
+            wait_ms=retry_delay_ms,
+        )
+        end_loop = StepData(
+            id=end_id,
+            name="WZ 재시도 루프 종료",
+            type="end_loop",
+            start_loop_id=loop_id,
+        )
+
+        success_anchor = StepData(
+            id=success_anchor_id,
+            name="WZ 재시도 성공",
+            type="comment",
+            comment="Retry intent success anchor",
+        )
+
+        generated: list[StepData] = [start_loop, check, wait_step, end_loop]
+        if fail_mode == "jump_target":
+            route = self._build_unconditional_route_step(
+                self.cbFailTarget.currentData(),
+                name="WZ 재시도 실패 라우팅",
+            )
+            generated.append(route)
+        else:
+            generated.append(
+                StepData(
+                    id=self._new_step_id(),
+                    name="WZ 재시도 초과 (중단)",
+                    type="ocr_check_text",
+                    ocr_expected_text="__WIZARD_FORCE_STOP__",
+                    ocr_preprocess_mode="none",
+                    ocr_lang="eng",
+                )
+            )
+        generated.append(success_anchor)
+        return generated
+
+    def _build_steps_image_check_then_click_branch(self) -> list[StepData]:
+        image_path = self.edImagePath.text().strip()
+        timeout_ms = int(self.spImageTimeoutMs.value())
+        success_mode = self.cbSuccessAction.currentData() or "click_point"
+        fail_mode = self.cbFailAction.currentData() or "continue"
+
+        check_id = self._new_step_id()
+        click_id = self._new_step_id()
+        tail_id = self._new_step_id()
+
+        success_target_id = click_id
+        if success_mode == "jump_target":
+            success_target_id = self.cbSuccessTarget.currentData()
+
+        fail_target_id = tail_id
+        if fail_mode == "jump_target":
+            fail_target_id = self.cbFailTarget.currentData()
+
+        check = StepData(
+            id=check_id,
+            name=f"WZ 이미지 확인: {os.path.basename(image_path)[:24]}",
+            type="wait_for_image",
+            anchor_image_path=image_path,
+            image_path=image_path,
+            timeout_ms=timeout_ms,
+            poll_ms=200,
+            on_match_goto_id=success_target_id,
+            branch_on_fail_goto_id=fail_target_id,
+        )
+
+        tail = StepData(
+            id=tail_id,
+            name="WZ 이미지 분기 끝",
+            type="comment",
+            comment="Image intent anchor",
+        )
+
+        generated: list[StepData] = [check]
+        if success_mode == "click_point":
+            generated.append(
+                StepData(
+                    id=click_id,
+                    name="WZ 이미지 성공 클릭",
+                    type="click_point",
+                    click_x=self.spClickX.value(),
+                    click_y=self.spClickY.value(),
+                )
+            )
         generated.append(tail)
         return generated
 

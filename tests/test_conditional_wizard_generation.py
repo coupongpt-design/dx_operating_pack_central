@@ -28,6 +28,16 @@ def _set_combo_by_data(combo, data):
     combo.setCurrentIndex(idx)
 
 
+def _write_dummy_png(path):
+    cv2 = pytest.importorskip("cv2")
+    np = pytest.importorskip("numpy")
+    img = np.zeros((16, 16, 3), dtype=np.uint8)
+    img[:, :] = (0, 200, 255)
+    ok, encoded = cv2.imencode(".png", img)
+    assert ok
+    path.write_bytes(encoded.tobytes())
+
+
 def test_conditional_wizard_generates_click_flow(qapp, qtbot):
     from app.ui.dialogs import ConditionalActionWizardDialog
 
@@ -91,6 +101,55 @@ def test_conditional_wizard_generated_steps_compatible_with_addsteps_command(qap
     assert scenario_steps[-1].type == "comment"
     stack.undo()
     assert [s.id for s in scenario_steps] == ["base1"]
+
+
+def test_conditional_wizard_generates_retry_then_stop_flow(qapp, qtbot):
+    from app.ui.dialogs import ConditionalActionWizardDialog
+
+    dlg = ConditionalActionWizardDialog([])
+    qtbot.addWidget(dlg)
+    _set_combo_by_data(dlg.cbIntent, "ocr_retry_then_stop")
+    dlg.edFindText.setText("READY")
+    dlg.spRetryCount.setValue(4)
+    dlg.spRetryDelayMs.setValue(700)
+
+    steps = dlg.build_steps()
+    assert [s.type for s in steps] == ["start_loop", "ocr_check_text", "wait", "end_loop", "ocr_check_text", "comment"]
+
+    loop, check, wait, end_loop, fail_stop, success = steps
+    assert loop.loop_count == 4
+    assert check.ocr_expected_text == "READY"
+    assert check.branch_on_fail_goto_id == wait.id
+    assert check.on_match_goto_id == success.id
+    assert wait.wait_ms == 700
+    assert end_loop.start_loop_id == loop.id
+    assert fail_stop.type == "ocr_check_text"
+
+
+def test_conditional_wizard_generates_image_check_flow(tmp_path, qapp, qtbot):
+    from app.ui.dialogs import ConditionalActionWizardDialog
+
+    image_path = tmp_path / "wizard_target.png"
+    _write_dummy_png(image_path)
+
+    dlg = ConditionalActionWizardDialog([])
+    qtbot.addWidget(dlg)
+    _set_combo_by_data(dlg.cbIntent, "image_check_then_click_branch")
+    dlg.edImagePath.setText(str(image_path))
+    dlg.spImageTimeoutMs.setValue(3200)
+    dlg.spClickX.setValue(64)
+    dlg.spClickY.setValue(128)
+
+    steps = dlg.build_steps()
+    assert [s.type for s in steps] == ["wait_for_image", "click_point", "comment"]
+
+    check, click, tail = steps
+    assert check.anchor_image_path == str(image_path)
+    assert check.on_match_goto_id == click.id
+    assert check.branch_on_fail_goto_id == tail.id
+    assert check.timeout_ms == 3200
+    assert click.click_x == 64
+    assert click.click_y == 128
 
 
 def test_main_conditional_wizard_button_inserts_steps(monkeypatch, qapp, qtbot):

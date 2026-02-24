@@ -1413,3 +1413,31 @@
 - Verification:
   - `python -m pytest -q tests/test_scenario_flow_hints.py tests/test_excel_toolbar_responsive.py tests/test_conditional_wizard_generation.py` -> `15 passed in 5.58s`
   - `python -m pytest -q` -> `430 passed, 1 skipped in 21.69s`
+
+## [2026-02-24] Session 74 - 조건 위저드 의도 확장 (OCR 재시도/이미지 분기)
+- Summary:
+  - 조건 위저드 의도를 1종에서 3종으로 확장:
+    - `특정 텍스트가 보이면 클릭`
+    - `텍스트가 보이지 않으면 재시도 후 중단`
+    - `이미지 확인 후 클릭/분기`
+  - 의도 선택에 따라 입력 UI를 동적으로 노출(텍스트/이미지 경로/재시도 횟수/지연/타임아웃/성공·실패 라우팅).
+  - Flow Arrow Lane edge 수집을 일반화해 `on_match_goto_id`, `branch_on_fail_goto_id` 기반 경로도 시각화.
+- Code:
+  - `app/ui/dialogs.py`
+    - `ConditionalActionWizardDialog` 확장:
+      - 의도별 액션 콤보 동적 구성
+      - 이미지 경로 선택/검증
+      - 재시도 설정 입력
+      - 의도별 스텝 생성기 추가:
+        - `_build_steps_ocr_text_then_click`
+        - `_build_steps_ocr_retry_then_stop`
+        - `_build_steps_image_check_then_click_branch`
+  - `app/main.py`
+    - `_collect_step_flow_edges`에 generic edge(`on_match_goto_id`, `branch_on_fail_goto_id`) 반영.
+  - `tests/test_conditional_wizard_generation.py`
+    - 재시도 의도/이미지 의도 스텝 생성 검증 추가.
+  - `tests/test_scenario_flow_hints.py`
+    - step-level success/fail goto edge 시각화 검증 추가.
+- Verification:
+  - `python -m pytest -q tests/test_conditional_wizard_generation.py tests/test_scenario_flow_hints.py tests/test_excel_toolbar_responsive.py` -> `18 passed in 1.14s`
+  - `python -m pytest -q` -> `433 passed, 1 skipped in 21.76s`

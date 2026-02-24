@@ -145,6 +145,14 @@
   - Excel 모드 + 데이터 파일 지정 시 텍스트 스텝 `{{변수}}`에 대해 첫 데이터 행 미리보기를 카드/툴팁에 표시
   - 변수 매핑은 헤더 대소문자를 구분하지 않음(`user_name` == `USER_NAME`)
   - 리스트 좌측 Arrow Lane에 jump/branch/loop edge를 색상별로 그려 흐름 도약 지점을 시각화
+  - Arrow Lane edge 수집은 `target_true/false`, `on_match_goto_id`, `branch_on_fail_goto_id`, `start_loop_id`를 함께 반영
+- 조건 위저드(Conditional Wizard):
+  - 의도 템플릿:
+    - `ocr_text_then_click`
+    - `ocr_retry_then_stop`
+    - `image_check_then_click_branch`
+  - 의도별로 필요한 입력만 노출(텍스트/이미지/재시도/타임아웃)
+  - 생성 결과는 기존 `StepData`만 조합해 Undo/Redo(`AddStepsCommand`)와 호환
 - 이미지 클릭 좌표 계산:
   - matcher가 찾은 중심점에서 `click_anchor`로 실제 기준점(top-left 등)을 계산한 뒤 `click_offset_x/y`를 적용.
   - branch target 매칭/클릭도 동일 규칙을 적용.
@@ -179,7 +187,7 @@
 - 스모크 실행 진입점:
   - `python run_smoke_suite.py --quick` (핵심 런타임/매칭 게이트)
   - `python run_smoke_suite.py` (핵심 게이트 + 전체 health check)
-- 최신 로컬 기준: `python -m pytest -q` = `430 passed, 1 skipped`.
+- 최신 로컬 기준: `python -m pytest -q` = `433 passed, 1 skipped`.
 
 ### 규칙 적용 가드
 - 규칙은 2단 구조로 운용:

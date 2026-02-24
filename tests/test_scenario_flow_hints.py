@@ -112,3 +112,31 @@ def test_refresh_step_list_builds_flow_edges_for_jump_and_loop(monkeypatch, qapp
     assert (3, 0, "loop_back") in edges
 
     win.close()
+
+
+def test_refresh_step_list_builds_flow_edges_for_step_fail_and_match_routes(monkeypatch, qapp, qtbot):
+    from app.core.models import StepData
+    from app.main import MainWindow
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.hide()
+
+    check = StepData(
+        id="w1",
+        name="이미지 확인",
+        type="wait_for_image",
+        on_match_goto_id="ok1",
+        branch_on_fail_goto_id="fail1",
+    )
+    fail = StepData(id="fail1", name="Fail", type="comment", comment="fail")
+    ok = StepData(id="ok1", name="OK", type="comment", comment="ok")
+    win.steps = [check, fail, ok]
+    win.refresh_step_list()
+
+    edges = set(win.list._flow_edges)
+    assert (0, 2, "jump_true") in edges
+    assert (0, 1, "jump_false") in edges
+
+    win.close()
