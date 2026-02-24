@@ -1529,3 +1529,28 @@
   - `python -m pytest -q tests/test_smart_snap_logic.py tests/test_visual_drag_drop_logic.py tests/test_main_trigger_scheduler_integration.py` -> `28 passed in 2.47s`
   - `python -m pytest -q tests/test_conditional_wizard_generation.py` -> `6 passed in 0.51s`
   - `python -m pytest -q` -> `442 passed, 1 skipped in 20.98s`
+
+## [2026-02-24] Session 78 - UI 현대화 Stage 3-1 PR-1 (Visual Image Capturer)
+- Summary:
+  - 초보자용 드래그 캡처 기반 이미지 스텝 생성 기능을 추가.
+  - 툴바 `스마트 캡처` 버튼에서 `이미지 클릭 스텝`/`이미지 대기 스텝`을 선택해 즉시 생성 가능.
+  - 캡처 오버레이는 실시간 좌표/크기(`X,Y,W,H`)를 표시하며 ESC/우클릭 취소를 지원.
+- Code:
+  - `app/ui/overlay.py` 신규:
+    - `VisualImageCaptureOverlay` 구현(반투명 오버레이, 드래그 선택, 좌표/크기 HUD, 취소/완료 시그널).
+    - `capture_from_screen()` 정적 진입점 제공.
+  - `app/main.py`:
+    - Core 툴바에 `btnSmartCapture` 추가 + 실행 중 자동 비활성화(`_sync_toolbar_run_stop_buttons`).
+    - 캡처 처리 경로 추가:
+      - `_open_smart_capture_menu`
+      - `_run_visual_capture`
+      - `_resolve_visual_capture_image_dir`
+      - `_build_visual_capture_step`
+    - 캡처 이미지를 `images/smart_capture_*.png`로 저장 후 `AddStepsCommand`로 시나리오 삽입.
+  - `tests/test_visual_capturer.py` 신규:
+    - 캡처 좌표 -> 생성 스텝 좌표 매핑 검증.
+    - 이미지 파일 생성/경로 연결 무결성 검증.
+    - 실행 중 캡처 차단 검증.
+- Verification:
+  - `python -m pytest -q tests/test_visual_capturer.py tests/test_excel_toolbar_responsive.py tests/test_main_trigger_scheduler_integration.py` -> `33 passed in 2.60s`
+  - `python -m pytest -q` -> `445 passed, 1 skipped in 21.21s`

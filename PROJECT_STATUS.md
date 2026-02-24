@@ -169,6 +169,11 @@
   - `sync_order()`에 Smart Snap 재배치 로직 적용: 세트 스텝 일부만 드래그해도 그룹 전체를 동반 이동하고 상대 순서를 유지.
   - 재정렬 직후 legacy 인덱스 필드(`jump_to_index`, `target_true_index`, `target_false_index`)를 새 순서 기준으로 자동 재정규화.
   - 그룹 분리/댕글링 감지 시 Flow Arrow Lane 경고 edge(`dangling`)와 토스트/상태바 경고를 즉시 표시.
+- Stage 3-1 Visual Image Capturer:
+  - 상단 옵션 툴바에 `스마트 캡처` 버튼 추가(실행 중에는 자동 비활성/경고).
+  - 반투명 오버레이에서 드래그 캡처 시 좌표/크기(`X,Y,W,H`)를 실시간 표시.
+  - 캡처 완료 즉시 `images/` 폴더에 PNG 저장 후 `image_click` 또는 `wait_for_image` 스텝을 자동 생성.
+  - 생성 스텝은 `AddStepsCommand`로 현재 선택 위치 다음에 삽입(Undo/Redo 호환).
 
 ## 파일 포맷
 - JSON 저장: 메타데이터 포함 JSON(`meta`/`repeat`/`steps`), 레거시 리스트 JSON 역호환.
@@ -180,7 +185,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `442 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `445 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 

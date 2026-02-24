@@ -164,6 +164,12 @@
   - 재정렬 보정: 세트 일부만 이동해도 전체 블록을 동반 이동(`sync_order` 경로)하고 내부 상대 순서를 유지.
   - 레거시 보정: 재배치 후 `jump_to_index`, `target_true_index`, `target_false_index`를 새 순서 기준으로 재정규화.
   - 경고 피드백: 그룹 분리 또는 dangling 연결이 감지되면 Flow Arrow Lane 경고 edge + 토스트/상태바 경고 표시.
+- Visual Image Capturer (Stage 3-1):
+  - 코어 오버레이: `app/ui/overlay.py`의 `VisualImageCaptureOverlay`가 전체화면 반투명 캡처/드래그 좌표/크기 표시를 제공.
+  - 툴바 진입점: Core 행 `스마트 캡처` 버튼에서 캡처 타입(`image_click`, `wait_for_image`)을 선택해 실행.
+  - 자동 생성: 캡처 이미지를 `images/smart_capture_*.png`로 저장하고 `StepData`(`anchor_image_path`, `image_path`, `png_bytes`)를 자동 구성.
+  - 자동 삽입: `AddStepsCommand`로 현재 선택 스텝 다음 위치에 삽입해 Undo/Redo와 완전 호환.
+  - 안정성: 매크로/Excel 실행 중 캡처를 차단하고 취소(ESC/우클릭) 시 파일 생성 없이 clean 종료.
 - 조건 위저드(Conditional Wizard):
   - 의도 템플릿:
     - `ocr_text_then_click`
@@ -205,7 +211,7 @@
 - 스모크 실행 진입점:
   - `python run_smoke_suite.py --quick` (핵심 런타임/매칭 게이트)
   - `python run_smoke_suite.py` (핵심 게이트 + 전체 health check)
-- 최신 로컬 기준: `python -m pytest -q` = `442 passed, 1 skipped`.
+- 최신 로컬 기준: `python -m pytest -q` = `445 passed, 1 skipped`.
 
 ### 규칙 적용 가드
 - 규칙은 2단 구조로 운용:

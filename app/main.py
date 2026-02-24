@@ -20,7 +20,7 @@ from PyQt5.QtWidgets import (
     QDialog, QLineEdit, QComboBox, QProgressBar, QScrollArea, QSizePolicy, QFrame, QToolTip
 )
 from PyQt5.QtCore import Qt, QTimer, QSettings, QSize, QEventLoop, QRect, QTime, QStandardPaths, pyqtSignal, QPoint
-from PyQt5.QtGui import QKeySequence, QIcon, QPixmap, QPainter, QColor, QFont
+from PyQt5.QtGui import QKeySequence, QIcon, QPixmap, QPainter, QColor, QFont, QCursor
 
 from .ui.dialogs import (
     ImageStepDialog, NotImageDialog, BranchStepDialog, TargetDialog,
@@ -48,6 +48,7 @@ from .ui.hotkeys import SystemHotkeys, HotkeySettingsDialog
 from .ui.widgets import StepList
 from .ui.styles import DarkTheme
 from .ui.selectors import ROISelector, CrosshairOverlay
+from .ui.overlay import VisualImageCaptureOverlay
 from .ui.debug_overlay import DebugOverlay
 from .ui.window_selector import WindowSelectorDialog
 from .ui.scenario_wizard import ScenarioWizardDialog
@@ -580,6 +581,17 @@ class MainWindow(QMainWindow):
         self.btnToolbarStop.clicked.connect(self._on_stop_button_clicked)
         self.btnToolbarStop.setEnabled(False)
         _opt_core_add(self.btnToolbarStop)
+
+        self.btnSmartCapture = QPushButton("스마트 캡처")
+        self.btnSmartCapture.setToolTip("화면에서 드래그 캡처 후 이미지 기반 스텝을 즉시 생성합니다.")
+        self.btnSmartCapture.setMinimumWidth(105)
+        self.btnSmartCapture.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.btnSmartCapture.setStyleSheet(
+            "QPushButton { background-color: #35586C; color: #f4fbff; padding: 5px 10px; font-weight: 600; }"
+            "QPushButton:disabled { background-color: #3a3a3a; color: #8f8f8f; }"
+        )
+        self.btnSmartCapture.clicked.connect(self._open_smart_capture_menu)
+        _opt_core_add(self.btnSmartCapture)
 
         self._opt_core_layout.addStretch(0)
         self._opt_core_layout.setStretchFactor(self.edTargetTitle, 2)
@@ -1614,12 +1626,15 @@ class MainWindow(QMainWindow):
         self.stop_macro()
 
     def _sync_toolbar_run_stop_buttons(self):
+        stop_enabled = False
         if hasattr(self, "btnToolbarRun"):
             run_enabled = bool(self.btnRun.isEnabled()) if hasattr(self, "btnRun") else bool(self.act_run.isEnabled())
             self.btnToolbarRun.setEnabled(run_enabled)
         if hasattr(self, "btnToolbarStop"):
             stop_enabled = bool(self.btnStop.isEnabled()) if hasattr(self, "btnStop") else bool(self.act_stop.isEnabled())
             self.btnToolbarStop.setEnabled(stop_enabled)
+        if hasattr(self, "btnSmartCapture"):
+            self.btnSmartCapture.setEnabled(not stop_enabled)
 
     def _pick_excel_data_file(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -4220,6 +4235,118 @@ class MainWindow(QMainWindow):
             self.info(f"Scenario wizard added {len(new_steps)} steps ({template_name}).")
         except Exception as e:
             self.err(f"Error in scenario wizard: {e}")
+
+    def _resolve_visual_capture_image_dir(self) -> str:
+        if self._current_macro_path:
+            base_dir = os.path.dirname(os.path.abspath(self._current_macro_path))
+        else:
+            base_dir = os.getcwd()
+        image_dir = os.path.join(base_dir, "images")
+        os.makedirs(image_dir, exist_ok=True)
+        return image_dir
+
+    def _build_visual_capture_step(
+        self,
+        step_type: str,
+        image_path: str,
+        png_bytes: bytes,
+        rect: QRect,
+        virt_bounds: tuple[int, int, int, int],
+    ) -> StepData:
+        virt_left, virt_top, _virt_w, _virt_h = virt_bounds
+        idx = len(self.steps) + 1
+        if step_type == "wait_for_image":
+            return StepData(
+                id=str(uuid.uuid4())[:8],
+                name=f"Visual Wait #{idx}",
+                type="wait_for_image",
+                png_bytes=png_bytes,
+                anchor_image_path=image_path,
+                image_path=image_path,
+                timeout_ms=5000,
+                poll_ms=200,
+            )
+
+        center_x = int(virt_left + int(rect.x()) + int(rect.width()) // 2)
+        center_y = int(virt_top + int(rect.y()) + int(rect.height()) // 2)
+        return StepData(
+            id=str(uuid.uuid4())[:8],
+            name=f"Visual Click #{idx}",
+            type="image_click",
+            png_bytes=png_bytes,
+            anchor_image_path=image_path,
+            image_path=image_path,
+            click_x=center_x,
+            click_y=center_y,
+        )
+
+    def _run_visual_capture(self, step_type: str):
+        if step_type not in {"image_click", "wait_for_image"}:
+            self.err(f"Unsupported capture step type: {step_type}")
+            return
+        if self.runner and self.runner.isRunning():
+            self.warn("매크로 실행 중에는 스마트 캡처를 사용할 수 없습니다.")
+            return
+        if getattr(self, "_excel_mode_running", False):
+            self.warn("Excel 모드 실행 중에는 스마트 캡처를 사용할 수 없습니다.")
+            return
+
+        rect, crop, virt_bounds = VisualImageCaptureOverlay.capture_from_screen(self)
+        if crop is None or rect.isNull() or rect.width() < 3 or rect.height() < 3:
+            self.info("스마트 캡처가 취소되었습니다.")
+            return
+
+        try:
+            png_bytes = encode_png_bytes(crop)
+            image_dir = self._resolve_visual_capture_image_dir()
+            stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            image_path = os.path.abspath(os.path.join(image_dir, f"smart_capture_{stamp}.png"))
+            with open(image_path, "wb") as fp:
+                fp.write(png_bytes)
+
+            step = self._build_visual_capture_step(step_type, image_path, png_bytes, rect, virt_bounds)
+
+            insert_index = len(self.steps)
+            try:
+                current_row = int(self.list.currentRow())
+                if 0 <= current_row < len(self.steps):
+                    insert_index = current_row + 1
+            except Exception:
+                insert_index = len(self.steps)
+
+            self._push_command(
+                AddStepsCommand(self.steps, [step], index=insert_index),
+                focus_index=insert_index,
+            )
+            self.info(
+                f"스마트 캡처 스텝 추가: {step.type} "
+                f"(x={int(rect.x())}, y={int(rect.y())}, w={int(rect.width())}, h={int(rect.height())})"
+            )
+        except Exception as e:
+            self.err(f"스마트 캡처 처리 실패: {e}")
+
+    def _open_smart_capture_menu(self):
+        if self.runner and self.runner.isRunning():
+            self.warn("매크로 실행 중에는 스마트 캡처를 사용할 수 없습니다.")
+            return
+        if getattr(self, "_excel_mode_running", False):
+            self.warn("Excel 모드 실행 중에는 스마트 캡처를 사용할 수 없습니다.")
+            return
+
+        menu = QMenu(self)
+        act_click = menu.addAction("이미지 클릭 스텝 생성")
+        act_wait = menu.addAction("이미지 대기 스텝 생성")
+        chosen = None
+        if hasattr(self, "btnSmartCapture"):
+            origin = self.btnSmartCapture.mapToGlobal(QPoint(0, self.btnSmartCapture.height()))
+            chosen = menu.exec_(origin)
+        else:
+            chosen = menu.exec_(QCursor.pos())
+
+        if chosen == act_click:
+            self._run_visual_capture("image_click")
+        elif chosen == act_wait:
+            self._run_visual_capture("wait_for_image")
 
     def add_image_step(self):
         try:
