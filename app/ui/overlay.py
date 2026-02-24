@@ -293,6 +293,12 @@ class CoordinateGuideOverlay(QWidget):
                 self._bbox_global = QRect(bbox)
             elif isinstance(bbox, (tuple, list)) and len(bbox) >= 4:
                 self._bbox_global = QRect(int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))
+            elif isinstance(bbox, (tuple, list)) and len(bbox) == 2:
+                bw = max(1, int(bbox[0]))
+                bh = max(1, int(bbox[1]))
+                left = int(round(self._marker_global[0] - (bw / 2.0)))
+                top = int(round(self._marker_global[1] - (bh / 2.0)))
+                self._bbox_global = QRect(left, top, bw, bh)
             if self._bbox_global is not None:
                 self._bbox_local = self._to_overlay_rect(self._bbox_global)
 

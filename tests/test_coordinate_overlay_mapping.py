@@ -1,10 +1,12 @@
 import os
 import sys
+from types import SimpleNamespace
 
 import pytest
 
 pytest.importorskip("pytestqt")
 from PyQt5.QtCore import QPoint, Qt
+from PyQt5.QtGui import QImage
 from PyQt5.QtTest import QSignalSpy
 from PyQt5.QtWidgets import QApplication
 
@@ -122,3 +124,124 @@ def test_step_list_coordinate_preview_cleared_on_non_coordinate_selection(qapp, 
 
     lst.setCurrentRow(1)
     qtbot.waitUntil(lambda: len(cleared_spy) >= 1, timeout=1000)
+
+
+def test_mainwindow_routes_coordinate_preview_to_overlay(monkeypatch, qapp, qtbot):
+    from app.core.models import StepData
+    from app.main import MainWindow
+
+    overlay_calls = {"show": [], "clear": 0}
+
+    class _FakeOverlay:
+        def show_marker(self, x, y, step_idx, step_type, bbox=None):
+            overlay_calls["show"].append((x, y, step_idx, step_type, bbox))
+
+        def clear_marker(self):
+            overlay_calls["clear"] += 1
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.hide()
+
+    win._coordinate_overlay = _FakeOverlay()
+    step = StepData(id="s1", name="Click", type="click_point", click_x=111, click_y=222)
+    win.steps = [step]
+    win.refresh_step_list()
+
+    win.list.setCurrentRow(0)
+    qapp.processEvents()
+
+    assert overlay_calls["show"], "overlay.show_marker should be called from StepList selection routing"
+    x, y, idx, stype, bbox = overlay_calls["show"][-1]
+    assert (x, y, idx, stype) == (111, 222, 1, "click_point")
+    assert bbox is None
+
+    win.close()
+
+
+def test_mainwindow_coordinate_preview_guard_blocks_when_running(monkeypatch, qapp, qtbot):
+    from app.main import MainWindow
+
+    class _FakeOverlay:
+        def __init__(self):
+            self.show_count = 0
+
+        def show_marker(self, *args, **kwargs):
+            self.show_count += 1
+
+        def clear_marker(self):
+            pass
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.hide()
+
+    fake_overlay = _FakeOverlay()
+    win._coordinate_overlay = fake_overlay
+
+    payload = {"x": 10, "y": 20, "index": 1, "type": "click_point"}
+
+    win._excel_mode_running = True
+    win._on_coordinate_preview_requested(payload)
+    assert fake_overlay.show_count == 0
+
+    win._excel_mode_running = False
+    win.runner = SimpleNamespace(isRunning=lambda: True)
+    win._on_coordinate_preview_requested(payload)
+    assert fake_overlay.show_count == 0
+
+    win.runner = None
+    win._on_coordinate_preview_requested(payload)
+    assert fake_overlay.show_count == 1
+
+    win.close()
+
+
+def test_mainwindow_image_click_preview_passes_bbox_from_image(monkeypatch, qapp, qtbot, tmp_path):
+    from app.core.models import StepData
+    from app.main import MainWindow
+
+    class _FakeOverlay:
+        def __init__(self):
+            self.last = None
+
+        def show_marker(self, x, y, step_idx, step_type, bbox=None):
+            self.last = (x, y, step_idx, step_type, bbox)
+
+        def clear_marker(self):
+            pass
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.hide()
+
+    img_path = tmp_path / "anchor.png"
+    img = QImage(24, 12, QImage.Format_ARGB32)
+    img.fill(0xFF00FF00)
+    assert img.save(str(img_path))
+
+    win._coordinate_overlay = _FakeOverlay()
+    step = StepData(
+        id="s1",
+        name="ImageClick",
+        type="image_click",
+        click_x=300,
+        click_y=400,
+        image_path=str(img_path),
+    )
+    win.steps = [step]
+    win.refresh_step_list()
+
+    win.list.setCurrentRow(0)
+    qapp.processEvents()
+
+    assert win._coordinate_overlay.last is not None
+    x, y, idx, stype, bbox = win._coordinate_overlay.last
+    assert (x, y, idx, stype) == (300, 400, 1, "image_click")
+    assert bbox == (24, 12)
+
+    win.close()

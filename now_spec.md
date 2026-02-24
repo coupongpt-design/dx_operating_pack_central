@@ -182,6 +182,11 @@
   - payload는 `x/y/index/type/image_path(옵션)`를 포함하며, 좌표 없는 스텝은 clear 경로로 정리.
   - `leaveEvent` 시 clear 신호를 emit해 오버레이 잔상 제거.
   - 동일 payload 반복 emit은 signature 캐시로 억제.
+- MainWindow 좌표 오버레이 라우팅 (Stage 3-2 PR-3-2-3):
+  - `MainWindow`가 StepList 좌표 신호를 수신해 `CoordinateGuideOverlay`를 실제 구동.
+  - 라우팅 슬롯: `_on_coordinate_preview_requested(payload)`, `_clear_coordinate_preview()`.
+  - `image_click`의 경우 템플릿 이미지 크기를 캐시 로드(`image_path` 또는 `png_bytes`)하여 bbox(`W,H`) 전달.
+  - 실행 가드: 매크로/Excel 실행 중 프리뷰 차단(`_coordinate_preview_suspended`) + 시작 시 clear, 완료 시 복구.
 - 조건 위저드(Conditional Wizard):
   - 의도 템플릿:
     - `ocr_text_then_click`
@@ -223,7 +228,7 @@
 - 스모크 실행 진입점:
   - `python run_smoke_suite.py --quick` (핵심 런타임/매칭 게이트)
   - `python run_smoke_suite.py` (핵심 게이트 + 전체 health check)
-- 최신 로컬 기준: `python -m pytest -q` = `450 passed, 1 skipped`.
+- 최신 로컬 기준: `python -m pytest -q` = `453 passed, 1 skipped`.
 
 ### 규칙 적용 가드
 - 규칙은 2단 구조로 운용:

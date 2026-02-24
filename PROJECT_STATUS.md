@@ -186,6 +186,11 @@
   - 이탈/무좌표 스텝 정리: `leaveEvent` 또는 좌표 없는 선택 시 `coordinatePreviewCleared` emit.
   - payload 스키마: `{x, y, index, type, image_path(옵션)}`.
   - 중복 emit 억제: 동일 payload signature 캐시로 불필요한 재발행 방지.
+- Stage 3-2 PR-3-2-3 MainWindow Coordinate Overlay Routing:
+  - `MainWindow`가 `StepList.coordinatePreviewRequested/coordinatePreviewCleared` 신호를 수신해 오버레이를 실제 표시/해제.
+  - `CoordinateGuideOverlay.get_shared()`를 통해 공유 오버레이 인스턴스를 재사용.
+  - `image_click` 프리뷰에서 템플릿 이미지 크기(`image_path`/`png_bytes`)를 읽어 bbox(`W,H`)를 오버레이에 전달.
+  - 실행 가드: 매크로/Excel 실행 중 좌표 프리뷰를 차단하고 시작 시 강제 clear, 종료 시 자동 복구.
 
 ## 파일 포맷
 - JSON 저장: 메타데이터 포함 JSON(`meta`/`repeat`/`steps`), 레거시 리스트 JSON 역호환.
@@ -197,7 +202,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `450 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `453 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 

@@ -20,7 +20,7 @@ from PyQt5.QtWidgets import (
     QDialog, QLineEdit, QComboBox, QProgressBar, QScrollArea, QSizePolicy, QFrame, QToolTip
 )
 from PyQt5.QtCore import Qt, QTimer, QSettings, QSize, QEventLoop, QRect, QTime, QStandardPaths, pyqtSignal, QPoint
-from PyQt5.QtGui import QKeySequence, QIcon, QPixmap, QPainter, QColor, QFont, QCursor
+from PyQt5.QtGui import QKeySequence, QIcon, QPixmap, QPainter, QColor, QFont, QCursor, QImage
 
 from .ui.dialogs import (
     ImageStepDialog, NotImageDialog, BranchStepDialog, TargetDialog,
@@ -48,7 +48,7 @@ from .ui.hotkeys import SystemHotkeys, HotkeySettingsDialog
 from .ui.widgets import StepList
 from .ui.styles import DarkTheme
 from .ui.selectors import ROISelector, CrosshairOverlay
-from .ui.overlay import VisualImageCaptureOverlay
+from .ui.overlay import VisualImageCaptureOverlay, CoordinateGuideOverlay
 from .ui.debug_overlay import DebugOverlay
 from .ui.window_selector import WindowSelectorDialog
 from .ui.scenario_wizard import ScenarioWizardDialog
@@ -178,6 +178,9 @@ class MainWindow(QMainWindow):
         self.debug_overlay.hide()
         self.window_manager = WindowManager()
         self.target_hwnd = None
+        self._coordinate_overlay = None
+        self._coordinate_preview_suspended = False
+        self._coordinate_image_size_cache = {}
         
         # System Hotkeys
         self._system_hotkeys = SystemHotkeys(self)
@@ -202,6 +205,8 @@ class MainWindow(QMainWindow):
         self.list.requestRename.connect(self.rename_step_at)
         self.list.itemChanged.connect(self._on_list_item_renamed)
         self.list.flowPreviewRequested.connect(self._on_flow_preview_requested)
+        self.list.coordinatePreviewRequested.connect(self._on_coordinate_preview_requested)
+        self.list.coordinatePreviewCleared.connect(self._clear_coordinate_preview)
         
         # Toolbar
         self.toolbar = self.addToolBar("Main Toolbar")
@@ -2108,6 +2113,119 @@ class MainWindow(QMainWindow):
         self.list.set_flow_edges(self._build_flow_preview_edges(temp_steps))
         self._flow_preview_active = True
 
+    def _get_coordinate_overlay(self):
+        overlay = getattr(self, "_coordinate_overlay", None)
+        if overlay is None:
+            overlay = CoordinateGuideOverlay.get_shared(self)
+            self._coordinate_overlay = overlay
+        return overlay
+
+    def _set_coordinate_preview_suspended(self, suspended: bool):
+        self._coordinate_preview_suspended = bool(suspended)
+        if suspended:
+            self._clear_coordinate_preview()
+
+    def _is_coordinate_preview_blocked(self) -> bool:
+        if bool(getattr(self, "_coordinate_preview_suspended", False)):
+            return True
+        if bool(getattr(self, "_excel_mode_running", False)):
+            return True
+        try:
+            if self.runner and self.runner.isRunning():
+                return True
+        except Exception:
+            pass
+        return False
+
+    def _load_image_size_cached(self, image_path: str | None, png_bytes: bytes | None):
+        cache = getattr(self, "_coordinate_image_size_cache", None)
+        if cache is None:
+            cache = {}
+            self._coordinate_image_size_cache = cache
+
+        if image_path:
+            key = ("path", os.path.normcase(os.path.abspath(str(image_path))))
+            if key in cache:
+                return cache[key]
+            img = QImage(str(image_path))
+            size = None if img.isNull() else (int(img.width()), int(img.height()))
+            cache[key] = size
+            return size
+
+        if png_bytes:
+            key = ("bytes", hash(bytes(png_bytes)))
+            if key in cache:
+                return cache[key]
+            img = QImage()
+            ok = img.loadFromData(png_bytes)
+            size = None if (not ok or img.isNull()) else (int(img.width()), int(img.height()))
+            cache[key] = size
+            return size
+
+        return None
+
+    def _resolve_coordinate_preview_bbox(self, payload: dict):
+        if not isinstance(payload, dict):
+            return None
+        ptype = str(payload.get("type", "") or "").lower()
+        if ptype != "image_click":
+            return None
+        try:
+            row = int(payload.get("index", 0)) - 1
+        except Exception:
+            return None
+        if row < 0 or row >= len(self.steps):
+            return None
+        step = self.steps[row]
+        image_path = str(payload.get("image_path", "") or "").strip()
+        if image_path and not os.path.isabs(image_path):
+            base_dir = os.path.dirname(self._current_macro_path) if self._current_macro_path else os.getcwd()
+            image_path = os.path.abspath(os.path.join(base_dir, image_path))
+        if not image_path:
+            raw_path = str(getattr(step, "anchor_image_path", "") or getattr(step, "image_path", "") or "").strip()
+            if raw_path:
+                if os.path.isabs(raw_path):
+                    image_path = raw_path
+                else:
+                    base_dir = os.path.dirname(self._current_macro_path) if self._current_macro_path else os.getcwd()
+                    image_path = os.path.abspath(os.path.join(base_dir, raw_path))
+
+        png_bytes = getattr(step, "png_bytes", None)
+        size = self._load_image_size_cached(image_path or None, png_bytes)
+        if not size:
+            return None
+        w, h = size
+        if w <= 0 or h <= 0:
+            return None
+        return (int(w), int(h))
+
+    def _on_coordinate_preview_requested(self, payload: dict):
+        if self._is_coordinate_preview_blocked():
+            return
+        if not isinstance(payload, dict):
+            return
+        try:
+            x = int(payload.get("x"))
+            y = int(payload.get("y"))
+            idx = int(payload.get("index", 0))
+        except Exception:
+            return
+        stype = str(payload.get("type", "") or "")
+        bbox = self._resolve_coordinate_preview_bbox(payload)
+        overlay = self._get_coordinate_overlay()
+        if overlay is None:
+            return
+        overlay.show_marker(x, y, idx, stype, bbox=bbox)
+
+    def _clear_coordinate_preview(self):
+        overlay = getattr(self, "_coordinate_overlay", None)
+        if overlay is None:
+            return
+        try:
+            overlay.clear_marker()
+        except Exception:
+            pass
+
     def _build_step_excel_preview(self, step: StepData, payload: dict) -> str:
         if not payload:
             return ""
@@ -2364,6 +2482,7 @@ class MainWindow(QMainWindow):
             )
             self._excel_adapters.append(adapter)
 
+        self._set_coordinate_preview_suspended(True)
         self._excel_mode_running = True
         self.act_run.setEnabled(False)
         self.act_stop.setEnabled(True)
@@ -2392,6 +2511,7 @@ class MainWindow(QMainWindow):
     def _on_excel_orch_finished(self, completed: bool, reason: str):
         if not self._excel_job_manager:
             self._cleanup_excel_runtime()
+            self._set_coordinate_preview_suspended(False)
             self.act_run.setEnabled(True)
             self.act_stop.setEnabled(False)
             self.act_record.setEnabled(True)
@@ -2420,6 +2540,7 @@ class MainWindow(QMainWindow):
 
         self._cleanup_excel_runtime()
         self._excel_job_manager = None
+        self._set_coordinate_preview_suspended(False)
         self.act_run.setEnabled(True)
         self.act_stop.setEnabled(False)
         self.act_record.setEnabled(True)
@@ -3062,6 +3183,7 @@ class MainWindow(QMainWindow):
         if self.runner and self.runner.isRunning():
             self.warn("Already running.")
             return
+        self._set_coordinate_preview_suspended(True)
         self._set_macro_paused_ui(False)
         self._active_step_index = None
         self._last_failed_step_index = None
@@ -3170,6 +3292,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.err(f"Failed to start macro: {e}")
             self.runner = None
+            self._set_coordinate_preview_suspended(False)
             self.act_run.setEnabled(True)
             self.act_stop.setEnabled(False)
             self.act_record.setEnabled(True)
@@ -3206,6 +3329,7 @@ class MainWindow(QMainWindow):
 
     def _on_macro_finished(self, success):
         self.info(f"Macro finished. Success: {success}")
+        self._set_coordinate_preview_suspended(False)
         self.act_run.setEnabled(True)
         self.act_stop.setEnabled(False)
         self.act_record.setEnabled(True)
@@ -3548,6 +3672,7 @@ class MainWindow(QMainWindow):
                 except Exception:
                     print(f"[WARN] Shutdown cleanup failed ({label}): {ex}")
 
+        _shutdown_safe("coordinate_preview", self._clear_coordinate_preview)
         _shutdown_safe(
             "runner",
             lambda: (

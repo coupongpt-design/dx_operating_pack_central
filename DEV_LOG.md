@@ -1591,3 +1591,34 @@
 - Verification:
   - `python -m pytest -q tests/test_coordinate_overlay_mapping.py tests/test_visual_drag_drop_logic.py` -> `8 passed in 1.14s`
   - `python -m pytest -q` -> `450 passed, 1 skipped in 21.63s`
+
+## [2026-02-24] Session 81 - UI 현대화 Stage 3-2 PR-3-2-3 (MainWindow 오버레이 라우팅)
+- Summary:
+  - `MainWindow`에 StepList 좌표 이벤트 라우팅을 연결해 Coordinate Guide Overlay를 실제 표시/해제.
+  - `image_click` 프리뷰에서 템플릿 이미지 크기(`image_path`/`png_bytes`)를 캐시 로드해 bbox(`W,H`) 전달.
+  - 매크로/Excel 실행 중 좌표 프리뷰를 차단하고, 시작 시 clear/완료 시 복구되도록 실행 가드를 추가.
+- Code:
+  - `app/main.py`:
+    - StepList 신호 연결: `coordinatePreviewRequested -> _on_coordinate_preview_requested`, `coordinatePreviewCleared -> _clear_coordinate_preview`.
+    - 오버레이 라우팅 메서드 추가:
+      - `_get_coordinate_overlay`
+      - `_set_coordinate_preview_suspended`
+      - `_is_coordinate_preview_blocked`
+      - `_load_image_size_cached`
+      - `_resolve_coordinate_preview_bbox`
+      - `_on_coordinate_preview_requested`
+      - `_clear_coordinate_preview`
+    - 실행 경로 보호:
+      - `run_macro` 시작 시 preview suspend + 시작 실패 시 restore
+      - `_on_macro_finished`에서 restore
+      - `run_excel_orchestration` 시작 시 suspend
+      - `_on_excel_orch_finished` 경로에서 restore
+  - `app/ui/overlay.py`:
+    - `CoordinateGuideOverlay.show_marker`가 `bbox=(W,H)` 2튜플 입력을 지원하도록 확장.
+  - `tests/test_coordinate_overlay_mapping.py` 확장:
+    - MainWindow에서 StepList 선택 시 overlay `show_marker` 호출 검증
+    - 실행 상태 플래그(`_excel_mode_running`/runner running)에서 프리뷰 차단 검증
+    - `image_click`에서 bbox 크기 전달 검증
+- Verification:
+  - `python -m pytest -q tests/test_coordinate_overlay_mapping.py tests/test_excel_toolbar_responsive.py` -> `16 passed in 1.93s`
+  - `python -m pytest -q` -> `453 passed, 1 skipped in 21.75s`
