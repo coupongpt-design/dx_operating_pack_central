@@ -465,9 +465,15 @@
 - Governance rule: cleanup artifact deletions  require dedicated cleanup commit. 
 - Gate rule: post_task_gate auto selection returns zero tests + app code changes =
  
-## DX Guard Phase Two 
-- post_task_gate record schema includes timestamp and ttl_sec (30 minutes). 
-- git hook commit-msg contract includes mandatory Scope line. 
+## DX Guard Phase Two
+- post_task_gate record schema includes timestamp and ttl_sec (30 minutes).
+- git hook commit-msg contract includes mandatory Scope line.
 - task_finish unifies gate execution and outputs Scope-guided commit template.
-- is_risk_triggered skips blocked artifact paths before high-risk keyword scan. 
+- is_risk_triggered skips blocked artifact paths before high-risk keyword scan.
 - Current verification baseline: 510 passed, 1 skipped.
+
+## DX Phase Three
+- CI pipeline keeps `rule-guard` and `pytest` as parallel jobs, and pip download cache is handled via `actions/cache`.
+- Scope-size warning thresholds are defined as warning level: 7 files and 500 changed lines.
+- `tools/preflight_env.py` checks `git`, `python`, `pytest`, and available memory before `task_finish` runs gate logic.
+- Current verification baseline: 518 passed, 1 skipped.

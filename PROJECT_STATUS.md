@@ -304,9 +304,15 @@
 - pre-commit now blocks mixed commits when 10+ cleanup artifact deletions are combined with non-cleanup changes. 
 - post_task_gate auto mode fails if app code changed and selected tests are zero.
  
-## DX Guard Phase Two 
-- Gate record now stores timestamp and uses 30-minute freshness TTL. 
-- Commit message now requires Scope label with allowed values. 
+## DX Guard Phase Two
+- Gate record now stores timestamp and uses 30-minute freshness TTL.
+- Commit message now requires Scope label with allowed values.
 - task_finish provides scope suggestion and Scope-bearing template output.
-- Risk trigger excludes artifact-only paths (__pycache__, pyc, logs jsonl) for efficiency. 
+- Risk trigger excludes artifact-only paths (__pycache__, pyc, logs jsonl) for efficiency.
 - Test baseline: 510 passed, 1 skipped.
+
+## DX Phase Three
+- CI workflow retains split rule-guard/pytest jobs and adds actions/cache-based pip cache reuse.
+- Pre-commit now emits scope-size warnings at 7 files / 500 changed lines (warning-level guidance).
+- task_finish runs preflight checks (git, python, pytest, memory) before gate execution.
+- Baseline verification: 518 passed, 1 skipped.

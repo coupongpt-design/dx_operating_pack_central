@@ -30,6 +30,10 @@ MAPPINGS: list[tuple[re.Pattern[str], list[str]]] = [
         ],
     ),
     (
+        re.compile(r"^tools/preflight_env\.py$"),
+        ["tests/test_preflight_env.py"],
+    ),
+    (
         re.compile(r"^app/core/(data_orchestration|session_adapter|excel_io)\.py$"),
         [
             "tests/test_data_orchestration_v2.py",

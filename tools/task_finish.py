@@ -10,12 +10,14 @@ try:
     from tools.git_hook_guards import CONSTITUTIONAL_FILES
     from tools.git_hook_guards import is_artifact_cleanup_only
     from tools.git_hook_guards import parse_name_status
+    from tools.preflight_env import run_preflight
     from tools.post_task_gate import GATE_FILE
     from tools.post_task_gate import run_gate
 except ModuleNotFoundError:  # pragma: no cover - direct script execution fallback
     from git_hook_guards import CONSTITUTIONAL_FILES
     from git_hook_guards import is_artifact_cleanup_only
     from git_hook_guards import parse_name_status
+    from preflight_env import run_preflight
     from post_task_gate import GATE_FILE
     from post_task_gate import run_gate
 
@@ -140,6 +142,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ValueError as exc:
         print(str(exc))
         return 2
+
+    preflight_rc = run_preflight()
+    if preflight_rc != 0:
+        return preflight_rc
 
     if not _staged_exists():
         print("no staged changes; stage files before task_finish")

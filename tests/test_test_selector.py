@@ -25,3 +25,8 @@ def test_select_tests_for_task_start_guard() -> None:
     tests = select_tests(["tools/task_start_guard.py"])
     assert "tests/test_task_start_guard.py" in tests
     assert "tests/test_git_hook_guards.py" in tests
+
+
+def test_select_tests_for_preflight_env() -> None:
+    tests = select_tests(["tools/preflight_env.py"])
+    assert "tests/test_preflight_env.py" in tests

@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 
 from tools.git_hook_guards import compute_staged_hash
+from tools.git_hook_guards import run_pre_commit_guard
 from tools.git_hook_guards import extract_tests_lines
 from tools.git_hook_guards import is_artifact_cleanup_only
 from tools.git_hook_guards import is_risk_triggered
@@ -11,6 +12,7 @@ from tools.git_hook_guards import parse_name_status
 from tools.git_hook_guards import validate_commit_message
 from tools.git_hook_guards import validate_gate_record
 from tools.git_hook_guards import validate_message_against_gate_record
+from tools.git_hook_guards import collect_scope_warnings
 from tools.git_hook_guards import validate_scope_limits
 from tools.git_hook_guards import validate_staged_entries
 
@@ -138,6 +140,12 @@ def test_parse_numstat_and_scope_limits() -> None:
     assert any("staged changed lines too large" in err for err in errors)
 
 
+def test_collect_scope_warnings_on_threshold_excess() -> None:
+    warns = collect_scope_warnings(file_count=8, line_count=550)
+    assert any("Scope too large (files)" in w for w in warns)
+    assert any("Scope too large (lines)" in w for w in warns)
+
+
 def test_is_artifact_cleanup_only_true_for_deletes() -> None:
     entries = parse_name_status("D\tlogs/run_1.jsonl\nD\tapp/__pycache__/x.pyc\n")
     assert is_artifact_cleanup_only(entries) is True
@@ -173,6 +181,43 @@ def test_validate_staged_entries_blocks_constitutional_mixed_changes() -> None:
     entries = parse_name_status("M\tAGENTS.md\nM\tapp/main.py\n")
     errors = validate_staged_entries(entries)
     assert any("must be isolated" in err for err in errors)
+
+
+def test_run_pre_commit_guard_emits_scope_warning(monkeypatch, capsys) -> None:
+    import tools.git_hook_guards as guards
+
+    staged_text = "".join([f"M\tapp/ui/file_{i}.py\n" for i in range(8)])
+    entries = parse_name_status(staged_text)
+    staged_hash = compute_staged_hash(entries)
+
+    def fake_git(*args: str) -> str:
+        if args == ("diff", "--cached", "--name-status"):
+            return staged_text
+        if args == ("diff", "--cached", "--numstat"):
+            return "".join([f"1\t0\tapp/ui/file_{i}.py\n" for i in range(8)])
+        if args == ("rev-parse", "HEAD"):
+            return "abc123\n"
+        raise AssertionError(f"unexpected git args: {args}")
+
+    monkeypatch.setattr(guards, "_git", fake_git)
+    monkeypatch.setattr(
+        guards,
+        "_load_gate_record",
+        lambda: {
+            "timestamp": time.time(),
+            "head": "abc123",
+            "staged_hash": staged_hash,
+            "targeted_pass": True,
+            "risk": False,
+            "full_suite_pass": True,
+        },
+    )
+
+    rc = run_pre_commit_guard()
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "[pre-commit] warnings:" in out
+    assert "Scope too large (files)" in out
 
 
 def test_validate_gate_record_accepts_valid_record() -> None:

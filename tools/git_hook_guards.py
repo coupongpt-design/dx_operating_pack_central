@@ -50,6 +50,8 @@ GATE_FILE = Path(".git") / "post_task_gate.json"
 GATE_MAX_AGE_SEC = 30 * 60
 MAX_STAGE_FILES = 18
 MAX_STAGE_LINES = 1400
+MAX_FILE_COUNT = 7
+MAX_LINE_COUNT = 500
 CLEANUP_ATOMIC_THRESHOLD = 10
 ALLOWED_SCOPES = ("feature", "rule", "cleanup", "docs", "test")
 
@@ -163,6 +165,23 @@ def validate_scope_limits(file_count: int, line_count: int) -> list[str]:
             f"staged changed lines too large ({line_count}>{MAX_STAGE_LINES}); split into atomic commits"
         )
     return errors
+
+
+def collect_scope_warnings(file_count: int, line_count: int) -> list[str]:
+    warnings: list[str] = []
+    if file_count > MAX_FILE_COUNT:
+        warnings.append(
+            "Scope too large (files): "
+            f"{file_count}>{MAX_FILE_COUNT}. "
+            "Split into smaller atomic commits."
+        )
+    if line_count > MAX_LINE_COUNT:
+        warnings.append(
+            "Scope too large (lines): "
+            f"{line_count}>{MAX_LINE_COUNT}. "
+            "Split into smaller atomic commits."
+        )
+    return warnings
 
 
 def _is_constitutional(path: str) -> bool:
@@ -348,6 +367,7 @@ def run_pre_commit_guard() -> int:
     errors = validate_staged_entries(entries)
     numstat_text = _git("diff", "--cached", "--numstat")
     file_count, line_count = parse_numstat(numstat_text)
+    warnings = collect_scope_warnings(file_count, line_count)
     if not is_artifact_cleanup_only(entries):
         errors.extend(validate_scope_limits(file_count, line_count))
 
@@ -372,6 +392,10 @@ def run_pre_commit_guard() -> int:
         )
 
     if not errors:
+        if warnings:
+            print("[pre-commit] warnings:")
+            for warn in warnings:
+                print(f"- {warn}")
         return 0
     print("[pre-commit] rejected:")
     for err in errors:

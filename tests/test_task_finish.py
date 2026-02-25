@@ -38,3 +38,12 @@ def test_parse_args_scope_and_targeted() -> None:
     assert subject == "feat: x"
     assert targeted == "auto"
     assert scope == "rule"
+
+
+def test_parse_args_targeted_with_scope_after_it() -> None:
+    subject, targeted, scope = parse_args(
+        ["--subject", "feat: y", "--targeted", "python", "-m", "pytest", "-q", "tests/test_a.py", "--scope", "test"]
+    )
+    assert subject == "feat: y"
+    assert targeted == "python -m pytest -q tests/test_a.py"
+    assert scope == "test"
