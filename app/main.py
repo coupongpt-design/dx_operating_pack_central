@@ -187,6 +187,8 @@ class MainWindow(QMainWindow):
         self._coordinate_overlay = None
         self._coordinate_preview_suspended = False
         self._coordinate_image_size_cache = {}
+        self._splitter_snap_guard = False
+        self._left_panel_snap_threshold_px = 80
         
         # System Hotkeys
         self._system_hotkeys = SystemHotkeys(self)
@@ -220,16 +222,14 @@ class MainWindow(QMainWindow):
         self.toolbar.setFloatable(False)
         self.toolbar.setIconSize(QSize(24, 24))
         
-        style = QApplication.style()
-        
-        # Save / Load Actions (Keep these in toolbar)
-        self.act_save = QAction(style.standardIcon(style.SP_DialogSaveButton), "Save", self)
+        # File/Edit actions (text-centric, connected to existing slots)
+        self.act_save = QAction("Save", self)
+        self.act_save.setShortcut(QKeySequence("Ctrl+S"))
         self.act_save.triggered.connect(self.save_macro)
-        self.toolbar.addAction(self.act_save)
         
-        self.act_load = QAction(style.standardIcon(style.SP_DialogOpenButton), "Load", self)
+        self.act_load = QAction("Open", self)
+        self.act_load.setShortcut(QKeySequence("Ctrl+O"))
         self.act_load.triggered.connect(self.load_macro)
-        self.toolbar.addAction(self.act_load)
 
         # Undo / Redo actions
         self.act_undo = QAction("Undo", self)
@@ -238,8 +238,6 @@ class MainWindow(QMainWindow):
         self.act_redo = QAction("Redo", self)
         self.act_redo.setShortcut(QKeySequence("Ctrl+Y"))
         self.act_redo.triggered.connect(self._do_redo)
-        self.toolbar.addAction(self.act_undo)
-        self.toolbar.addAction(self.act_redo)
         
         # Other actions are moved to the left panel buttons to avoid duplication.
         # We keep the action objects if needed for shortcuts or other references, 
@@ -265,9 +263,11 @@ class MainWindow(QMainWindow):
         from PyQt5.QtWidgets import QSplitter
         
         self.splitter = QSplitter(Qt.Horizontal)
+        self.splitter.setChildrenCollapsible(True)
         
         # Left Panel (Tabbed: Scenario / Triggers)
         self.left_tabs = QTabWidget()
+        self.left_tabs.setMinimumWidth(0)
         
         # Tab 1: Scenario List
         # We move the list directly to the tab, removing the old grid layout buttons
@@ -424,6 +424,7 @@ class MainWindow(QMainWindow):
         
         # Set Splitter Sizes (approx 25%, 50%, 25%)
         self.splitter.setSizes([300, 600, 300])
+        self.splitter.setCollapsible(0, True)
         
         self.setCentralWidget(self.splitter)
         
@@ -616,6 +617,16 @@ class MainWindow(QMainWindow):
         
         # Menu Bar
         menubar = self.menuBar()
+
+        # File Menu
+        file_menu = menubar.addMenu("File")
+        file_menu.addAction(self.act_load)
+        file_menu.addAction(self.act_save)
+
+        # Edit Menu
+        edit_menu = menubar.addMenu("Edit")
+        edit_menu.addAction(self.act_undo)
+        edit_menu.addAction(self.act_redo)
         
         # Settings Menu
         settings_menu = menubar.addMenu("Settings")
@@ -4259,15 +4270,19 @@ class MainWindow(QMainWindow):
 
     def _init_trigger_tab(self):
         widget = QWidget()
+        widget.setMinimumWidth(0)
         layout = QVBoxLayout(widget)
         
         self.trigger_list = QListWidget()
+        self.trigger_list.setMinimumWidth(0)
         self.trigger_list.itemDoubleClicked.connect(self._edit_trigger_item)
         
         btn_layout = QHBoxLayout()
         btn_add = QPushButton("Add Trigger")
+        btn_add.setMinimumWidth(0)
         btn_add.clicked.connect(self._add_trigger)
         btn_del = QPushButton("Del Trigger")
+        btn_del.setMinimumWidth(0)
         btn_del.clicked.connect(self._del_trigger)
         
         btn_layout.addWidget(btn_add)
@@ -4457,7 +4472,21 @@ class MainWindow(QMainWindow):
 
     def _on_splitter_moved(self, pos, index):
         try:
+            if getattr(self, "_splitter_snap_guard", False):
+                return
             sizes = self.splitter.sizes()
+            if len(sizes) >= 3:
+                left_size, center_size, right_size = sizes[0], sizes[1], sizes[2]
+                threshold = int(getattr(self, "_left_panel_snap_threshold_px", 80) or 80)
+                should_snap_left = (0 < left_size <= threshold) or (index == 0 and pos <= threshold and left_size > 0)
+                if should_snap_left:
+                    self._splitter_snap_guard = True
+                    try:
+                        self.splitter.setSizes([0, center_size + left_size, right_size])
+                    finally:
+                        self._splitter_snap_guard = False
+                    sizes = self.splitter.sizes()
+
             right_size = sizes[2] if len(sizes) > 2 else 0
             show_btn = right_size <= 5
             self.btn_open_panel.setVisible(show_btn)

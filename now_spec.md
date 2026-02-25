@@ -366,3 +366,26 @@
   - grid spacing set to `2`, margins set to `0`
 - Global micro style in `DarkTheme`:
   - `QPushButton` font-size `9pt`, padding `1px 3px`, border-radius `2px`
+
+## UI Stage 3-5 PR-3-5-1 (Menu-first Header Simplification)
+- Header action model changed:
+  - File/Edit core actions are menu-first (`File: Open/Save`, `Edit: Undo/Redo`).
+  - Former toolbar icon group for Save/Open/Undo/Redo is removed.
+- Action wiring preserved:
+  - `Open -> load_macro`, `Save -> save_macro`
+  - `Undo -> _do_undo`, `Redo -> _do_redo`
+  - Shortcuts fixed: `Ctrl+O`, `Ctrl+S`, `Ctrl+Z`, `Ctrl+Y`
+- Styling:
+  - Added dark-theme menu styling (`QMenuBar`, `QMenu`, selected-state highlight).
+
+## UI Stage 3-5 PR-3-5-3 (Left Panel Snap-Collapse / Min-Width Relaxation)
+- Splitter behavior:
+  - Left panel (`QSplitter` index 0) is explicitly collapsible.
+  - Auto-snap collapse when width is below threshold (`_left_panel_snap_threshold_px`, default `80`).
+  - Snap trigger also reacts to left splitter handle move position in threshold range.
+- Min-width relaxation:
+  - `ManagerTab` left/right containers, table, line edits, and action buttons are configured for narrow shrink.
+  - Trigger tab root/list/buttons are configured for narrow shrink.
+  - `left_tabs` minimum width set to `0`.
+- Visual density safeguard:
+  - Global `QPushButton` style allows `min-width: 0px` to reduce squeeze collisions under narrow panel states.

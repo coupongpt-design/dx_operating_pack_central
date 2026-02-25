@@ -1758,3 +1758,30 @@
 - Test status:
   - `python -m pytest -q tests/test_excel_toolbar_responsive.py tests/test_ui_integration.py` -> `38 passed`
   - `python -m pytest -q` -> `466 passed, 1 skipped`
+## Session 90 - UI Stage 3-5 PR-3-5-1 (MenuBar Refactor / Toolbar Simplification)
+- Moved file/edit core operations to menu bar:
+  - `File`: Open (`Ctrl+O`), Save (`Ctrl+S`)
+  - `Edit`: Undo (`Ctrl+Z`), Redo (`Ctrl+Y`)
+- Removed toolbar icon action group for Save/Open/Undo/Redo from `app/main.py`.
+- Added menu styling in `app/ui/styles.py` (`QMenuBar`, `QMenu`, selected highlight).
+- Added tests in `tests/test_excel_toolbar_responsive.py`:
+  - menu action wiring dispatch validation
+  - toolbar icon group removal validation
+- Test status:
+  - `python -m pytest -q tests/test_excel_toolbar_responsive.py tests/test_ui_integration.py` -> `40 passed`
+  - `python -m pytest -q` -> `468 passed, 1 skipped`
+## Session 91 - UI Stage 3-5 PR-3-5-3 (Panel Min-Width + Snap Collapse)
+- Added left-panel snap collapse logic in `app/main.py`:
+  - splitter index 0 set collapsible
+  - auto-collapse to width 0 when below threshold (`_left_panel_snap_threshold_px=80`)
+  - guard flag to avoid recursive `splitterMoved` loops
+- Relaxed min-width constraints:
+  - `app/ui/tabs/manager_tab.py`: containers/table/inputs/buttons configured for narrow shrink
+  - `app/main.py` trigger tab root/list/buttons configured for narrow shrink
+  - global button style allows `min-width: 0px`
+- Added/updated tests in `tests/test_excel_toolbar_responsive.py`:
+  - left splitter collapsible + snap behavior
+  - manager/trigger min-width relaxation checks
+- Test status:
+  - `python -m pytest -q tests/test_excel_toolbar_responsive.py tests/test_ui_integration.py` -> `42 passed`
+  - `python -m pytest -q` -> `470 passed, 1 skipped`

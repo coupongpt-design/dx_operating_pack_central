@@ -58,6 +58,7 @@ class DarkTheme:
             border-radius: 2px;
             padding: 1px 3px;
             font-size: 9pt;
+            min-width: 0px;
             color: {cls.TEXT_PRIMARY};
         }}
         QPushButton:hover {{
@@ -233,6 +234,41 @@ class DarkTheme:
         }}
         QSplitter::handle:hover {{
             background-color: {cls.ACCENT};
+        }}
+
+        /* Menu bar */
+        QMenuBar {{
+            background-color: {cls.BG_PANEL};
+            color: {cls.TEXT_PRIMARY};
+            border-bottom: 1px solid #383c40;
+            padding: 2px 4px;
+            font-size: 9.5pt;
+        }}
+        QMenuBar::item {{
+            background: transparent;
+            padding: 4px 8px;
+            border-radius: 3px;
+        }}
+        QMenuBar::item:selected {{
+            background-color: {cls.BG_HOVER};
+            color: {cls.TEXT_PRIMARY};
+        }}
+        QMenu {{
+            background-color: {cls.BG_PANEL};
+            color: {cls.TEXT_PRIMARY};
+            border: 1px solid #444444;
+        }}
+        QMenu::item {{
+            padding: 5px 18px;
+        }}
+        QMenu::item:selected {{
+            background-color: {cls.BG_HOVER};
+            color: {cls.TEXT_PRIMARY};
+        }}
+        QMenu::separator {{
+            height: 1px;
+            background: #3b3f43;
+            margin: 4px 6px;
         }}
 
         /* Toolbar */

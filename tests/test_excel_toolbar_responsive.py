@@ -197,6 +197,112 @@ def test_smart_capture_button_dispatches_capture_menu(monkeypatch, qapp, qtbot):
     win.close()
 
 
+def test_file_edit_menu_actions_dispatch_existing_slots(monkeypatch, qapp, qtbot):
+    from app.main import MainWindow
+
+    calls = {"open": 0, "save": 0, "undo": 0, "redo": 0}
+
+    def fake_open(self):
+        calls["open"] += 1
+
+    def fake_save(self):
+        calls["save"] += 1
+
+    def fake_undo(self):
+        calls["undo"] += 1
+
+    def fake_redo(self):
+        calls["redo"] += 1
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+    monkeypatch.setattr(MainWindow, "load_macro", fake_open, raising=False)
+    monkeypatch.setattr(MainWindow, "save_macro", fake_save, raising=False)
+    monkeypatch.setattr(MainWindow, "_do_undo", fake_undo, raising=False)
+    monkeypatch.setattr(MainWindow, "_do_redo", fake_redo, raising=False)
+
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.show()
+    qapp.processEvents()
+
+    menu_titles = [a.text() for a in win.menuBar().actions()]
+    assert "File" in menu_titles
+    assert "Edit" in menu_titles
+
+    assert win.act_load.shortcut().toString() == "Ctrl+O"
+    assert win.act_save.shortcut().toString() == "Ctrl+S"
+    assert win.act_undo.shortcut().toString() == "Ctrl+Z"
+    assert win.act_redo.shortcut().toString() == "Ctrl+Y"
+
+    win.act_load.trigger()
+    win.act_save.trigger()
+    win.act_undo.trigger()
+    win.act_redo.trigger()
+
+    assert calls == {"open": 1, "save": 1, "undo": 1, "redo": 1}
+
+    win.close()
+
+
+def test_toolbar_no_longer_contains_file_edit_icon_group(monkeypatch, qapp, qtbot):
+    from app.main import MainWindow
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.show()
+    qapp.processEvents()
+
+    toolbar_texts = [a.text() for a in win.toolbar.actions()]
+    for removed in ("Save", "Open", "Undo", "Redo"):
+        assert removed not in toolbar_texts
+
+    win.close()
+
+
+def test_splitter_left_panel_is_collapsible_and_snaps(monkeypatch, qapp, qtbot):
+    from app.main import MainWindow
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.show()
+    qapp.processEvents()
+
+    assert win.splitter.isCollapsible(0) is True
+    assert getattr(win, "_left_panel_snap_threshold_px", 0) >= 50
+
+    sizes = win.splitter.sizes()
+    right = sizes[2] if len(sizes) > 2 else 0
+    win.splitter.setSizes([max(1, int(win._left_panel_snap_threshold_px) - 10), 800, right])
+    qapp.processEvents()
+    win._on_splitter_moved(0, 0)
+    qapp.processEvents()
+
+    assert win.splitter.sizes()[0] == 0
+
+    win.close()
+
+
+def test_manager_and_trigger_tabs_have_relaxed_min_width(monkeypatch, qapp, qtbot):
+    from app.main import MainWindow
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.show()
+    qapp.processEvents()
+
+    assert win.left_tabs.minimumWidth() == 0
+    assert win.trigger_list.minimumWidth() == 0
+    assert win.manager_tab.tbl.minimumWidth() == 0
+    assert win.manager_tab.btnAdd.minimumWidth() <= 8
+    assert win.manager_tab.btnDel.minimumWidth() <= 8
+    assert win.manager_tab.btnDup.minimumWidth() <= 8
+
+    win.close()
+
+
 def test_toolbar_height_and_margins_fit_two_rows_without_clipping(monkeypatch, qapp, qtbot):
     from app.main import MainWindow
     from PyQt5.QtCore import Qt
