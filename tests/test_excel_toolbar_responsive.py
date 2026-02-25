@@ -120,7 +120,7 @@ def test_excel_mode_visual_feedback_updates_core_row_and_badge(monkeypatch, qapp
     win.close()
 
 
-def test_toolbar_run_stop_buttons_stay_visible_on_narrow_width(monkeypatch, qapp, qtbot):
+def test_left_panel_run_stop_smart_capture_visible_on_narrow_width(monkeypatch, qapp, qtbot):
     from app.main import MainWindow
 
     monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
@@ -130,19 +130,22 @@ def test_toolbar_run_stop_buttons_stay_visible_on_narrow_width(monkeypatch, qapp
     win.resize(760, 640)
     qapp.processEvents()
 
-    assert hasattr(win, "btnToolbarRun")
-    assert hasattr(win, "btnToolbarStop")
-    assert win.btnToolbarRun.isVisible() is True
-    assert win.btnToolbarStop.isVisible() is True
-    assert win.btnToolbarRun.minimumWidth() >= 85
-    assert win.btnToolbarStop.minimumWidth() >= 85
-    assert win.btnToolbarRun.sizePolicy().horizontalPolicy() == QSizePolicy.Fixed
-    assert win.btnToolbarStop.sizePolicy().horizontalPolicy() == QSizePolicy.Fixed
+    assert not hasattr(win, "btnToolbarRun")
+    assert not hasattr(win, "btnToolbarStop")
+    assert hasattr(win, "btnRun")
+    assert hasattr(win, "btnStop")
+    assert hasattr(win, "btnSmartCapture")
+    assert win.btnRun.isVisible() is True
+    assert win.btnStop.isVisible() is True
+    assert win.btnSmartCapture.isVisible() is True
+    assert win.btnRun.minimumHeight() >= 26
+    assert win.btnStop.minimumHeight() >= 26
+    assert win.btnSmartCapture.minimumHeight() >= 26
 
     win.close()
 
 
-def test_toolbar_run_stop_buttons_dispatch_existing_paths(monkeypatch, qapp, qtbot):
+def test_left_panel_run_stop_buttons_dispatch_existing_paths(monkeypatch, qapp, qtbot):
     from app.main import MainWindow
 
     calls = {"run": 0, "stop": 0}
@@ -162,9 +165,9 @@ def test_toolbar_run_stop_buttons_dispatch_existing_paths(monkeypatch, qapp, qtb
     win.show()
     qapp.processEvents()
 
-    win.btnToolbarRun.click()
-    win.btnToolbarStop.setEnabled(True)
-    win.btnToolbarStop.click()
+    win.btnRun.click()
+    win.btnStop.setEnabled(True)
+    win.btnStop.click()
 
     assert calls["run"] == 1
     assert calls["stop"] == 1
@@ -172,8 +175,31 @@ def test_toolbar_run_stop_buttons_dispatch_existing_paths(monkeypatch, qapp, qtb
     win.close()
 
 
+def test_smart_capture_button_dispatches_capture_menu(monkeypatch, qapp, qtbot):
+    from app.main import MainWindow
+
+    calls = {"capture": 0}
+
+    def fake_capture(self):
+        calls["capture"] += 1
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+    monkeypatch.setattr(MainWindow, "_open_smart_capture_menu", fake_capture, raising=False)
+
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.show()
+    qapp.processEvents()
+
+    win.btnSmartCapture.click()
+    assert calls["capture"] == 1
+
+    win.close()
+
+
 def test_toolbar_height_and_margins_fit_two_rows_without_clipping(monkeypatch, qapp, qtbot):
     from app.main import MainWindow
+    from PyQt5.QtCore import Qt
 
     monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
     win = MainWindow()
@@ -189,6 +215,7 @@ def test_toolbar_height_and_margins_fit_two_rows_without_clipping(monkeypatch, q
     assert win._opt_scroll.minimumHeight() >= 75
     assert win._opt_core_row.isVisible() is True
     assert win._opt_adv_row.isVisible() is True
+    assert win._opt_scroll.horizontalScrollBarPolicy() == Qt.ScrollBarAlwaysOff
     assert win.edTargetTitle.sizePolicy().horizontalPolicy() == QSizePolicy.Expanding
     assert win.edExcelDataPath.sizePolicy().horizontalPolicy() == QSizePolicy.Expanding
 

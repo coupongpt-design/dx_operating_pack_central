@@ -38,6 +38,7 @@ from .core.commands import (
     UndoStack,
     AddStepCommand,
     AddStepsCommand,
+    AddRecordedStepsCommand,
     RemoveStepCommand,
     EditStepCommand,
     MoveStepCommand,
@@ -48,7 +49,7 @@ from .ui.hotkeys import SystemHotkeys, HotkeySettingsDialog
 from .ui.widgets import StepList
 from .ui.styles import DarkTheme
 from .ui.selectors import ROISelector, CrosshairOverlay
-from .ui.overlay import VisualImageCaptureOverlay, CoordinateGuideOverlay
+from .ui.overlay import VisualImageCaptureOverlay, CoordinateGuideOverlay, RecordingStatusOverlay
 from .ui.debug_overlay import DebugOverlay
 from .ui.window_selector import WindowSelectorDialog
 from .ui.scenario_wizard import ScenarioWizardDialog
@@ -65,6 +66,7 @@ from .core.template_processor import TemplateProcessor
 from .core.input_lock import get_global_input_manager
 from .core.evaluator import ConditionEvaluator
 from .core.logic_path_simulator import LogicPathSimulator
+from .core.smart_recorder import SmartTransformer, SmartStep, SmartProposal
 
 def _excepthook(type, value, tback):
     sys.__excepthook__(type, value, tback)
@@ -127,6 +129,10 @@ class MainWindow(QMainWindow):
         self._last_failed_step_uuid: str | None = None
         self.runner: MacroRunner | None = None
         self.recorder: InputRecorder | None = None
+        self._smart_transformer: SmartTransformer | None = None
+        self._record_smart_events: list[SmartStep | SmartProposal] = []
+        self._record_temp_image_paths: list[str] = []
+        self._recording_overlay = None
         self._current_macro_path: str | None = None
         self._resume_state: dict | None = None
         self._resume_index: int = 0
@@ -272,7 +278,14 @@ class MainWindow(QMainWindow):
         
         # Scenario action buttons
         btn_layout = QGridLayout()
-        btn_layout.setSpacing(5)
+        btn_layout.setContentsMargins(0, 0, 0, 0)
+        btn_layout.setSpacing(2)
+
+        def _slim_left_btn(btn: QPushButton, cls_name: str | None = None) -> None:
+            btn.setMinimumHeight(26)
+            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            if cls_name:
+                btn.setProperty("class", cls_name)
         
         # Helper to format button text with hotkey
         def btn_text(label, hk):
@@ -286,71 +299,78 @@ class MainWindow(QMainWindow):
         # Row 1: Add buttons
         self.btnAddImg = QPushButton(btn_text("이미지+", self._hk_add_img))
         self.btnAddImg.clicked.connect(self.add_image_step)
-        self.btnAddImg.setStyleSheet("background: #1E3A5F; color: white; padding: 8px; font-weight: bold;")
+        _slim_left_btn(self.btnAddImg, "left-primary")
         
-        self.btnAddAction = QPushButton(btn_text("일반동작+", self._hk_add_notimg))
+        self.btnAddAction = QPushButton(btn_text("동작+", self._hk_add_notimg))
         self.btnAddAction.clicked.connect(self.add_not_image_step)
-        self.btnAddAction.setStyleSheet("background: #2C5F2D; color: white; padding: 8px; font-weight: bold;")
+        _slim_left_btn(self.btnAddAction, "left-secondary")
         
         btn_layout.addWidget(self.btnAddImg, 0, 0)
         btn_layout.addWidget(self.btnAddAction, 0, 1)
+
+        # Row 1: Smart Capture
+        self.btnSmartCapture = QPushButton("캡처")
+        self.btnSmartCapture.setToolTip("화면에서 드래그 캡처 후 이미지 기반 스텝을 즉시 생성합니다.")
+        self.btnSmartCapture.clicked.connect(self._open_smart_capture_menu)
+        _slim_left_btn(self.btnSmartCapture, "left-capture")
+        btn_layout.addWidget(self.btnSmartCapture, 0, 2)
         
         # Row 2: Other buttons
-        btn_add_branch = QPushButton("🔀 분기 추가")
+        btn_add_branch = QPushButton("분기")
         btn_add_branch.clicked.connect(self.add_branch_step)
-        btn_add_branch.setStyleSheet("background: #5F4C2C; color: white; padding: 8px;")
+        _slim_left_btn(btn_add_branch, "left-neutral")
         
-        btn_add_comment = QPushButton("💬 주석 추가")
+        btn_add_comment = QPushButton("주석")
         btn_add_comment.clicked.connect(self.add_comment_step)
-        btn_add_comment.setStyleSheet("background: #3E3E42; color: white; padding: 8px;")
+        _slim_left_btn(btn_add_comment, "left-neutral")
         
         btn_layout.addWidget(btn_add_branch, 1, 0)
         btn_layout.addWidget(btn_add_comment, 1, 1)
         
-        # Row 3: Run / Stop buttons
+        # Row 2: Record
         self.btnRun = QPushButton(btn_text("실행", self._hk_run))
         self.btnRun.clicked.connect(self._on_run_button_clicked)
-        self._btn_run_style_normal = "background: #007ACC; color: white; padding: 10px; font-weight: bold;"
-        self._btn_run_style_paused = "background: #D79B00; color: #151515; padding: 10px; font-weight: bold; border: 2px solid #F7C948;"
-        self.btnRun.setStyleSheet(self._btn_run_style_normal)
+        self._btn_run_style_normal = "left-run"
+        self._btn_run_style_paused = "left-run-paused"
+        _slim_left_btn(self.btnRun, self._btn_run_style_normal)
         
         self.btnStop = QPushButton(btn_text("정지", self._hk_stop))
-        self.btnStop.clicked.connect(self.stop_macro)
-        self.btnStop.setStyleSheet("background: #C0392B; color: white; padding: 10px; font-weight: bold;")
+        self.btnStop.clicked.connect(self._on_stop_button_clicked)
+        _slim_left_btn(self.btnStop, "left-stop")
         self.btnStop.setEnabled(False)
         
         btn_layout.addWidget(self.btnRun, 2, 0)
         btn_layout.addWidget(self.btnStop, 2, 1)
         
-        # Row 4: Record button
+        # Row 3: Record button
         self.btnRecord = QPushButton(btn_text("녹화", self._hk_record))
         self.btnRecord.setCheckable(True)
         self.btnRecord.toggled.connect(self.toggle_record)
-        self.btnRecord.setStyleSheet("background: #8B0000; color: white; padding: 10px; font-weight: bold;")
-        btn_layout.addWidget(self.btnRecord, 3, 0, 1, 2)
+        _slim_left_btn(self.btnRecord, "left-record")
+        btn_layout.addWidget(self.btnRecord, 1, 2)
 
-        self.btnScenarioWizard = QPushButton("시나리오 마법사")
+        self.btnScenarioWizard = QPushButton("마법사")
         self.btnScenarioWizard.clicked.connect(self.open_scenario_wizard)
-        self.btnScenarioWizard.setStyleSheet("background: #6D4C41; color: white; padding: 10px; font-weight: bold;")
+        _slim_left_btn(self.btnScenarioWizard, "left-wizard")
         self.btnScenarioWizard.setToolTip("고급 활용 예시 템플릿을 선택해 스텝을 자동 생성합니다.")
-        btn_layout.addWidget(self.btnScenarioWizard, 4, 0, 1, 2)
+        btn_layout.addWidget(self.btnScenarioWizard, 3, 0)
 
-        self.btnConditionalWizard = QPushButton("조건 위저드")
+        self.btnConditionalWizard = QPushButton("조건")
         self.btnConditionalWizard.clicked.connect(self.open_conditional_action_wizard)
-        self.btnConditionalWizard.setStyleSheet("background: #455A64; color: white; padding: 10px; font-weight: bold;")
+        _slim_left_btn(self.btnConditionalWizard, "left-wizard")
         self.btnConditionalWizard.setToolTip("질문형 입력으로 OCR/분기 스텝을 자동 생성합니다.")
-        btn_layout.addWidget(self.btnConditionalWizard, 5, 0, 1, 2)
+        btn_layout.addWidget(self.btnConditionalWizard, 3, 1)
 
-        self.btnSimulate = QPushButton("경로 시뮬레이션")
+        self.btnSimulate = QPushButton("시뮬")
         self.btnSimulate.clicked.connect(self.run_logic_simulation)
-        self.btnSimulate.setStyleSheet("background: #00695C; color: white; padding: 8px; font-weight: bold;")
+        _slim_left_btn(self.btnSimulate, "left-sim")
         self.btnSimulate.setToolTip("실행 없이 현재 데이터 기준 예상 경로를 하이라이트합니다.")
-        btn_layout.addWidget(self.btnSimulate, 6, 0)
+        btn_layout.addWidget(self.btnSimulate, 3, 2)
 
         self.chkSensorAssume = QCheckBox("센서 성공 가정")
         self.chkSensorAssume.setToolTip("OCR/이미지 매칭 결과를 시뮬레이션에서 성공으로 가정합니다.")
         self.chkSensorAssume.setChecked(False)
-        btn_layout.addWidget(self.chkSensorAssume, 6, 1)
+        btn_layout.addWidget(self.chkSensorAssume, 4, 0, 1, 3)
         
         scenario_layout.addLayout(btn_layout)
         
@@ -440,7 +460,7 @@ class MainWindow(QMainWindow):
         self._opt_scroll = QScrollArea()
         self._opt_scroll.setWidgetResizable(True)
         self._opt_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self._opt_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self._opt_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._opt_scroll.setFrameShape(QFrame.NoFrame)
 
         self._opt_root = QWidget()
@@ -563,40 +583,6 @@ class MainWindow(QMainWindow):
         )
         self.lblBatchModeBadge.hide()
         _opt_core_add(self.lblBatchModeBadge)
-
-        self.btnToolbarRun = QPushButton("Run")
-        self.btnToolbarRun.setToolTip("Start macro (or resume if paused)")
-        self.btnToolbarRun.setMinimumWidth(85)
-        self.btnToolbarRun.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.btnToolbarRun.setStyleSheet(
-            "QPushButton { background-color: #0078D4; color: white; padding: 5px 12px; font-weight: 600; }"
-            "QPushButton:disabled { background-color: #40515f; color: #c7c7c7; }"
-        )
-        self.btnToolbarRun.clicked.connect(self._on_run_button_clicked)
-        _opt_core_add(self.btnToolbarRun)
-
-        self.btnToolbarStop = QPushButton("Stop")
-        self.btnToolbarStop.setToolTip("Stop running macro")
-        self.btnToolbarStop.setMinimumWidth(85)
-        self.btnToolbarStop.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.btnToolbarStop.setStyleSheet(
-            "QPushButton { background-color: #2b1f1f; color: #ff6b6b; border: 1px solid #9f2f2f; padding: 5px 12px; font-weight: 600; }"
-            "QPushButton:disabled { color: #8f8f8f; border-color: #555; }"
-        )
-        self.btnToolbarStop.clicked.connect(self._on_stop_button_clicked)
-        self.btnToolbarStop.setEnabled(False)
-        _opt_core_add(self.btnToolbarStop)
-
-        self.btnSmartCapture = QPushButton("스마트 캡처")
-        self.btnSmartCapture.setToolTip("화면에서 드래그 캡처 후 이미지 기반 스텝을 즉시 생성합니다.")
-        self.btnSmartCapture.setMinimumWidth(105)
-        self.btnSmartCapture.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.btnSmartCapture.setStyleSheet(
-            "QPushButton { background-color: #35586C; color: #f4fbff; padding: 5px 10px; font-weight: 600; }"
-            "QPushButton:disabled { background-color: #3a3a3a; color: #8f8f8f; }"
-        )
-        self.btnSmartCapture.clicked.connect(self._open_smart_capture_menu)
-        _opt_core_add(self.btnSmartCapture)
 
         self._opt_core_layout.addStretch(0)
         self._opt_core_layout.setStretchFactor(self.edTargetTitle, 2)
@@ -1600,11 +1586,11 @@ class MainWindow(QMainWindow):
         if hasattr(self, "btnRun"):
             if self._macro_paused_ui:
                 self.btnRun.setText(self._format_hotkey_hint("▶ 재개", self._hk_pause))
-                self.btnRun.setStyleSheet(self._btn_run_style_paused)
+                self._apply_button_class(self.btnRun, self._btn_run_style_paused)
                 self.btnRun.setEnabled(True)
             else:
                 self.btnRun.setText(self._format_hotkey_hint("실행", self._hk_run))
-                self.btnRun.setStyleSheet(self._btn_run_style_normal)
+                self._apply_button_class(self.btnRun, self._btn_run_style_normal)
                 if running:
                     self.btnRun.setEnabled(False)
                 else:
@@ -1630,14 +1616,18 @@ class MainWindow(QMainWindow):
     def _on_stop_button_clicked(self):
         self.stop_macro()
 
+    def _apply_button_class(self, btn: QPushButton, cls_name: str) -> None:
+        if btn is None:
+            return
+        if btn.property("class") == cls_name:
+            return
+        btn.setProperty("class", cls_name)
+        btn.style().unpolish(btn)
+        btn.style().polish(btn)
+        btn.update()
+
     def _sync_toolbar_run_stop_buttons(self):
-        stop_enabled = False
-        if hasattr(self, "btnToolbarRun"):
-            run_enabled = bool(self.btnRun.isEnabled()) if hasattr(self, "btnRun") else bool(self.act_run.isEnabled())
-            self.btnToolbarRun.setEnabled(run_enabled)
-        if hasattr(self, "btnToolbarStop"):
-            stop_enabled = bool(self.btnStop.isEnabled()) if hasattr(self, "btnStop") else bool(self.act_stop.isEnabled())
-            self.btnToolbarStop.setEnabled(stop_enabled)
+        stop_enabled = bool(self.btnStop.isEnabled()) if hasattr(self, "btnStop") else bool(self.act_stop.isEnabled())
         if hasattr(self, "btnSmartCapture"):
             self.btnSmartCapture.setEnabled(not stop_enabled)
 
@@ -2119,6 +2109,34 @@ class MainWindow(QMainWindow):
             overlay = CoordinateGuideOverlay.get_shared(self)
             self._coordinate_overlay = overlay
         return overlay
+
+    def _get_recording_overlay(self):
+        overlay = getattr(self, "_recording_overlay", None)
+        if overlay is None:
+            overlay = RecordingStatusOverlay.get_shared(self)
+            self._recording_overlay = overlay
+        return overlay
+
+    def _set_recording_overlay_visible(self, visible: bool):
+        try:
+            overlay = self._get_recording_overlay()
+            overlay.set_recording(bool(visible))
+        except Exception as e:
+            self._warn_once("recording_overlay_visible", f"Failed to set recording overlay visibility: {e}")
+
+    def _update_recording_overlay_count(self, count: int):
+        try:
+            overlay = self._get_recording_overlay()
+            overlay.set_step_count(int(count))
+        except Exception as e:
+            self._warn_once("recording_overlay_count", f"Failed to update recording overlay count: {e}")
+
+    def _trigger_recording_overlay_ripple(self, x: int, y: int):
+        try:
+            overlay = self._get_recording_overlay()
+            overlay.trigger_click_ripple(int(x), int(y))
+        except Exception as e:
+            self._warn_once("recording_overlay_ripple", f"Failed to trigger recording ripple: {e}")
 
     def _set_coordinate_preview_suspended(self, suspended: bool):
         self._coordinate_preview_suspended = bool(suspended)
@@ -2776,6 +2794,7 @@ class MainWindow(QMainWindow):
         make_sc(self._hk_kill, self._act_kill_from_hotkey)
         make_sc(self._hk_add_img, self.add_image_step)
         make_sc(self._hk_add_notimg, self.add_not_image_step)
+        make_sc("ctrl+alt+s", self._open_smart_capture_menu)
 
     def _setup_global_hotkey_engine(self):
         # Always use system hotkeys on Windows if possible
@@ -3032,6 +3051,22 @@ class MainWindow(QMainWindow):
     def _start_record(self):
         g = self.geometry()
         ignore_rect = QRect(g.x(), g.y(), g.width(), g.height())
+        try:
+            typed_gap_sec = max(0.3, float(self.rec_typed_gap_ms) / 1000.0)
+        except Exception:
+            typed_gap_sec = 1.5
+        try:
+            self._smart_transformer = SmartTransformer(
+                typed_gap=typed_gap_sec,
+                image_dir=self._resolve_visual_capture_image_dir(),
+            )
+        except Exception as e:
+            self._smart_transformer = None
+            self._warn_once("smart_transformer_init", f"SmartTransformer init failed: {e}")
+        self._record_smart_events = []
+        self._record_temp_image_paths = []
+        self._set_recording_overlay_visible(True)
+        self._update_recording_overlay_count(0)
         perf_recording = False
         try:
             perf_recording = bool(self.chkPerfRecording.isChecked())
@@ -3065,11 +3100,17 @@ class MainWindow(QMainWindow):
             ignore_combos=[self._hk_record]
         )
         self.recorder.finished.connect(self._on_record_done)
+        try:
+            self.recorder.raw_event_received.connect(self._on_record_raw_event)
+            self.recorder.control_event_received.connect(self._on_record_control_event)
+        except Exception as e:
+            self._warn_once("smart_record_connect", f"Failed to connect smart recorder signals: {e}")
         self.recorder.pausedChanged.connect(lambda p: self.info(f"[Record] {'Paused' if p else 'Resumed'}"))
         self.recorder.start()
 
     def _stop_record(self, show_summary: bool = True):
         if not self.recorder:
+            self._set_recording_overlay_visible(False)
             return
         self._record_show_summary = show_summary
         try:
@@ -3078,6 +3119,135 @@ class MainWindow(QMainWindow):
             self.warn(f"Recorder stop error: {e}")
             self._record_show_summary = False
             self.recorder = None
+            self._smart_transformer = None
+            self._record_smart_events = []
+            self._cleanup_record_temp_images(set())
+        self._set_recording_overlay_visible(False)
+
+    def _on_record_raw_event(self, payload: dict):
+        if (payload.get("type") == "click") and (payload.get("phase") in {"press", "release"}):
+            x = payload.get("x")
+            y = payload.get("y")
+            if x is not None and y is not None:
+                self._trigger_recording_overlay_ripple(int(x), int(y))
+        tf = getattr(self, "_smart_transformer", None)
+        if tf is None:
+            return
+        try:
+            outputs = tf.process_event(payload) or []
+        except Exception as e:
+            self._warn_once("smart_record_process", f"SmartTransformer event processing failed: {e}")
+            return
+        if not outputs:
+            return
+        self._record_smart_events.extend(outputs)
+        for event in outputs:
+            if isinstance(event, SmartProposal) and event.image_path:
+                self._record_temp_image_paths.append(event.image_path)
+        self._update_recording_overlay_count(len(self._record_smart_events))
+
+    def _on_record_control_event(self, event_name: str):
+        if event_name == "stop_hotkey":
+            self.info("[Record] Stop hotkey detected")
+
+    def _choose_record_proposal_mode(self, proposal_count: int) -> str:
+        if proposal_count <= 0:
+            return "coord"
+        box = QMessageBox(self)
+        box.setWindowTitle("Smart Recording Proposal")
+        box.setText(f"클릭 제안 {proposal_count}건을 어떤 방식으로 저장할까요?")
+        btn_coord = box.addButton("모두 좌표로 저장", QMessageBox.AcceptRole)
+        btn_image = box.addButton("모두 이미지로 저장", QMessageBox.AcceptRole)
+        btn_each = box.addButton("개별 선택", QMessageBox.ActionRole)
+        box.addButton("취소", QMessageBox.RejectRole)
+        box.exec_()
+        clicked = box.clickedButton()
+        if clicked == btn_coord:
+            return "coord"
+        if clicked == btn_image:
+            return "image"
+        if clicked == btn_each:
+            return "individual"
+        return "cancel"
+
+    def _choose_individual_proposal_step(self, proposal: SmartProposal, idx: int) -> StepData:
+        if proposal.image_step is None:
+            return proposal.click_step
+        ret = QMessageBox.question(
+            self,
+            "Smart Proposal",
+            f"#{idx+1} 클릭 제안 ({proposal.x}, {proposal.y})\n이미지 기반으로 저장할까요?\n"
+            "Yes=이미지, No=좌표, Cancel=좌표",
+            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
+            QMessageBox.Yes,
+        )
+        if ret == QMessageBox.Yes:
+            return proposal.image_step
+        return proposal.click_step
+
+    def _materialize_recorded_steps(
+        self, smart_events: list[SmartStep | SmartProposal]
+    ) -> tuple[list[StepData], set[str]]:
+        final_steps: list[StepData] = []
+        keep_paths: set[str] = set()
+        proposals = [e for e in smart_events if isinstance(e, SmartProposal)]
+        mode = self._choose_record_proposal_mode(len(proposals)) if proposals else "coord"
+        if mode == "cancel":
+            return [], keep_paths
+        proposal_idx = 0
+        for event in smart_events:
+            if isinstance(event, SmartStep):
+                final_steps.append(event.to_step_data())
+                continue
+            if not isinstance(event, SmartProposal):
+                continue
+            if mode == "image" and event.image_step is not None:
+                selected = event.image_step
+            elif mode == "individual":
+                selected = self._choose_individual_proposal_step(event, proposal_idx)
+            else:
+                selected = event.click_step
+            if selected is event.image_step and event.image_path:
+                keep_paths.add(os.path.abspath(event.image_path))
+            final_steps.append(selected)
+            proposal_idx += 1
+        return final_steps, keep_paths
+
+    def _cleanup_record_temp_images(self, keep_paths: set[str] | None = None):
+        keep_paths = {os.path.abspath(p) for p in (keep_paths or set())}
+        for p in list(getattr(self, "_record_temp_image_paths", []) or []):
+            ap = os.path.abspath(p)
+            if ap in keep_paths:
+                continue
+            try:
+                if os.path.exists(ap):
+                    os.remove(ap)
+            except Exception:
+                continue
+        self._record_temp_image_paths = []
+
+    def _record_insert_index(self) -> int:
+        try:
+            row = int(self.list.currentRow())
+        except Exception:
+            row = -1
+        if 0 <= row < len(self.steps):
+            return row + 1
+        return len(self.steps)
+
+    def _highlight_inserted_steps(self, start: int, count: int):
+        if count <= 0:
+            return
+        try:
+            self.list.clearSelection()
+            end = min(len(self.steps), start + count)
+            for i in range(start, end):
+                item = self.list.item(i)
+                if item is not None:
+                    item.setSelected(True)
+            self.list.setCurrentRow(end - 1)
+        except Exception:
+            return
 
     def _on_record_done(self, new_steps: list):
         recorder = getattr(self, "recorder", None)
@@ -3089,19 +3259,46 @@ class MainWindow(QMainWindow):
                 stats = {}
         show_summary = bool(getattr(self, "_record_show_summary", False))
         self._record_show_summary = False
+        smart_events = list(getattr(self, "_record_smart_events", []) or [])
+        tf = getattr(self, "_smart_transformer", None)
+        if tf is not None:
+            try:
+                smart_events.extend(tf.finalize() or [])
+            except Exception as e:
+                self._warn_once("smart_record_finalize", f"SmartTransformer finalize failed: {e}")
+        self._update_recording_overlay_count(len(smart_events))
+        self._smart_transformer = None
+        self._record_smart_events = []
         if recorder:
             self.recorder = None
+        self._set_recording_overlay_visible(False)
 
-        if not new_steps:
+        final_steps = list(new_steps or [])
+        keep_paths: set[str] = set()
+        if smart_events:
+            try:
+                final_steps, keep_paths = self._materialize_recorded_steps(smart_events)
+            except Exception as e:
+                self._warn_once("smart_record_materialize", f"Smart proposal materialization failed: {e}")
+        self._cleanup_record_temp_images(keep_paths)
+
+        if not final_steps:
             self.info("No steps recorded.")
         else:
-            insert_index = len(self.steps)
-            focus_index = insert_index + len(new_steps) - 1
+            insert_index = self._record_insert_index()
+            focus_index = insert_index + len(final_steps) - 1
+            managed_paths = sorted(keep_paths) if keep_paths else []
+            cmd = (
+                AddRecordedStepsCommand(self.steps, final_steps, index=insert_index, managed_image_paths=managed_paths)
+                if managed_paths
+                else AddStepsCommand(self.steps, final_steps, index=insert_index)
+            )
             self._push_command(
-                AddStepsCommand(self.steps, new_steps, index=insert_index),
+                cmd,
                 focus_index=focus_index
             )
-            self.info(f"Recorded {len(new_steps)} steps.")
+            self._highlight_inserted_steps(insert_index, len(final_steps))
+            self.info(f"Recorded {len(final_steps)} steps.")
 
         if show_summary:
             total = stats.get("total", 0)
@@ -3673,6 +3870,7 @@ class MainWindow(QMainWindow):
                     print(f"[WARN] Shutdown cleanup failed ({label}): {ex}")
 
         _shutdown_safe("coordinate_preview", self._clear_coordinate_preview)
+        _shutdown_safe("recording_overlay", lambda: self._set_recording_overlay_visible(False))
         _shutdown_safe(
             "runner",
             lambda: (
@@ -4634,14 +4832,13 @@ class MainWindow(QMainWindow):
             self.btnAddImg.setText(self._format_hotkey_hint("이미지+", self._hk_add_img))
             self.btnAddImg.setToolTip(f"Shortcut: {hk_pretty(self._hk_add_img)}" if self._hk_add_img else "")
         if hasattr(self, "btnAddAction"):
-            self.btnAddAction.setText(self._format_hotkey_hint("일반동작+", self._hk_add_notimg))
+            self.btnAddAction.setText(self._format_hotkey_hint("동작+", self._hk_add_notimg))
             self.btnAddAction.setToolTip(f"Shortcut: {hk_pretty(self._hk_add_notimg)}" if self._hk_add_notimg else "")
         if hasattr(self, "btnStop"):
             self.btnStop.setText(self._format_hotkey_hint("정지", self._hk_stop))
-        if hasattr(self, "btnToolbarRun"):
-            self.btnToolbarRun.setText(self._format_hotkey_hint("Run", self._hk_run))
-        if hasattr(self, "btnToolbarStop"):
-            self.btnToolbarStop.setText(self._format_hotkey_hint("Stop", self._hk_stop))
+        if hasattr(self, "btnSmartCapture"):
+            self.btnSmartCapture.setText("캡처")
+            self.btnSmartCapture.setToolTip("Shortcut: Ctrl+Alt+S")
 
         self.act_run.setText(self._format_hotkey_hint("Run", self._hk_run))
         self.act_stop.setText(self._format_hotkey_hint("Stop", self._hk_stop))

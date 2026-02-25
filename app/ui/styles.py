@@ -54,28 +54,75 @@ class DarkTheme:
         /* Buttons */
         QPushButton {{
             background-color: {cls.BG_INPUT};
-            border: 1px solid {cls.BG_INPUT};
-            border-radius: 3px;
-            padding: 5px 12px;
+            border: 1px solid #444444;
+            border-radius: 2px;
+            padding: 1px 3px;
+            font-size: 9pt;
             color: {cls.TEXT_PRIMARY};
         }}
         QPushButton:hover {{
             background-color: {cls.BG_HOVER};
-            border-color: {cls.BORDER};
+            border-color: #5a5a5a;
         }}
         QPushButton:pressed {{
-            background-color: {cls.ACCENT_PRESSED};
-            border-color: {cls.ACCENT_PRESSED};
+            background-color: #3b434c;
+            border-color: #626a74;
         }}
         QPushButton:checked {{
-            background-color: {cls.ACCENT};
-            border-color: {cls.ACCENT};
+            background-color: #54606f;
+            border-color: #6a7687;
             color: white;
         }}
         QPushButton:disabled {{
             background-color: {cls.BG_MAIN};
             color: {cls.TEXT_DISABLED};
-            border-color: {cls.BORDER};
+            border-color: #3a3a3a;
+        }}
+        QPushButton[class="left-primary"] {{
+            background-color: #34495a;
+            border-color: #4a6276;
+        }}
+        QPushButton[class="left-secondary"] {{
+            background-color: #3f4b55;
+            border-color: #596673;
+        }}
+        QPushButton[class="left-capture"] {{
+            background-color: #425463;
+            border-color: #5d7488;
+        }}
+        QPushButton[class="left-run"] {{
+            background-color: #3a5770;
+            border-color: #567590;
+            color: #f2f7fb;
+            font-weight: 600;
+        }}
+        QPushButton[class="left-run-paused"] {{
+            background-color: #8a7243;
+            border-color: #b08d4c;
+            color: #f5efdc;
+            font-weight: 600;
+        }}
+        QPushButton[class="left-stop"] {{
+            background-color: #5c3a40;
+            border-color: #7a5058;
+            color: #f7e9eb;
+            font-weight: 600;
+        }}
+        QPushButton[class="left-record"] {{
+            background-color: #694246;
+            border-color: #88595e;
+        }}
+        QPushButton[class="left-wizard"] {{
+            background-color: #514a42;
+            border-color: #6b6258;
+        }}
+        QPushButton[class="left-sim"] {{
+            background-color: #3f5552;
+            border-color: #5f7370;
+        }}
+        QPushButton[class="left-neutral"] {{
+            background-color: #40454c;
+            border-color: #5b616a;
         }}
 
         /* Inputs */
@@ -191,9 +238,9 @@ class DarkTheme:
         /* Toolbar */
         QToolBar {{
             background: {cls.BG_PANEL};
-            border-bottom: 1px solid {cls.BORDER};
-            spacing: 5px;
-            padding: 5px;
+            border-bottom: 1px solid #383c40;
+            spacing: 4px;
+            padding: 2px;
         }}
         QToolBar::separator {{
             background-color: {cls.BORDER};

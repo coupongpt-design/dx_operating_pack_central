@@ -189,12 +189,20 @@ class SmartTransformer:
             self.image_dir.mkdir(parents=True, exist_ok=True)
             image_path = str(self.image_dir / f"record_prop_{int(ts * 1000)}_{uuid.uuid4().hex[:6]}.png")
             cv2.imwrite(image_path, captured)
+            png_bytes = None
+            try:
+                ok, enc = cv2.imencode(".png", captured)
+                if ok:
+                    png_bytes = enc.tobytes()
+            except Exception:
+                png_bytes = None
             image_step = StepData(
                 id=str(uuid.uuid4())[:8],
                 name=f"Image Click ({x},{y})",
                 type="image_click",
                 anchor_image_path=image_path,
                 image_path=image_path,
+                png_bytes=png_bytes,
                 click_x=x,
                 click_y=y,
                 click_btn=(event.get("button") or "left"),

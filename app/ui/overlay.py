@@ -223,6 +223,11 @@ class CoordinateGuideOverlay(QWidget):
 
     @classmethod
     def get_shared(cls, parent=None):
+        if cls._shared_instance is not None:
+            try:
+                cls._shared_instance.isVisible()
+            except RuntimeError:
+                cls._shared_instance = None
         if cls._shared_instance is None:
             cls._shared_instance = cls(parent=parent)
         return cls._shared_instance
@@ -358,3 +363,172 @@ class CoordinateGuideOverlay(QWidget):
         p.fillRect(label_rect, QColor(0, 0, 0, 130))
         p.setPen(QColor(220, 250, 255, 230))
         p.drawText(label_rect.adjusted(6, 0, -6, 0), Qt.AlignVCenter | Qt.AlignLeft, label)
+
+
+class RecordingStatusOverlay(QWidget):
+    _shared_instance = None
+
+    def __init__(self, parent=None):
+        super().__init__(
+            parent,
+            flags=Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool | Qt.NoDropShadowWindowHint,
+        )
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        self.setAttribute(Qt.WA_DeleteOnClose, False)
+
+        self._recording = False
+        self._step_count = 0
+        self._ripples: list[dict] = []
+        self._tick_timer = QTimer(self)
+        self._tick_timer.setInterval(16)
+        self._tick_timer.timeout.connect(self._on_tick)
+
+        self._phys_bounds = self._detect_physical_bounds()
+        self._virt_geom = QRect()
+        self._sx = 1.0
+        self._sy = 1.0
+        self._refresh_geometry_and_scale()
+        self.hide()
+
+    @classmethod
+    def get_shared(cls, parent=None):
+        if cls._shared_instance is not None:
+            try:
+                cls._shared_instance.isVisible()
+            except RuntimeError:
+                cls._shared_instance = None
+        if cls._shared_instance is None:
+            cls._shared_instance = cls(parent=parent)
+        return cls._shared_instance
+
+    @staticmethod
+    def _detect_physical_bounds():
+        try:
+            with mss.mss() as sct:
+                mon = sct.monitors[0]
+                return (
+                    int(mon["left"]),
+                    int(mon["top"]),
+                    int(mon["width"]),
+                    int(mon["height"]),
+                )
+        except Exception:
+            screen = QApplication.primaryScreen()
+            if not screen:
+                return (0, 0, 1, 1)
+            vg = screen.virtualGeometry()
+            return (int(vg.x()), int(vg.y()), int(vg.width()), int(vg.height()))
+
+    def _refresh_geometry_and_scale(self):
+        screen = QApplication.primaryScreen()
+        if not screen:
+            self._virt_geom = QRect(0, 0, 1, 1)
+            self.setGeometry(self._virt_geom)
+            self._sx = 1.0
+            self._sy = 1.0
+            return
+
+        self._virt_geom = screen.virtualGeometry()
+        self.setGeometry(self._virt_geom)
+
+        phys_left, phys_top, phys_w, phys_h = self._phys_bounds
+        virt_w = max(1, int(self._virt_geom.width()))
+        virt_h = max(1, int(self._virt_geom.height()))
+        self._sx = virt_w / float(max(1, int(phys_w)))
+        self._sy = virt_h / float(max(1, int(phys_h)))
+        self._phys_bounds = (int(phys_left), int(phys_top), int(phys_w), int(phys_h))
+
+    def to_overlay_point(self, global_x: int, global_y: int) -> QPoint:
+        self._refresh_geometry_and_scale()
+        phys_left, phys_top, _phys_w, _phys_h = self._phys_bounds
+        mapped_global_x = self._virt_geom.x() + (float(global_x) - float(phys_left)) * self._sx
+        mapped_global_y = self._virt_geom.y() + (float(global_y) - float(phys_top)) * self._sy
+
+        local_x = int(round(mapped_global_x - self.geometry().x()))
+        local_y = int(round(mapped_global_y - self.geometry().y()))
+        local_x = max(0, min(local_x, max(0, self.width() - 1)))
+        local_y = max(0, min(local_y, max(0, self.height() - 1)))
+        return QPoint(local_x, local_y)
+
+    def set_recording(self, enabled: bool):
+        self._recording = bool(enabled)
+        if self._recording:
+            self._refresh_geometry_and_scale()
+            self.show()
+            self.raise_()
+            if not self._tick_timer.isActive():
+                self._tick_timer.start()
+        else:
+            self._ripples.clear()
+            self._tick_timer.stop()
+            self.hide()
+        self.update()
+
+    def set_step_count(self, count: int):
+        self._step_count = max(0, int(count))
+        if self._recording:
+            self.update()
+
+    def trigger_click_ripple(self, x: int, y: int):
+        if not self._recording:
+            return
+        pt = self.to_overlay_point(int(x), int(y))
+        self._ripples.append({"pt": pt, "age": 0.0, "life": 260.0, "max_r": 34.0})
+        if not self._tick_timer.isActive():
+            self._tick_timer.start()
+        self.update()
+
+    def _on_tick(self):
+        if not self._recording:
+            return
+        if not self._ripples:
+            self.update()
+            return
+        alive = []
+        for ripple in self._ripples:
+            ripple["age"] = float(ripple.get("age", 0.0)) + 16.0
+            if ripple["age"] < ripple.get("life", 260.0):
+                alive.append(ripple)
+        self._ripples = alive
+        self.update()
+
+    def paintEvent(self, _event):
+        if not self._recording:
+            return
+
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+
+        # HUD
+        hud_w = 220
+        hud_h = 42
+        hud_x = max(8, self.width() - hud_w - 18)
+        hud_y = 12
+        hud_rect = QRect(hud_x, hud_y, hud_w, hud_h)
+        p.fillRect(hud_rect, QColor(0, 0, 0, 145))
+        p.setPen(QPen(QColor(255, 255, 255, 190), 1))
+        p.drawRoundedRect(hud_rect, 8, 8)
+
+        dot_center = QPoint(hud_x + 18, hud_y + 21)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(255, 65, 65, 235))
+        p.drawEllipse(dot_center, 5, 5)
+
+        p.setPen(QColor(250, 250, 250, 235))
+        p.drawText(hud_rect.adjusted(30, 4, -8, -22), Qt.AlignLeft | Qt.AlignVCenter, "Recording...")
+        p.setPen(QColor(255, 200, 130, 235))
+        p.drawText(hud_rect.adjusted(30, 20, -8, -2), Qt.AlignLeft | Qt.AlignVCenter, f"Count: {self._step_count}")
+
+        # Ripple effects
+        for ripple in self._ripples:
+            pt = ripple["pt"]
+            age = float(ripple.get("age", 0.0))
+            life = max(1.0, float(ripple.get("life", 260.0)))
+            t = min(1.0, max(0.0, age / life))
+            radius = max(1.0, float(ripple.get("max_r", 34.0)) * t)
+            alpha = int(220 * (1.0 - t))
+            p.setPen(QPen(QColor(255, 70, 70, alpha), 2))
+            p.setBrush(Qt.NoBrush)
+            p.drawEllipse(pt, int(radius), int(radius))

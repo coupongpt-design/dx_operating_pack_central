@@ -416,7 +416,7 @@ def test_hotkey_pause_resume_toggles_runner(monkeypatch, qapp, qtbot):
     win._act_pause_resume_from_hotkey()
     assert win._macro_paused_ui is True
     assert "재개" in win.btnRun.text()
-    assert "D79B00" in win.btnRun.styleSheet()
+    assert win.btnRun.property("class") == "left-run-paused"
     win._act_pause_resume_from_hotkey()
 
     assert win.runner.pause_calls == 1
@@ -545,6 +545,107 @@ def test_toggle_record_start_stop_flow_minimize_restore(monkeypatch, qapp, qtbot
     assert calls["normal"] == 1
     assert calls["activate"] == 1
     assert win._was_minimized is False
+    win.close()
+
+
+def test_record_done_inserts_smart_steps_with_addstepscommand(monkeypatch, qapp, qtbot, tmp_path):
+    from app.main import MainWindow
+    from app.core.models import StepData
+    from app.core.smart_recorder import SmartStep, SmartProposal
+    from app.core.commands import AddStepsCommand as RealAddStepsCommand
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+
+    called = {"ok": False, "index": None, "types": []}
+
+    def spy_add_steps(step_list, new_steps, index=None):
+        called["ok"] = True
+        called["index"] = index
+        called["types"] = [s.type for s in new_steps]
+        return RealAddStepsCommand(step_list, new_steps, index=index)
+
+    monkeypatch.setattr("app.main.AddStepsCommand", spy_add_steps)
+
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.hide()
+
+    win.steps.append(StepData(id="base", name="base", type="comment"))
+    win.refresh_step_list()
+    win.list.setCurrentRow(0)
+    win._record_show_summary = False
+
+    click_step = StepData(id="c1", name="click", type="click_point", click_x=10, click_y=20)
+    image_step = StepData(
+        id="i1",
+        name="image",
+        type="image_click",
+        image_path=str(tmp_path / "record_prop_dummy.png"),
+        anchor_image_path=str(tmp_path / "record_prop_dummy.png"),
+        click_x=10,
+        click_y=20,
+    )
+    proposal = SmartProposal(
+        event_timestamp=1.0,
+        x=10,
+        y=20,
+        click_step=click_step,
+        image_step=image_step,
+        image_path=str(tmp_path / "record_prop_dummy.png"),
+    )
+    win._record_smart_events = [SmartStep(step_type="type_text", text="Hello"), proposal]
+    win._smart_transformer = None
+    win._choose_record_proposal_mode = lambda _n: "coord"
+
+    win._on_record_done([])
+
+    assert called["ok"] is True
+    assert called["index"] == 1
+    assert called["types"] == ["key", "click_point"]
+    assert [s.type for s in win.steps] == ["comment", "key", "click_point"]
+    win.close()
+
+
+def test_record_done_applies_image_choice_to_final_steps(monkeypatch, qapp, qtbot, tmp_path):
+    from app.main import MainWindow
+    from app.core.models import StepData
+    from app.core.smart_recorder import SmartProposal
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.hide()
+    win._record_show_summary = False
+
+    click_step = StepData(id="c2", name="click", type="click_point", click_x=11, click_y=22)
+    image_path = str(tmp_path / "record_prop_img.png")
+    image_step = StepData(
+        id="i2",
+        name="image",
+        type="image_click",
+        image_path=image_path,
+        anchor_image_path=image_path,
+        click_x=11,
+        click_y=22,
+    )
+    proposal = SmartProposal(
+        event_timestamp=2.0,
+        x=11,
+        y=22,
+        click_step=click_step,
+        image_step=image_step,
+        image_path=image_path,
+    )
+
+    win._record_smart_events = [proposal]
+    win._smart_transformer = None
+    win._choose_record_proposal_mode = lambda _n: "image"
+
+    win._on_record_done([])
+
+    assert len(win.steps) == 1
+    assert win.steps[0].type == "image_click"
     win.close()
 
 

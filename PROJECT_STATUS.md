@@ -28,6 +28,40 @@
   - 클릭 제안 규칙:
     - 클릭 release 시 `click_point` + `image_click` 듀얼 제안(`SmartProposal`) 생성
     - 주변 영역(기본 60x60) 캡처를 `images/record_prop_*.png`로 저장해 이미지 스텝에 연결
+- Smart Recorder UI 통합(Stage 3-3 PR-3-3-3):
+  - `_start_record`에서 `InputRecorder.raw_event_received`를 `SmartTransformer`에 연결.
+  - `_on_record_done`에서 `finalize()` 포함 smart 결과를 확정 스텝으로 변환하고 `AddStepsCommand`로 batch 삽입.
+  - 제안 선택 UI 제공:
+    - `모두 좌표`, `모두 이미지`, `개별 선택`, `취소`
+  - 임시 이미지 자동 정리:
+    - 선택되지 않은 `record_prop_*.png` 파일을 녹화 종료 시 정리.
+- Recording Overlay/HUD(Stage 3-3 PR-3-3-4):
+  - `RecordingStatusOverlay` 추가:
+    - 우측 상단 HUD(`Recording...` + `Count`) 실시간 표시
+    - 클릭 관통/항상 위/투명 배경
+  - Raw click 이벤트에 Ripple 애니메이션 연동
+  - MainWindow 연동:
+    - 녹화 시작: HUD show + count reset
+    - 변환 이벤트 발생 시 count 갱신
+    - 녹화 중지/완료/종료: HUD hide
+  - 공유 오버레이 stale 인스턴스(RuntimeError) 재생성 가드 적용
+- Stage 3-3 최종 정비(PR-3-3-5):
+  - `AddRecordedStepsCommand` 도입으로 녹화 배치 스텝의 Undo/Redo 시 이미지 임시 자산(`record_prop_*`) 롤백/복원 보장.
+  - 녹화 취소/예외 경로에서 임시 이미지 삭제를 가드 테스트로 고정.
+  - Stage 3-3 (Raw 이벤트 수집 -> Smart 변환 -> 제안 선택 -> HUD -> cleanup/rollback) 완료.
+- Stage 3-4 PR-3-4-1 UI 정리:
+  - 상단 툴바의 중복 `Run/Stop` 버튼 제거.
+  - `Smart Capture` 버튼을 좌측 시나리오 액션 패널로 이동(`스마트 캡처 (Ctrl+Alt+S)`).
+  - 좌측 주요 액션 버튼 높이를 32px로 슬림화하고, 인라인 버튼 스타일을 축소하여 전역 `DarkTheme` 기반 스타일 우선 적용.
+  - 툴바 가로 스크롤바 정책을 `AlwaysOff`로 조정.
+- Stage 3-4 PR-3-4-2 스타일 통합:
+  - 좌측 액션 패널 버튼 인라인 `setStyleSheet` 제거(클래스 기반 속성 적용).
+  - 전역 QSS(`app/ui/styles.py`)에서 버튼 역할별 톤다운 팔레트(`left-run`, `left-stop`, `left-record`, `left-wizard`, `left-sim` 등)로 일원화.
+  - 툴바 경계/패딩/간격을 미니멀 톤으로 축소(`border-bottom` 완화, spacing/padding 축소).
+- Stage 3-4 PR-3-4-3 3열 마이크로 그리드:
+  - 좌측 액션 패널 버튼 레이아웃을 3열 압축 그리드로 재배치.
+  - 버튼 최소 높이를 26px로 낮추고, 버튼 라벨을 축약(예: `마법사`, `조건`, `시뮬`, `캡처`).
+  - 전역 QSS에서 `QPushButton` 마이크로 스타일(9pt, 1x3 padding, radius 2) 적용.
 - 창 관리: 대상 창 입력 + Find/Fix/Selector UI, 실행 전 자동 포커스/리프레시(창 미발견 시 경고 후 진행).
 - 시나리오 마법사: 기존 수동 편집과 분리된 별도 버튼/다이얼로그, `추천/전체/검색` 템플릿 선택 + 필수 입력 + 생성 미리보기/검증 + 삽입 위치 선택(선택 다음/끝) 지원. 템플릿 카탈로그 46종(채팅/키보드/마우스/파일/OCR 분기 + 리니지류 실전 템플릿) 운영.
 - 데이터 주도 자동화 V2:
@@ -215,7 +249,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `459 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `465 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 

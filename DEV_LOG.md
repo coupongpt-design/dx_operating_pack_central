@@ -1665,3 +1665,96 @@
 - Verification:
   - `python -m pytest -q tests/test_smart_recorder_transformer.py tests/test_smart_recorder_core.py` -> `6 passed in 0.19s`
   - `python -m pytest -q` -> `459 passed, 1 skipped in 25.98s`
+
+## [2026-02-24] Session 84 - UI 현대화 Stage 3-3 PR-3-3-3 (MainWindow Smart Recorder 통합)
+- Summary:
+  - `MainWindow` 녹화 파이프라인에 `SmartTransformer`를 연결하여 Raw Event -> SmartStep/SmartProposal 변환 흐름을 활성화.
+  - 녹화 종료 시 `transformer.finalize()` 결과를 포함해 최종 스텝을 구성하고, 제안(좌표/이미지/개별/취소) 선택 UI를 추가.
+  - 확정된 스텝은 `AddStepsCommand`로 현재 선택 위치 다음에 batch 삽입하고, 삽입된 스텝 범위를 자동 선택 하이라이트.
+  - 제안에서 미채택된 임시 이미지(`record_prop_*.png`)는 자동 정리해 누수 방지.
+- Code:
+  - `app/main.py`:
+    - `_start_record`에서 `SmartTransformer` 초기화 + `raw_event_received/control_event_received` 연결
+    - `_on_record_raw_event`, `_on_record_control_event` 추가
+    - `_choose_record_proposal_mode`, `_choose_individual_proposal_step`, `_materialize_recorded_steps` 추가
+    - `_cleanup_record_temp_images`, `_record_insert_index`, `_highlight_inserted_steps` 추가
+    - `_on_record_done`에서 smart 결과 finalize/materialize 후 `AddStepsCommand` 삽입 경로로 통합
+  - `tests/test_ui_integration.py` 확장:
+    - 녹화 종료 시 `AddStepsCommand` 호출/삽입 인덱스/결과 타입 검증
+    - 제안 선택(이미지 선택)이 최종 `StepData`에 반영되는지 검증
+- Verification:
+  - `python -m pytest -q tests/test_ui_integration.py tests/test_smart_recorder_transformer.py tests/test_smart_recorder_core.py` -> `35 passed in 1.61s`
+  - `python -m pytest -q` -> `461 passed, 1 skipped in 23.97s`
+
+## [2026-02-24] Session 85 - UI 현대화 Stage 3-3 PR-3-3-4 (Recording Overlay/HUD)
+- Summary:
+  - 녹화 상태 HUD(`RecordingStatusOverlay`)를 추가해 `Recording...` 상태와 스텝 카운트를 우측 상단에 실시간 표시.
+  - Raw click 이벤트를 오버레이로 전달해 클릭 지점에 Ripple 애니메이션을 렌더링.
+  - MainWindow 녹화 파이프라인과 HUD를 연동:
+    - 녹화 시작 시 HUD show + count reset
+    - SmartTransformer 출력 발생 시 HUD count update
+    - 녹화 중지/종료 시 HUD hide
+  - 공유 오버레이 인스턴스 stale 포인터(RuntimeError) 문제를 `get_shared()` 재생성 가드로 보강.
+- Code:
+  - `app/ui/overlay.py`:
+    - `RecordingStatusOverlay` 신규 구현
+    - `set_recording`, `set_step_count`, `trigger_click_ripple` API 추가
+    - `CoordinateGuideOverlay.get_shared` / `RecordingStatusOverlay.get_shared`에 삭제된 공유 인스턴스 재생성 가드 추가
+  - `app/main.py`:
+    - `RecordingStatusOverlay` import 및 `_get_recording_overlay`/HUD 제어 메서드 추가
+    - `_start_record`, `_stop_record`, `_on_record_raw_event`, `_on_record_done`, `closeEvent`에 HUD 연동
+  - `tests/test_recording_integration.py`(신규):
+    - 녹화 시작/종료 시 HUD 가시성 검증
+    - 클릭 raw event 발생 시 ripple 트리거 전달 검증
+- Verification:
+  - `python -m pytest -q tests/test_recording_integration.py tests/test_ui_integration.py tests/test_smart_recorder_transformer.py tests/test_smart_recorder_core.py` -> `37 passed in 1.16s`
+  - `python -m pytest -q` -> `463 passed, 1 skipped in 21.14s`
+
+## [2026-02-24] Session 86 - UI 현대화 Stage 3-3 PR-3-3-5 (최종 검증/정비)
+- Summary:
+  - 녹화 배치 삽입 경로를 기록 전용 커맨드(`AddRecordedStepsCommand`)로 강화해 Undo/Redo 시 이미지 임시 자산 롤백/복원을 보장.
+  - 녹화 취소/예외/종료 경로의 임시 이미지(`record_prop_*.png`) 정리 경로를 테스트로 검증.
+  - Stage 3-3의 핵심 축(원시 이벤트 수집, Smart 변환, 제안 선택, HUD 피드백, cleanup/rollback)을 통합 검증 완료.
+- Code:
+  - `app/core/commands.py`:
+    - `AddRecordedStepsCommand` 신규 추가
+      - `undo()`: 스텝 제거 + 미참조 관리 이미지 파일 삭제
+      - `execute()`: 누락 이미지 파일을 캐시 바이트로 복원 후 삽입(redo-safe)
+  - `app/core/smart_recorder.py`:
+    - `image_click` 제안 스텝 생성 시 `png_bytes` 동시 보관(복원 소스)
+  - `app/main.py`:
+    - `_on_record_done`에서 image proposal이 포함되면 `AddRecordedStepsCommand` 사용
+  - `tests/test_final_cleanup_guard.py`(신규):
+    - 녹화 취소 시 `record_prop_*` 파일 삭제 검증
+    - 배치 삽입 후 Undo 시 파일 삭제/Redo 시 파일 복원 + 스텝 복원 검증
+- Verification:
+  - `python -m pytest -q tests/test_final_cleanup_guard.py tests/test_recording_integration.py tests/test_ui_integration.py tests/test_smart_recorder_transformer.py tests/test_smart_recorder_core.py` -> `39 passed in 5.79s`
+  - `python -m pytest -q` -> `465 passed, 1 skipped in 23.96s`
+## Session 87 - UI Stage 3-4 PR-3-4-1 (Toolbar Cleanup / Smart Capture Relocation)
+- Removed duplicate top-toolbar `Run/Stop` buttons in `app/main.py`.
+- Moved `Smart Capture` button to the left scenario action panel (`스마트 캡처 (Ctrl+Alt+S)`).
+- Slimmed left action button density via shared `32px` min-height helper and reduced per-button inline style reliance.
+- Unified left stop dispatch path to `_on_stop_button_clicked`.
+- Updated responsive toolbar tests to validate new layout contract.
+- Test status:
+  - `python -m pytest -q tests/test_excel_toolbar_responsive.py` -> `9 passed`
+  - `python -m pytest -q` -> `466 passed, 1 skipped`
+## Session 88 - UI Stage 3-4 PR-3-4-2 (Style Unification / Minimal Design)
+- Removed inline color styles from left scenario action buttons in `app/main.py`; migrated to class-property based styling.
+- Added role-based button classes and centralized palette in `app/ui/styles.py`.
+- Updated pause/resume run-button visual switch to dynamic class (`left-run` <-> `left-run-paused`) instead of inline stylesheet string swap.
+- Slimmed toolbar style (lighter bottom border, smaller spacing/padding) for minimal look.
+- Test status:
+  - `python -m pytest -q tests/test_excel_toolbar_responsive.py tests/test_ui_integration.py` -> `38 passed`
+  - `python -m pytest -q` -> `466 passed, 1 skipped`
+## Session 89 - UI Stage 3-4 PR-3-4-3 (3-Column Micro Grid)
+- Left scenario action panel switched to compact 3-column grid layout.
+- Button size reduced to micro density (`minimumHeight=26`), spacing tightened (`2`), margins removed.
+- Action label text shortened for small form factor (`동작+`, `캡처`, `분기`, `주석`, `마법사`, `조건`, `시뮬`).
+- Global button style updated in `app/ui/styles.py`:
+  - `font-size: 9pt`
+  - `padding: 1px 3px`
+  - `border-radius: 2px`
+- Test status:
+  - `python -m pytest -q tests/test_excel_toolbar_responsive.py tests/test_ui_integration.py` -> `38 passed`
+  - `python -m pytest -q` -> `466 passed, 1 skipped`

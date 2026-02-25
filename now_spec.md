@@ -228,7 +228,7 @@
 - 스모크 실행 진입점:
   - `python run_smoke_suite.py --quick` (핵심 런타임/매칭 게이트)
   - `python run_smoke_suite.py` (핵심 게이트 + 전체 health check)
-- 최신 로컬 기준: `python -m pytest -q` = `459 passed, 1 skipped`.
+- 최신 로컬 기준: `python -m pytest -q` = `465 passed, 1 skipped`.
 
 ### Smart Recorder Raw Event Core (Stage 3-3 PR-3-3-1)
 - `InputRecorder`는 스텝 생성 경로와 별개로 Raw Event 스트림을 제공:
@@ -249,6 +249,44 @@
 - `SmartProposal`:
   - 클릭 release 이벤트에서 `click_point` + `image_click` 동시 제안
   - 캡처 provider 기반 60x60 주변 이미지 저장(`images/record_prop_*.png`) 및 경로 연결
+
+### Smart Recorder MainWindow Integration (Stage 3-3 PR-3-3-3)
+- `MainWindow` 녹화 파이프라인 통합:
+  - 녹화 시작 시 `SmartTransformer` 생성 및 `InputRecorder.raw_event_received` 연결
+  - 녹화 종료 시 `transformer.finalize()` 포함 결과를 최종 스텝으로 확정
+- 제안 선택 UI:
+  - 일괄 선택: `모두 좌표`, `모두 이미지`
+  - 혼합 선택: `개별 선택`(proposal 단위 yes/no)
+  - 취소: smart 제안 삽입 생략
+- 삽입/가시성:
+  - 확정된 `StepData`를 `AddStepsCommand`로 현재 선택 위치 다음에 batch 삽입
+  - 삽입 구간 자동 선택/하이라이트
+- 정리:
+  - 미채택 임시 이미지 파일 자동 삭제(선택된 proposal 이미지는 유지)
+
+### Recording Overlay/HUD (Stage 3-3 PR-3-3-4)
+- 신규 오버레이: `RecordingStatusOverlay` (`app/ui/overlay.py`)
+  - 우측 상단 반투명 HUD: `Recording...` + 실시간 `Count`
+  - 클릭 관통(`WA_TransparentForMouseEvents`), 항상 위(`WindowStaysOnTopHint`)
+- 시각 피드백:
+  - Raw click 이벤트 좌표에 Ripple 애니메이션 표시
+- MainWindow 연동:
+  - 녹화 시작 시 HUD show + count=0
+  - SmartTransformer 출력 누적 시 count 갱신
+  - 녹화 종료/중지/윈도우 종료 시 HUD hide
+- 안정성:
+  - 공유 오버레이 인스턴스가 Qt 수명주기에서 삭제된 경우 `get_shared()`에서 자동 재생성
+
+### Stage 3-3 Final Integrity (PR-3-3-5)
+- 녹화 배치 삽입 커맨드:
+  - `AddRecordedStepsCommand`(`app/core/commands.py`)
+  - managed image path를 추적해:
+    - undo: 삽입 스텝 제거 + 미참조 임시 이미지 파일 삭제
+    - redo: 캐시된 이미지 바이트(`png_bytes` 우선)를 파일로 복원 후 스텝 재삽입
+- `SmartTransformer` 제안 이미지 스텝은 `png_bytes`를 함께 보관하여 파일 복원 가능.
+- MainWindow는 녹화 결과 삽입 시 image proposal이 포함된 경우 `AddRecordedStepsCommand`를 사용.
+- cleanup 보장:
+  - 취소/실패/정상 종료 경로 모두 `_cleanup_record_temp_images(...)`를 통해 임시 이미지 정리.
 
 ### 규칙 적용 가드
 - 규칙은 2단 구조로 운용:
@@ -296,3 +334,35 @@
 - 보조 운영 문서:
   - `CONSULT_TOKEN_TEMPLATE.md` (외부 자문 요청 시 토큰 절약 템플릿)
 - 과거 단건 검토/개선 문서는 `archive/docs_legacy_20251124/`에서 참고용으로만 보관.
+## UI Stage 3-4 PR-3-4-1 (Toolbar Cleanup)
+- Top option toolbar:
+  - Removed duplicate toolbar `Run/Stop` buttons.
+  - Horizontal scrollbar policy set to `Qt.ScrollBarAlwaysOff`.
+- Scenario left action panel:
+  - Moved smart capture entry to left action grid as `스마트 캡처 (Ctrl+Alt+S)`.
+  - `btnSmartCapture` now routes to `_open_smart_capture_menu` from left panel.
+  - Core action buttons (`btnAddImg`, `btnAddAction`, branch/comment, run/stop, record, wizard/simulate) normalized to slim height (`>=32px`).
+- Run/Stop behavior:
+  - Left `btnRun` remains routed to `_on_run_button_clicked`.
+  - Left `btnStop` is routed via `_on_stop_button_clicked` (path-unified dispatch).
+
+## UI Stage 3-4 PR-3-4-2 (Design Minimalization)
+- Left action panel buttons no longer rely on per-button inline color style.
+- Button role styling is unified through global stylesheet classes:
+  - `left-primary`, `left-secondary`, `left-capture`, `left-neutral`
+  - `left-run`, `left-run-paused`, `left-stop`, `left-record`, `left-wizard`, `left-sim`
+- Pause/resume run-state visual now switches by dynamic button class, not raw inline hex style.
+- Toolbar visual density reduced via global QSS (lighter border/spacing/padding).
+
+## UI Stage 3-4 PR-3-4-3 (3-Column Micro Grid)
+- Scenario action panel grid is compacted into 3 columns:
+  - Row0: `이미지+`, `동작+`, `캡처`
+  - Row1: `분기`, `주석`, `녹화`
+  - Row2: `실행`, `정지`, (reserved)
+  - Row3: `마법사`, `조건`, `시뮬`
+  - Row4: `센서 성공 가정` checkbox spans 3 columns
+- Action button density:
+  - `minimumHeight` reduced to `26px`
+  - grid spacing set to `2`, margins set to `0`
+- Global micro style in `DarkTheme`:
+  - `QPushButton` font-size `9pt`, padding `1px 3px`, border-radius `2px`
