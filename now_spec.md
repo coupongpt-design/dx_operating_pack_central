@@ -477,3 +477,17 @@
 - Scope-size warning thresholds are defined as warning level: 7 files and 500 changed lines.
 - `tools/preflight_env.py` checks `git`, `python`, `pytest`, and available memory before `task_finish` runs gate logic.
 - Current verification baseline: 518 passed, 1 skipped.
+# now_spec (Current Behavior Snapshot)
+
+## UI Modernization - Stage 3-5 PR-3-5-2
+- Options toolbar is logically grouped into:
+  1. `Targeting`: target input + window finder/fix controls
+  2. `Flags`: runtime behavior checkboxes (Auto Enter, Snap, Dry, Mini, CapFail, Human, Debug)
+  3. `Excel`: excel mode toggle, data path picker, parallelism, progress/status
+- Visual boundaries:
+  - Vertical separators between groups
+  - Dedicated Excel group style (`optExcelGroup`) with subtle background/border
+- Consistent control sizing:
+  - Toolbar line edits/spin controls aligned to `~26px` control height
+- Compatibility notes:
+  - Legacy compatibility hooks remain (`_opt_adv_row`, `_opt_row_layout`) for existing UI/tests.

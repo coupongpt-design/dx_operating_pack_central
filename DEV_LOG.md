@@ -1871,3 +1871,14 @@
 - Added scope-size warning thresholds in pre-commit: file count 7, line count 500. 
 - Added preflight environment check tool and task_finish preflight execution gate. 
 - Tests: targeted 44 passed in 0.28s; full suite 517 passed, 1 skipped in 21.59s.
+## Session 97 - Stage 3-5 PR-3-5-2 (Toolbar Grouping Cleanup)
+- Date: 2026-02-26
+- Summary:
+  - 상단 옵션 툴바를 `Targeting / Flags / Excel` 3개 논리 그룹으로 재배치.
+  - 그룹 사이 `VLine` 구분선을 추가해 시각적 경계를 명확화.
+  - 툴바 체크박스 라벨을 축약(`Debug`, `Human`, `Dry`, `Mini`, `CapFail`, `Snap`).
+  - 툴바 입력 위젯 높이를 버튼 높이와 일치하도록 정렬(주요 입력 26px).
+  - Excel 그룹(`optExcelGroup`)에 전용 스타일(옅은 배경/테두리) 적용.
+- Validation:
+  - `python -m pytest -q tests/test_excel_toolbar_responsive.py` -> `13 passed in 2.72s`
+  - `python -m pytest -q tests/test_ui_integration.py` -> `29 passed in 1.49s`

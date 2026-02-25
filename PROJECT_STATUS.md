@@ -1,5 +1,12 @@
 # 프로젝트 상태
 
+## 최근 업데이트
+- Stage 3-5 PR-3-5-2 반영:
+  - 옵션 툴바를 `Targeting / Flags / Excel` 3그룹으로 정돈.
+  - 그룹 사이 수직 구분선 추가, 체크박스 라벨 축약, 툴바 입력 높이 정렬.
+  - Excel 그룹 시각 강조 스타일 추가.
+  - 검증: `tests/test_excel_toolbar_responsive.py` 13 pass, `tests/test_ui_integration.py` 29 pass.
+
 ## 코어 모듈
 - **MacroRunner**: 스텝 실행(OCR, 분기, 서브스크립트, 휴먼 모드 입력), 콜 스택 및 타겟 창 활성화 관리.
 - **ImageProcessor**: OCR 전처리(확대/임계/반전) 및 숫자 추출.

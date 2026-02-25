@@ -221,6 +221,16 @@ class DarkTheme:
             border: 1px solid {cls.ACCENT};
             image: url(none); /* Custom icon needed for checkmark if not using default */
         }}
+
+        /* Option toolbar groups */
+        QWidget#optTargetGroup, QWidget#optFlagsGroup, QWidget#optExcelGroup {{
+            border: 1px solid {cls.BORDER};
+            border-radius: 4px;
+        }}
+        QWidget#optExcelGroup {{
+            background-color: rgba(64, 110, 78, 45);
+            border: 1px solid rgba(96, 150, 112, 180);
+        }}
         
         /* Splitter */
         QSplitter::handle {{
