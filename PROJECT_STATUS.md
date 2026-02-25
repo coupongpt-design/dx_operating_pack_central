@@ -7,6 +7,9 @@
     - 스텝 실행 예외를 커스텀 예외로 분류/로그(`step_exception`: `step_index`, `exception_type` 포함).
     - 실행 루프 치명 예외 로깅 강화(`run_exception`) 및 `finally`에서 입력 해제 + `engine_state=IDLE` 복구 보장.
     - 템플릿/비교 이미지 리소스 사전 검증(`_validate_step_resources`) 추가.
+  - Stage 4 패치 반영(동적 경로 precheck 보정):
+    - 런타임 치환 토큰(`{{...}}`, `#`, `@`, `?`)이 포함된 이미지 경로는 사전 존재 검사에서 제외.
+    - 정적 경로는 기존 fail-fast 검증을 유지해 누락 리소스를 조기에 탐지.
   - 검증: `tests/test_exceptions.py` 신규 + 전체 회귀 통과.
 - Stage 3-5 PR-3-5-2 반영:
   - 옵션 툴바를 `Targeting / Flags / Excel` 3그룹으로 정돈.

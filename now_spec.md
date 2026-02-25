@@ -500,3 +500,4 @@
   - Run-level fatal paths emit `run_exception` telemetry with typed exception metadata.
   - `finally` always performs safe cleanup and returns runner to `engine_state = IDLE`.
   - `_validate_step_resources` performs preflight checks for missing image resources before step handler execution.
+  - Dynamic image path tokens (`{{...}}`, `#`, `@`, `?`) are skipped in precheck and resolved at runtime, while static paths keep fail-fast validation.

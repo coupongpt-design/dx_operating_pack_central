@@ -54,6 +54,33 @@ def test_validate_step_resources_raises_resource_error_for_missing_template():
         runner._validate_step_resources(step)
 
 
+def test_validate_step_resources_skips_dynamic_template_path_precheck():
+    runner = MacroRunner([], repeat=RepeatConfig(), dry_run=True)
+    step = StepData(
+        id="img_dynamic_1",
+        name="DynamicTemplate",
+        type="image_click",
+        anchor_image_path="{{anchor_path}}",
+    )
+
+    # Dynamic placeholder path must be resolved at runtime, not fail at precheck.
+    runner._validate_step_resources(step)
+
+
+def test_validate_step_resources_skips_dynamic_compare_paths_precheck():
+    runner = MacroRunner([], repeat=RepeatConfig(), dry_run=True)
+    step = StepData(
+        id="cmp_dynamic_1",
+        name="DynamicCompare",
+        type="compare_images",
+        image_a_path="{{image_a_path}}",
+        image_b_path="{{image_b_path}}",
+    )
+
+    # Dynamic placeholder paths are runtime-bound and should bypass static existence checks.
+    runner._validate_step_resources(step)
+
+
 def test_runner_emits_target_window_error_telemetry_on_activation_failure(monkeypatch):
     step = StepData(id="s0", name="noop", type="comment")
     runner = MacroRunner([step], repeat=RepeatConfig(repeat_count=1), dry_run=True, target_window_title="LostWindow")

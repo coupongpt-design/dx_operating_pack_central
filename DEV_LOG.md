@@ -1902,3 +1902,16 @@
 - Validation:
   - `python -m pytest -q tests/test_exceptions.py tests/test_runner_logic.py::test_normalize_step_template_path_uses_macro_base tests/test_window_integration.py tests/test_input_lock_runner.py` -> `15 passed in 4.58s`
   - `python -m pytest -q` -> `522 passed, 1 skipped in 37.29s`
+
+## Session 100 - Stage 4 Patch (동적 리소스 경로 precheck 보정)
+- Date: 2026-02-26
+- Summary:
+  - `app/core/runner.py`
+    - `_validate_step_resources`에 동적 경로 스킵 규칙을 추가.
+    - `{{...}}`, `#`, `@`, `?` 토큰이 포함된 경로는 런타임 치환을 전제로 precheck를 생략.
+    - 정적 경로는 기존 존재 검사 유지(누락 시 `ResourceError`).
+  - `tests/test_exceptions.py`
+    - 동적 템플릿 경로 precheck 스킵 테스트 추가.
+    - 동적 `compare_images` 경로 precheck 스킵 테스트 추가.
+- Validation:
+  - `python -m pytest -q tests/test_exceptions.py` -> `6 passed in 2.18s`

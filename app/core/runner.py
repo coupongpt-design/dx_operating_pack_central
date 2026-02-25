@@ -332,9 +332,15 @@ class MacroRunner(QThread):
     def _validate_step_resources(self, step: StepData):
         step_type = str(getattr(step, "type", "") or "")
         has_embedded_template = bool(getattr(step, "png_bytes", None))
+        def _skip_precheck_for_dynamic_path(raw_path: str) -> bool:
+            text = str(raw_path or "")
+            # Runtime template tokens may resolve differently at execution time.
+            return any(token in text for token in ("{", "}", "#", "@", "?"))
         if step_type in {"image_click", "wait_for_image", "image_branch"} and not has_embedded_template:
             raw = str(getattr(step, "anchor_image_path", "") or getattr(step, "image_path", "") or "").strip()
             if raw:
+                if _skip_precheck_for_dynamic_path(raw):
+                    return
                 resolved = self._resolve_path(raw)
                 if resolved and not os.path.exists(resolved):
                     raise ResourceError(f"template image not found: {resolved}")
@@ -342,6 +348,8 @@ class MacroRunner(QThread):
             for field_name in ("image_a_path", "image_b_path"):
                 raw = str(getattr(step, field_name, "") or "").strip()
                 if not raw:
+                    continue
+                if _skip_precheck_for_dynamic_path(raw):
                     continue
                 resolved = self._resolve_path(raw)
                 if resolved and not os.path.exists(resolved):
