@@ -1,6 +1,18 @@
 # 프로젝트 상태
 
 ## 최근 업데이트
+- 거버넌스 자동화/자산 관리 체계 고도화:
+  - 루트 `ASSET_MAP.md` 신설(코드/규칙/도구/문서/CI 자산 지도).
+  - `tools/project_audit.py` 신설:
+    - 자산 무결성 검사
+    - 게이트 TTL 신선도(30분) 점검
+    - 문서 수정시간 불일치 점검
+    - `project_audit_latest.md` 리포트 생성
+  - `tools/task_finish.py` 보강:
+    - 문서 부분 수정 시 `--confirm-doc-sync` 확인 절차 추가
+    - 성공 시 감사 실행 가이드 출력
+    - 옵션 `--run-audit`로 감사 자동 실행 지원
+  - `DEV_LOG.md` 상단 운영 지침에 task start/finish/audit 표준 루프 명시.
 - Stage 4 PR-4-1 반영:
   - `app/core/exceptions.py` 신규 추가(`MacroBaseError`, `ExecutionError`, `ResourceError`, `ActionError`, `TargetWindowError`).
   - `app/core/runner.py` 예외 처리 리팩토링:
@@ -314,7 +326,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `526 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `532 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 
@@ -342,4 +354,4 @@
 - CI workflow retains split rule-guard/pytest jobs and adds actions/cache-based pip cache reuse.
 - Pre-commit now emits scope-size warnings at 7 files / 500 changed lines (warning-level guidance).
 - task_finish runs preflight checks (git, python, pytest, memory) before gate execution.
-- Baseline verification: 526 passed, 1 skipped.
+- Baseline verification: 532 passed, 1 skipped.

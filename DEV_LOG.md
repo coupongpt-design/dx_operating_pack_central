@@ -1,5 +1,10 @@
 # 개발 로그
 
+## 운영 지침 (필수)
+- 모든 작업 시작 전 첫 명령: `python tools/task_start_guard.py`
+- 작업 종료는 `python tools/task_finish.py --subject "..." --scope ...` 경로를 표준으로 사용
+- 게이트 통과 후 운영 감사 권장: `python tools/project_audit.py`
+
 ## [2026-02-23] 세션 40
 - **목표**: Multi-Agent 운영 체계에 Guardian Hard Gate/롤백/세션 아티팩트 저장을 반영하고 모드 트리거를 AGENTS 규칙과 동기화.
 - **변경사항**:
@@ -1935,3 +1940,25 @@
 - Validation:
   - `python -m pytest -q tests/test_exceptions.py` -> `8 passed in 4.04s`
   - `python -m pytest -q` -> `526 passed, 1 skipped in 40.94s`
+
+## Session 102 - Governance Automation / Asset Management System
+- Date: 2026-02-26
+- Summary:
+  - 루트 자산 지도 `ASSET_MAP.md` 신설(코드/규칙/도구/문서/CI 인벤토리 표준화).
+  - 감사 스크립트 `tools/project_audit.py` 추가:
+    - 자산 존재 여부 점검
+    - 게이트 TTL(30분) 신선도 확인
+    - 핵심 문서 mtime 정합성 점검
+    - `project_audit_latest.md` 리포트 생성
+  - `tools/task_finish.py` 보강:
+    - 문서 부분 수정 시 `--confirm-doc-sync` 확인 절차 추가
+    - 성공 시 감사 실행 가이드 출력
+    - `--run-audit` 옵션으로 감사 즉시 실행 지원
+  - `tools/task_start_guard.py` 메시지 보강:
+    - 작업 시작 필수 게이트 정책 출력
+  - 문서 동기화:
+    - `DOC_INDEX.md`에 `ASSET_MAP.md`와 audit 루틴 반영
+    - `PROJECT_STATUS.md`/`now_spec.md`에 운영체계 고도화 항목 반영
+- Validation:
+  - `python -m pytest -q tests/test_task_finish.py tests/test_task_start_guard.py tests/test_project_audit.py tests/test_rule_docs_sync.py` -> `14 passed in 0.14s`
+  - `python -m pytest -q` -> `532 passed, 1 skipped in 41.43s`

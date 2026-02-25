@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import Callable
 from typing import Sequence
 
 try:
@@ -23,6 +24,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution fallba
 
 TEMPLATE_PATH = Path(".git") / "TASK_COMMIT_TEMPLATE.md"
 ALLOWED_SCOPES = ("feature", "rule", "cleanup", "docs", "test")
+DOC_SYNC_FILES = ("PROJECT_STATUS.md", "now_spec.md", "DEV_LOG.md")
 
 
 def _git(*args: str) -> str:
@@ -37,6 +39,51 @@ def _staged_exists() -> bool:
 def _staged_entries():
     out = _git("diff", "--cached", "--name-status")
     return parse_name_status(out)
+
+
+def _staged_paths() -> list[str]:
+    return [p for entry in _staged_entries() for p in entry.paths]
+
+
+def _needs_doc_sync_confirmation(staged_paths: list[str]) -> tuple[bool, list[str], list[str]]:
+    docs = set(DOC_SYNC_FILES)
+    touched = sorted(set(staged_paths).intersection(docs))
+    if not touched:
+        return (False, touched, [])
+    missing = sorted(docs.difference(touched))
+    return (len(missing) > 0, touched, missing)
+
+
+def _confirm_doc_sync(
+    staged_paths: list[str],
+    *,
+    confirmed_flag: bool,
+    stdin_reader: Callable[[], str] | None = None,
+) -> bool:
+    needs_confirm, touched, missing = _needs_doc_sync_confirmation(staged_paths)
+    if not needs_confirm:
+        return True
+    if confirmed_flag:
+        print(
+            "doc-sync confirm: acknowledged partial docs update "
+            f"(touched={touched}, missing={missing})"
+        )
+        return True
+    if sys.stdin.isatty():
+        print(
+            "doc-sync check: partial docs update detected "
+            f"(touched={touched}, missing={missing})"
+        )
+        print("did you verify all three docs are intentionally handled? [y/N]: ", end="")
+        reader = stdin_reader or input
+        answer = str(reader() or "").strip().lower()
+        if answer in {"y", "yes"}:
+            return True
+    print(
+        "doc-sync guard: blocked. update all docs or re-run with --confirm-doc-sync "
+        f"(missing={missing})"
+    )
+    return False
 
 
 def recommend_scope() -> str:
@@ -97,10 +144,12 @@ def build_template_text(subject: str, record: dict, scope: str) -> str:
     )
 
 
-def parse_args(argv: Sequence[str]) -> tuple[str, str, str]:
+def parse_args(argv: Sequence[str]) -> tuple[str, str, str, bool, bool]:
     subject = "chore: task finish checkpoint"
     targeted = "auto"
     scope = ""
+    confirm_doc_sync = False
+    run_audit = False
     items = list(argv)
 
     if "--scope" in items:
@@ -122,6 +171,11 @@ def parse_args(argv: Sequence[str]) -> tuple[str, str, str]:
         else:
             targeted = " ".join(remain)
 
+    if "--confirm-doc-sync" in items:
+        confirm_doc_sync = True
+    if "--run-audit" in items:
+        run_audit = True
+
     i = 0
     while i < len(items):
         tok = items[i]
@@ -132,13 +186,13 @@ def parse_args(argv: Sequence[str]) -> tuple[str, str, str]:
             i += 2
             continue
         i += 1
-    return subject, targeted, scope
+    return subject, targeted, scope, confirm_doc_sync, run_audit
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     items = list(argv) if argv is not None else sys.argv[1:]
     try:
-        subject, targeted_cmd, scope_arg = parse_args(items)
+        subject, targeted_cmd, scope_arg, confirm_doc_sync, run_audit = parse_args(items)
     except ValueError as exc:
         print(str(exc))
         return 2
@@ -149,6 +203,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if not _staged_exists():
         print("no staged changes; stage files before task_finish")
+        return 1
+
+    staged_paths = _staged_paths()
+    if not _confirm_doc_sync(staged_paths, confirmed_flag=confirm_doc_sync):
         return 1
 
     rc = run_gate(targeted_cmd)
@@ -162,6 +220,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     TEMPLATE_PATH.write_text(template, encoding="utf-8")
     print(f"commit template written: {TEMPLATE_PATH}")
     print(f"scope suggestion: {suggested_scope} (allowed: {'|'.join(ALLOWED_SCOPES)})")
+    print("audit hint: run python tools/project_audit.py (after successful gate/template generation)")
+    if run_audit:
+        audit_rc = subprocess.call([sys.executable, "tools/project_audit.py"])
+        if audit_rc != 0:
+            print(f"project audit failed with exit code {audit_rc}")
+            return audit_rc
+        print("project audit: PASS")
     print(f"next: git commit -F {TEMPLATE_PATH}")
     return 0
 
