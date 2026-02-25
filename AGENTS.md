@@ -111,6 +111,17 @@ For meaningful behavior changes, sync:
    - `commit-msg` rejects commits missing required sections or tests lines.
    - `pre-commit` rejects constitutional file delete/rename/copy.
    - `pre-commit` rejects staged runtime artifacts (`__pycache__/`, `*.pyc`, `logs/run_events_*.jsonl`).
+   - `pre-commit` rejects any staged change under `backups/`.
+   - `pre-commit` rejects mixed change sets where constitutional files are staged with non-constitutional files.
+   - `pre-commit` requires fresh post-task gate proof file (`.git/post_task_gate.json`) matching current `HEAD` and staged hash.
+9. Post-task gate proof:
+   - Before commit, run:
+     - `python tools/post_task_gate.py --targeted "<targeted pytest command>"`
+   - Gate script writes `.git/post_task_gate.json`.
+   - If risk trigger is active, gate script must run full `python -m pytest -q` and mark PASS.
+10. Push gate:
+   - `pre-push` runs:
+     - `python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py tests/test_git_hook_guards.py`
 
 ## 11) Waste-Reduction Protocol (Mandatory)
 1. Search Budget:
@@ -151,7 +162,9 @@ Post-task gate: targeted tests first; run full pytest on risk trigger; commit on
 Commit message tests block: include targeted PASS/FAIL and full-suite exact pytest summary line when executed
 Commit message detail block: include Summary + Changes + Tests + Risks/Follow-up (or none)
 Hook install: run python tools/install_git_hooks.py; keep core.hooksPath=.githooks
-Hook enforcement: commit-msg requires commit sections/tests lines; pre-commit blocks constitutional delete/rename/copy and staged artifacts (__pycache__, *.pyc, logs/run_events_*.jsonl)
+Hook enforcement: commit-msg requires commit sections/tests lines; pre-commit blocks constitutional delete/rename/copy, backups/ changes, mixed constitutional+nonconstitutional staging, staged artifacts (__pycache__, *.pyc, logs/run_events_*.jsonl), and missing/stale post-task gate proof
+Post-task gate proof: run python tools/post_task_gate.py --targeted "<targeted pytest command>" before commit; proof must match current HEAD + staged hash; on risk trigger full pytest PASS is mandatory
+Push gate: pre-push runs rule guard tests (docs sync + steps mutation + hook guard)
 Waste budget: max 4 rg queries/task; max 2 file opens; if exceeded stop with top2 hypotheses + 1 missing info + next minimal query
 No duplicate queries: no repeated keyword+file search; plan queries once; refine only with new evidence
 Search order: WRITES -> STATE TRANSITIONS -> CALLERS -> UI labels last
