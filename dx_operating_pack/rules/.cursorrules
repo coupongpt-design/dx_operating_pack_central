@@ -1,0 +1,254 @@
+# .cursorrules (Detailed Constitution / Mirror Notes)
+
+## 0) Auto-Synced Normative Block (Read-Only, Source: `AGENTS.md`)
+<!-- SYNC_BLOCK_START -->
+Priority: system/dev/runtime > user > AGENTS.md > .cursorrules
+Session Gate: read PROJECT_STATUS.md -> 2-line current-focus summary -> declare mode
+Mode: compact by default; precision on high-risk triggers; keep precision through validation
+Precision triggers: files>=5, StepData change, serialization change, thread/signal change, runner flow change, unclear repro/scope
+Multi-Agent flow: default Executor->Guardian; precision trigger -> Planner->Executor->Guardian
+Role constraints: Planner no code edits; Guardian read-only PASS/FAIL gate
+Governance: rule-file changes (AGENTS/.cursorrules/rule-guard tests) in dedicated change set
+Constitutional files: AGENTS.md, .cursorrules, tests/test_rule_docs_sync.py, tests/test_rule_guard_steps_mutation.py
+Constitutional policy: no delete/recreate; edit+diff only; isolated change set
+Risk snapshot: create pre-refactor commit for runner/signal/StepData
+Session close: status clean + intended diff + required tests green
+Post-task gate: targeted tests first; run full pytest on risk trigger; commit only if tests pass and diff is clean
+Commit message tests block: include targeted PASS/FAIL and full-suite exact pytest summary line when executed
+Commit message detail block: include Summary + Changes + Tests + Risks/Follow-up (or none)
+Hook install: run python tools/install_git_hooks.py; keep core.hooksPath=.githooks
+Hook enforcement: commit-msg requires commit sections/tests lines and gate-summary match; pre-commit blocks constitutional delete/rename/copy, backups/ changes, mixed constitutional+nonconstitutional staging, staged artifacts (__pycache__, *.pyc, logs/run_events_*.jsonl), and missing/stale post-task gate proof
+Hook cleanup exception: artifact cleanup commit may delete tracked artifact paths
+Post-task gate proof: run python tools/post_task_gate.py --targeted auto (or explicit command) before commit; proof must match current HEAD + staged hash; on high-risk paths (thread/signal/runner/StepData/serialization/BaseCommand/UndoStack) full pytest PASS is mandatory
+Standard finish command: prefer python tools/task_finish.py --subject "<commit subject>" to run gate + template generation
+Scope limit guard: pre-commit blocks oversized staged scope and forces atomic split commits
+Push gate: pre-push runs rule guard tests (docs sync + steps mutation + hook guard + selector/task_finish/post_task/ci-governance)
+CI governance gate: server-side run tools/ci_governance_guard.py to validate commit messages and file policy across commit range
+Waste budget: max 4 rg queries/task; max 2 file opens; if exceeded stop with top2 hypotheses + 1 missing info + next minimal query
+No duplicate queries: no repeated keyword+file search; plan queries once; refine only with new evidence
+Search order: WRITES -> STATE TRANSITIONS -> CALLERS -> UI labels last
+No full dumps: no type/cat full files; use context windows only
+Output contract: 2-5 snippets + 3-line definition + exact change locations + targeted tests
+Markdown handoff integrity: when markdown-only delivery is requested, include all required handoff content in one outer block; keep required content outside that block at zero; verify fence integrity before send
+Thread/UI safety: worker threads never touch UI directly; use pyqtSignal
+State ownership: MainWindow owns steps/UndoStack; dialogs return data only
+Command rule: no direct self.steps CRUD/reorder; use _push_command(...)
+Data integrity: StepData changes require model+serialization+runner+tests; defaults backward-safe
+Strict data binding: action runners must use centralized template replacement before text output; unresolved placeholders must never be typed
+Quality gate: focused tests for core; full pytest for risky changes; health_check for runtime-sensitive
+Data-binding test rule: no monkeypatch of internal binding logic in integration tests; verify end-to-end value trace to final output
+Mutation guard: keep tests/test_rule_guard_steps_mutation.py passing
+Sync guard: keep tests/test_rule_docs_sync.py passing
+Docs sync: DEV_LOG.md + PROJECT_STATUS.md + now_spec.md on meaningful behavior changes
+Environment: do not modify backups/
+Sync policy: AGENTS.md canonical; .cursorrules mirrors this block only; direction AGENTS -> .cursorrules
+<!-- SYNC_BLOCK_END -->
+
+## 1) Detailed Mode Guidance
+### 1.1 Compact Mode
+- Use for low/medium tasks:
+  - docs edits
+  - small focused bug fixes
+  - routine test updates
+- Keep context reads minimal.
+- Report only deltas.
+
+### 1.2 Precision Mode
+- Use for high-risk/high-complexity tasks:
+  - multi-module refactor
+  - thread/signal changes
+  - data model/schema changes
+  - runtime orchestration
+  - unclear root cause regressions
+- Expand assumptions/risks/verification scope.
+- Do not exit precision until risk is retired.
+
+## 2) Session Start Checklist (Operational)
+1. Open `PROJECT_STATUS.md` first.
+2. Extract current focus (or nearest equivalent) and summarize in 2 lines.
+3. Declare `Compact`/`Precision` before changing files.
+4. If repro is missing, ask for repro or run conservative precision checks.
+
+## 3) Multi-Agent Operations (Detailed)
+### 3.1 Default (2-Agent)
+1. `Executor` implements with minimal diff.
+2. `Guardian` performs read-only review and decides PASS/FAIL.
+
+### 3.2 Escalated (3-Agent)
+1. `Planner` prepares plan/risk/verification/rollback only.
+2. `Executor` implements Planner scope.
+3. `Guardian` reviews and gates release.
+
+### 3.3 Escalation Trigger
+- Any precision trigger immediately upgrades to 3-Agent flow.
+
+### 3.4 Role Rules
+- Planner:
+  - No code changes.
+  - Must declare mode and risk-driven test plan.
+- Executor:
+  - No architecture drift beyond approved plan.
+  - Must run targeted tests first, then full pytest if risky.
+- Guardian:
+  - Read-only.
+  - Must include exact file/line failures when FAIL.
+
+### 3.5 Prompt Templates
+- Use `MULTI_AGENT_PROTOCOL.md` for copy/paste Planner/Executor/Guardian templates.
+
+## 4) Architecture Iron Rules (Expanded)
+1. Thread safety:
+   - `MacroRunner`/`TriggerWatcher` never update UI directly.
+   - Route UI changes via `pyqtSignal` + main-thread slots.
+2. Single source of truth:
+   - `MainWindow` owns `steps` + `UndoStack`.
+   - Dialogs pass data back only.
+3. Command pattern enforcement:
+   - Use command objects + `self._push_command(...)` for CRUD/reorder.
+   - Avoid ad-hoc list mutation paths.
+4. Branch stability:
+   - Prefer `step_id` over index.
+   - Missing target must fail-safe.
+
+## 5) Token Efficiency Protocol
+1. Delta-first reporting only.
+2. Short progress updates.
+3. Avoid repeated checklist text in one turn.
+4. Run targeted tests first; full suite only when risk requires.
+5. Keep external consultation prompts compact (`CONSULT_TOKEN_TEMPLATE.md`).
+
+## 6) UI/Regression Guard
+1. Hide-all then show-needed for dynamic groups.
+2. Keep `layout.addWidget(...)` paths intact.
+3. Run visibility/state refresh after init/load.
+
+## 7) Data/Runtime Integrity
+1. `StepData` field change requires synchronized updates:
+   - model
+   - load/save/serialization
+   - runner usage
+   - tests
+2. Preserve backward compatibility by default.
+3. No partial production logic edits.
+4. Strict data binding for text actions:
+   - Action runners must pass text through centralized placeholder replacement before output.
+   - `pyautogui.write()`/`pyautogui.typewrite()` must not receive unresolved placeholders (`{{var}}`, `{var}`).
+5. If unresolved placeholders remain, route to failure path (fail fast) instead of raw typing.
+
+## 8) Quality Gate (Expanded)
+1. Core changes: focused tests immediately.
+2. Risky/cross-cutting: `python -m pytest -q`.
+3. Runtime-sensitive: `python run_health_check.py` when applicable.
+4. Guard tests must stay green:
+   - `tests/test_rule_guard_steps_mutation.py`
+   - `tests/test_rule_docs_sync.py`
+5. Integration tests for data-binding paths:
+   - Do not monkeypatch internal business-logic bind/replace functions.
+   - Mock only external side-effect endpoints and verify end-to-end value trace.
+
+## 9) Documentation Sync
+- For meaningful behavior changes, update:
+  - `DEV_LOG.md`
+  - `PROJECT_STATUS.md`
+  - `now_spec.md`
+- Include latest pass counts when changed.
+
+## 10) Environment Notes
+- Workspace root: `d:\down\autocording\매크로모듈화`
+- CMD quoting can be brittle; prefer small commands and minimal pattern complexity.
+- Never modify `backups/`.
+
+## 11) Waste-Reduction Protocol (Detailed)
+1. Search Budget:
+   - Max 4 `rg` queries per task.
+   - Max 2 file opens (no full-file dumps).
+   - If exceeded, stop and output:
+     - top 2 hypotheses
+     - 1 missing critical info
+     - next minimal query only
+2. No Duplicate Queries:
+   - Do not repeat same keyword+file search.
+   - List planned queries once.
+   - Refine only with new evidence.
+3. Write-First Rule:
+   - Search order: WRITES -> STATE TRANSITIONS -> CALLERS -> UI labels last.
+4. No Full File Dumps:
+   - Full `type`/`cat` prohibited.
+   - Use context windows only (`-A/-B`).
+5. Output Contract:
+   - 2-5 relevant snippets (`file:line`)
+   - 3-line definition summary
+   - exact change locations + targeted tests
+
+## 12) Git Governance (Detailed)
+1. Local repository must stay Git-tracked.
+2. Before edits:
+   - `git status`
+   - `git diff`
+3. Constitutional files:
+   - `AGENTS.md`
+   - `.cursorrules`
+   - `tests/test_rule_docs_sync.py`
+   - `tests/test_rule_guard_steps_mutation.py`
+4. Constitutional file edits:
+   - Never delete/recreate.
+   - Edit-in-place and verify diff.
+   - Keep as dedicated change set, never mixed with feature work.
+5. Before risky refactor (`runner/signal/StepData`):
+   - Create snapshot commit first.
+6. Recovery commands are allowed with explicit intent:
+   - `git log --oneline`
+   - `git checkout <commit_id>`
+   - `git reset --hard <commit_id>`
+7. Post-Task Commit Gate (mandatory):
+   - Run related targeted tests.
+   - If any risk trigger is present, run full `python -m pytest -q`.
+   - Review `git diff` for unintended changes.
+   - Commit only if tests pass and diff is clean.
+   - If any condition fails, do not commit.
+   - Commit message must include:
+     - `Summary:` (what/why in 1-3 lines)
+     - `Changes:` (key files or behavior delta)
+   - `Tests:`
+   - `- targeted: PASS / FAIL`
+   - `- full suite: <exact pytest -q summary line if executed>`
+   - `Risks/Follow-up:` (or `none`)
+8. Hook installation (mandatory per clone/environment):
+   - Run `python tools/install_git_hooks.py` once.
+   - Keep `git config core.hooksPath` set to `.githooks`.
+9. Hook enforcement:
+   - `commit-msg` rejects commits missing required sections or tests lines.
+   - `commit-msg` rejects tests lines that do not match `.git/post_task_gate.json` summaries.
+   - `pre-commit` rejects constitutional file delete/rename/copy.
+   - `pre-commit` rejects staged runtime artifacts (`__pycache__/`, `*.pyc`, `logs/run_events_*.jsonl`).
+   - Exception: artifact cleanup commit may stage deletions of those artifact paths.
+   - `pre-commit` rejects any staged change under `backups/`.
+   - `pre-commit` rejects mixed change sets where constitutional files are staged with non-constitutional files.
+   - `pre-commit` requires fresh post-task gate proof file (`.git/post_task_gate.json`) matching current `HEAD` and staged hash.
+10. Post-task gate proof:
+   - Before commit, run:
+     - `python tools/post_task_gate.py --targeted auto`
+     - or `python tools/post_task_gate.py --targeted "<targeted pytest command>"`
+   - Gate script writes `.git/post_task_gate.json`.
+   - If risk trigger is active, gate script must run full `python -m pytest -q` and mark PASS.
+11. Standardized finish command:
+   - Preferred: `python tools/task_finish.py --subject "<commit subject>"`
+   - Script flow: auto targeted selection -> risk-based full suite -> gate proof -> commit template generation.
+12. Scope limit guard:
+   - `pre-commit` blocks over-wide staged scope (files/lines threshold) and requires atomic split commits.
+13. Push gate:
+   - `pre-push` runs:
+     - `python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py tests/test_git_hook_guards.py tests/test_test_selector.py tests/test_task_finish.py tests/test_post_task_gate.py tests/test_ci_governance_guard.py`
+14. CI governance gate (server-side, `--no-verify` backstop):
+   - CI must run `python tools/ci_governance_guard.py`.
+   - CI validates commit-message schema and commit-level file policy in pushed/PR commit range.
+
+## 13) Sync/Conflict Policy
+1. Canonical source: `AGENTS.md`.
+2. Mirror scope in this file:
+   - Only the block between `SYNC_BLOCK_START/END`.
+3. Sync direction:
+   - `AGENTS.md` -> `.cursorrules` only.
+4. Do not back-write `AGENTS.md` from `.cursorrules`.
+5. If mismatch exists:
+   - Treat `AGENTS.md` as authoritative and resync mirror block.
