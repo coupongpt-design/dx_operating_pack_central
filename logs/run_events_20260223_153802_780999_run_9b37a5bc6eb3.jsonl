@@ -1,7 +1,0 @@
-{"timestamp": "2026-02-23T06:38:02.781Z", "run_id": "run_9b37a5bc6eb3", "level": "INFO", "event": "run_started", "dry_run": false, "human_mode": false, "perf_mode": true, "start_index": 0, "repeat_count": 1, "stop_on_fail": true, "max_duration_ms": 0, "target_window_title": ""}
-{"timestamp": "2026-02-23T06:38:02.781Z", "run_id": "run_9b37a5bc6eb3", "level": "INFO", "event": "step_started", "step_uuid": "56ac9067", "step_name": "Action Step #1", "step_type": "text"}
-{"timestamp": "2026-02-23T06:38:02.815Z", "run_id": "run_9b37a5bc6eb3", "level": "INFO", "event": "input_lock_waiting", "operation": "keyboard_paste", "timeout_sec": 10.0}
-{"timestamp": "2026-02-23T06:38:02.815Z", "run_id": "run_9b37a5bc6eb3", "level": "INFO", "event": "input_lock_acquired", "operation": "keyboard_paste", "wait_ms": 0}
-{"timestamp": "2026-02-23T06:38:02.838Z", "run_id": "run_9b37a5bc6eb3", "level": "INFO", "event": "input_lock_released", "operation": "keyboard_paste", "held_ms": 22}
-{"timestamp": "2026-02-23T06:38:02.872Z", "run_id": "run_9b37a5bc6eb3", "level": "INFO", "event": "step_succeeded", "step_uuid": "56ac9067", "step_name": "Action Step #1", "duration_ms": 90}
-{"timestamp": "2026-02-23T06:38:02.923Z", "run_id": "run_9b37a5bc6eb3", "level": "INFO", "event": "run_finished", "success": true, "reason": "completed", "duration_ms": 142}

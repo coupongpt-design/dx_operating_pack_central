@@ -1,4 +1,0 @@
-{"timestamp": "2026-02-23T09:32:41.997Z", "run_id": "run_2c7b700105f2", "level": "INFO", "event": "run_started", "dry_run": false, "human_mode": false, "perf_mode": true, "start_index": 0, "repeat_count": 1, "stop_on_fail": true, "max_duration_ms": 0, "target_window_title": ""}
-{"timestamp": "2026-02-23T09:32:41.998Z", "run_id": "run_2c7b700105f2", "level": "INFO", "event": "step_started", "step_uuid": "01cc86bc", "step_name": "Action Step #1", "step_type": "keyboard"}
-{"timestamp": "2026-02-23T09:32:41.998Z", "run_id": "run_2c7b700105f2", "level": "ERROR", "event": "step_failed", "step_uuid": "01cc86bc", "step_name": "Action Step #1", "error": "step returned failure", "duration_ms": 0}
-{"timestamp": "2026-02-23T09:32:41.998Z", "run_id": "run_2c7b700105f2", "level": "ERROR", "event": "run_finished", "success": false, "reason": "step_failed_stop_on_fail", "duration_ms": 2}
