@@ -100,10 +100,17 @@ For meaningful behavior changes, sync:
    - Commit message must include:
      - `Summary:` (what/why in 1-3 lines)
      - `Changes:` (key files or behavior delta)
-     - `Tests:`
-     - `- targeted: PASS / FAIL`
-     - `- full suite: <exact pytest -q summary line if executed>`
-     - `Risks/Follow-up:` (or `none`)
+   - `Tests:`
+   - `- targeted: PASS / FAIL`
+   - `- full suite: <exact pytest -q summary line if executed>`
+   - `Risks/Follow-up:` (or `none`)
+7. Hook installation (mandatory per clone/environment):
+   - Run `python tools/install_git_hooks.py` once.
+   - Keep `git config core.hooksPath` set to `.githooks`.
+8. Hook enforcement:
+   - `commit-msg` rejects commits missing required sections or tests lines.
+   - `pre-commit` rejects constitutional file delete/rename/copy.
+   - `pre-commit` rejects staged runtime artifacts (`__pycache__/`, `*.pyc`, `logs/run_events_*.jsonl`).
 
 ## 11) Waste-Reduction Protocol (Mandatory)
 1. Search Budget:
@@ -143,6 +150,8 @@ Session close: status clean + intended diff + required tests green
 Post-task gate: targeted tests first; run full pytest on risk trigger; commit only if tests pass and diff is clean
 Commit message tests block: include targeted PASS/FAIL and full-suite exact pytest summary line when executed
 Commit message detail block: include Summary + Changes + Tests + Risks/Follow-up (or none)
+Hook install: run python tools/install_git_hooks.py; keep core.hooksPath=.githooks
+Hook enforcement: commit-msg requires commit sections/tests lines; pre-commit blocks constitutional delete/rename/copy and staged artifacts (__pycache__, *.pyc, logs/run_events_*.jsonl)
 Waste budget: max 4 rg queries/task; max 2 file opens; if exceeded stop with top2 hypotheses + 1 missing info + next minimal query
 No duplicate queries: no repeated keyword+file search; plan queries once; refine only with new evidence
 Search order: WRITES -> STATE TRANSITIONS -> CALLERS -> UI labels last

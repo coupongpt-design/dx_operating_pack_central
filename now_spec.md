@@ -389,3 +389,15 @@
   - `left_tabs` minimum width set to `0`.
 - Visual density safeguard:
   - Global `QPushButton` style allows `min-width: 0px` to reduce squeeze collisions under narrow panel states.
+
+## Git Governance Hard Gate (Session 92)
+- Repository-managed hooks:
+  - `.githooks/commit-msg`: commit metadata/tests block schema validation
+  - `.githooks/pre-commit`: staged-path guard for constitutional files and runtime artifacts
+- Mandatory install:
+  - `python tools/install_git_hooks.py`
+  - expected config: `git config --get core.hooksPath` => `.githooks`
+- Guarded artifact paths:
+  - `__pycache__/`
+  - `*.pyc`
+  - `logs/run_events_*.jsonl`

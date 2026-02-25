@@ -20,6 +20,11 @@
   - HWND 기반 셀프 캡처 제외(`lock_hwnd` 루트 핸들 비교)
   - ESC/F12 제어키 소비(`control_event_received: stop_hotkey`)로 스텝 변환 차단
   - 세션 시작/종료 시 큐/버퍼/리스너 정리 강화
+- Git 거버넌스 하드게이트 보강(Session 92):
+  - Repo hooks(`.githooks`) 도입: `commit-msg`/`pre-commit` 강제 검증
+  - `commit-msg`: Summary/Changes/Tests/Risks 및 테스트 라인 누락 커밋 차단
+  - `pre-commit`: constitutional 파일 delete/rename/copy 및 산출물 스테이징 차단
+  - 설치 스크립트: `python tools/install_git_hooks.py` (`core.hooksPath=.githooks`)
 - Smart Recorder 변환 엔진(Stage 3-3 PR-3-3-2):
   - `app/core/smart_recorder.py`의 `SmartTransformer`가 Raw Event를 분석해 `type_text`/`key_press`를 분리 생성.
   - 텍스트 병합 규칙:

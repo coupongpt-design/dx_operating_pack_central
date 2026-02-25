@@ -1785,3 +1785,16 @@
 - Test status:
   - `python -m pytest -q tests/test_excel_toolbar_responsive.py tests/test_ui_integration.py` -> `42 passed`
   - `python -m pytest -q` -> `470 passed, 1 skipped`
+
+## Session 92 - Git Governance Hard Gate (Hook Enforcement)
+- Added repository-managed Git hook guards:
+  - `.githooks/commit-msg`: validates mandatory commit metadata sections and tests lines.
+  - `.githooks/pre-commit`: blocks constitutional file delete/rename/copy and staged runtime artifacts.
+- Added guard implementation/utilities:
+  - `tools/git_hook_guards.py` (shared validators + hook entrypoints)
+  - `tools/install_git_hooks.py` (`core.hooksPath=.githooks` installer)
+- Added tests:
+  - `tests/test_git_hook_guards.py` (commit message validation, staged-name-status checks)
+- Updated governance docs:
+  - `AGENTS.md` + `.cursorrules` with mandatory hook install/enforcement lines.
+  - `.gitignore` includes `logs/run_events_*.jsonl`.
