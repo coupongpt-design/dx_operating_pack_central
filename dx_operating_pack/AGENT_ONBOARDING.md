@@ -3,6 +3,15 @@
 DX Operating Pack v2의 에이전트 운영 매뉴얼입니다.  
 이 문서는 "설치 -> 작업 -> 검증 -> 동기화"를 하나의 표준 루프로 통합해, 에이전트가 규칙을 일관되게 적용하도록 설계되었습니다.
 
+## 최종 퀵스타트 명령어
+```bat
+git init && curl -fsSL <RAW_SETUP_DX_URL> -o setup_dx.py && python setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite
+```
+
+```bat
+git init && wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite
+```
+
 ## 1) 온보딩 (초기 1회)
 1. 저장소 루트에서 필수 환경 확인:
    - `git --version`
@@ -37,7 +46,7 @@ DX Operating Pack v2의 에이전트 운영 매뉴얼입니다.
 - `python dx_operating_pack/tools/sync_dx_pack.py --remote-url <CENTRAL_REPO_URL_OR_PATH> --project-root . --mode copy --overwrite`
 
 동기화 안전장치:
-- Sync 직전 `dx_operating_pack` -> `dx_operating_pack_bak` 자동 백업
+- Sync 직전 팩 전체를 `.dx_cache/backups/pack_<timestamp>/dx_operating_pack`로 자동 백업
 - 로컬 보호 파일은 백업 후 복원:
   - `**/*.local.*`
   - `DEV_LOG.md`
@@ -76,3 +85,8 @@ DX Operating Pack v2의 에이전트 운영 매뉴얼입니다.
 - setup 실행 여부 확인
 - 가드/훅 정상 동작 확인
 - 규칙/도구 맵 로드 완료 확인
+
+## 9) Sandbox Policy (파괴적 검증 정책)
+- `--overwrite`, 강제 동기화, 대량 삭제가 동반되는 검증은 메인 저장소에서 직접 수행하지 않습니다.
+- 파괴적 검증은 별도 임시 샌드박스 폴더(예: `D:\\tmp\\dx-test`)에서만 수행합니다.
+- 메인 저장소에서는 비파괴 검증(정적 점검/게이트/타깃 테스트)만 수행합니다.

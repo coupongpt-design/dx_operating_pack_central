@@ -1,81 +1,96 @@
-# Install In New Project
+# INSTALL_IN_NEW_PROJECT (v2.1)
 
-아래 순서를 그대로 실행하면 운영 시스템이 활성화됩니다.
+이 문서는 빈 프로젝트에 DX Operating Pack v2.1을 설치하고, 중앙 레포 기반으로 안정적으로 운영하는 절차를 설명합니다.
 
-## 0) 대용량 변경/커밋 주의 (권장)
-- 리포 가드가 `staged changed lines <= 1400`를 강제합니다.
-- 대형 파일은 최초 이식 시에도 기능 단위로 쪼개서 원자 커밋하세요.
-- 예: Bone(rules/hooks/ci) -> Brain(manifest/docs) -> Tools -> Assets -> Tests.
+## 최종 퀵스타트 명령어
+```bat
+git init && curl -fsSL <RAW_SETUP_DX_URL> -o setup_dx.py && python setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite
+```
 
-## 1) 복사
-대상 프로젝트 루트 기준으로 다음 구조를 복사:
-- `AGENTS.md` (rules/AGENTS.md)
-- `.cursorrules` (rules/.cursorrules)
-- `.githooks/*` (hooks/*)
-- `tools/*`
-- `tests/test_rule_*.py`, `tests/test_git_hook_guards.py`, `tests/test_post_task_gate.py`, `tests/test_task_finish.py`, `tests/test_task_start_guard.py`, `tests/test_test_selector.py`, `tests/test_preflight_env.py`, `tests/test_ci_governance_guard.py`
-- `.github/workflows/ci.yml` (필요 시 merge)
-- `docs/*`, `docs_for_ai/*`, `prompt_recipes/*`, `.cursor/prompts/*` (AI 최적화 사용 시)
+```bat
+git init && wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite
+```
 
-## 1-0) 부트스트랩(설치 스크립트가 없는 신규 프로젝트)
+## 0) 사전 조건
+- Git 설치 확인: `git --version`
+- 프로젝트 루트에서 Git 초기화: `git init`
+
+주의:
+- `setup_dx.py`, `sync_dx_pack.py`는 시작 시 위 조건을 자동 점검합니다.
+- 미충족 시 가이드 메시지를 출력하고 즉시 종료합니다.
+
+## 1) 빈 프로젝트에서 최초 설치 (Bootstrap)
+설치 스크립트가 아직 없는 상태에서 아래 한 줄로 시작합니다.
+
 ```bat
 curl -fsSL <RAW_SETUP_DX_URL> -o setup_dx.py && python setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite
 ```
+
 ```bat
 wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite
 ```
-- 용도: 아직 `dx_operating_pack/tools/setup_dx.py`가 없는 초기 프로젝트에서 최초 설치 진입점으로 사용.
 
-## 1-1) 원클릭 설치(권장)
-```bat
-python dx_operating_pack\tools\setup_dx.py --pack-root dx_operating_pack --target-root . --mode copy --overwrite
-```
+## 2) 중앙 레포 기반 설치/동기화
+최초 설치:
 
-## 1-2) 중앙 Repo 원격 온보딩(권장)
 ```bat
 python dx_operating_pack\tools\setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite
 ```
-- 동작: 원격 팩을 `.dx_cache/dx_operating_pack_remote`에 clone/pull 후 즉시 설치.
 
-## 2) 훅 설치
+지속 동기화:
+
 ```bat
-python tools/install_git_hooks.py
+python dx_operating_pack\tools\sync_dx_pack.py --remote-url <CENTRAL_REPO_URL_OR_PATH> --project-root . --mode copy --overwrite
 ```
 
-## 3) 기본 의존성
-```bat
-python -m pip install -r requirements-dev.txt
-```
+## 3) Safe Sync 보호 정책
+`sync_dx_pack.py --overwrite` 실행 시에도 아래 파일은 보호됩니다.
 
-## 4) 검증
+- `DEV_LOG.md`
+- `PROJECT_STATUS.md`
+- `now_spec.md`
+- `**/*.local.*`
+
+보호 로직:
+1. 보호 파일 사전 백업
+2. 업데이트 수행
+3. 보호 파일 자동 복원(`finally`)
+
+추가 백업:
+- 업데이트 직전 팩 전체 백업 생성:
+  - `.dx_cache/backups/pack_<timestamp>/dx_operating_pack`
+
+무결성:
+- v2.1 검증에서 SHA256 해시 비교로 보호 파일 복원 동일성이 확인되었습니다.
+
+## 4) 인증 실패(Private Repo) 대응
+clone/pull 실패 시 점검:
+- SSH: 공개키 등록 후 `git@...` URL 사용
+- HTTPS: PAT + credential manager 설정
+- 접근 테스트: `git ls-remote <repo-url>`
+
+## 5) 운영 가드레일
+1400라인 제한:
+- 단일 커밋 변경량이 과하면 가드가 차단합니다.
+- 대규모 변경은 원자 단위 분할 커밋을 사용하십시오.
+
+필수 태스크 흐름:
+
 ```bat
 python tools/task_start_guard.py
-python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py tests/test_git_hook_guards.py tests/test_post_task_gate.py tests/test_task_finish.py tests/test_test_selector.py tests/test_preflight_env.py tests/test_ci_governance_guard.py
+python tools/post_task_gate.py
 ```
 
-## 5) AI 컨텍스트/보안 초기화(권장)
+권장:
+
 ```bat
-python tools/generate_context_snapshot.py
-python tools/generate_context_snapshot.py --scope core --out docs_for_ai/CONTEXT_CORE.md
-python tools/generate_context_snapshot.py --scope ui --out docs_for_ai/CONTEXT_UI.md
-python tools/dependency_graph_gen.py
-python tools/token_usage_analyzer.py --out docs_for_ai/TOKEN_USAGE_REPORT.md
 python tools/check_ai_security.py
 ```
 
-## 6) 표준 워크플로우
-```bat
-python tools/task_finish.py --subject "rule(dx): bootstrap workflow" --scope rule
-git commit -F .git/TASK_COMMIT_TEMPLATE.md
-```
+## 6) AI Agent 시작 규칙
+에이전트는 작업 시작 즉시 `MANIFEST_AI.yaml`을 읽어야 합니다.
 
-## 7) 외부 프로필 백업(선택)
-```bat
-python tools/export_external_profiles.py
-```
-- 생성된 `optional/external/*.local.*` 파일은 공유 금지(민감정보 포함 가능).
-
-## 8) 공용 팩 동기화(선택)
-```bat
-python tools/sync_dx_pack.py --remote-url <CENTRAL_REPO_URL_OR_PATH> --project-root . --mode copy --overwrite
-```
+이유:
+- 도구 목적/사용 시점/실행 위치를 즉시 파악
+- 잘못된 도구 선택과 불필요한 탐색 감소
+- 협업 응답 품질 및 속도 향상
