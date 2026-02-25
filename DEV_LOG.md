@@ -1882,3 +1882,23 @@
 - Validation:
   - `python -m pytest -q tests/test_excel_toolbar_responsive.py` -> `13 passed in 2.72s`
   - `python -m pytest -q tests/test_ui_integration.py` -> `29 passed in 1.49s`
+
+## Session 99 - Stage 4 PR-4-1 (커스텀 예외 계층/엔진 가드 강화)
+- Date: 2026-02-26
+- Summary:
+  - `app/core/exceptions.py` 신규 추가:
+    - `MacroBaseError`, `ExecutionError`, `ResourceError`, `ActionError`, `TargetWindowError`.
+  - `app/core/runner.py` 예외 처리 고도화:
+    - 스텝 예외 분류(`_to_macro_error`) 및 정밀 텔레메트리(`step_exception`: `step_index`, `exception_type`) 추가.
+    - 실행 루프 예외 텔레메트리(`run_exception`) 추가.
+    - 실행 종료 `finally`에서 입력 해제 + 상태 `engine_state=IDLE` 강제 복구.
+    - 리소스 가드(`_validate_step_resources`)로 이미지/비교 리소스 누락을 실행 전에 포착.
+    - 타겟 창 활성화 실패를 `TargetWindowError` 타입 이벤트로 기록.
+  - `tests/test_exceptions.py` 신규 추가:
+    - 예외 계층 구조 검증
+    - 리소스 예외 검증
+    - 타겟 창 예외 텔레메트리 검증
+    - 스텝 예외 텔레메트리(`step_index`/`exception_type`) 및 IDLE 복구 검증
+- Validation:
+  - `python -m pytest -q tests/test_exceptions.py tests/test_runner_logic.py::test_normalize_step_template_path_uses_macro_base tests/test_window_integration.py tests/test_input_lock_runner.py` -> `15 passed in 4.58s`
+  - `python -m pytest -q` -> `522 passed, 1 skipped in 37.29s`

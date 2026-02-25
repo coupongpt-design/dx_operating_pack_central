@@ -1,6 +1,13 @@
 # 프로젝트 상태
 
 ## 최근 업데이트
+- Stage 4 PR-4-1 반영:
+  - `app/core/exceptions.py` 신규 추가(`MacroBaseError`, `ExecutionError`, `ResourceError`, `ActionError`, `TargetWindowError`).
+  - `app/core/runner.py` 예외 처리 리팩토링:
+    - 스텝 실행 예외를 커스텀 예외로 분류/로그(`step_exception`: `step_index`, `exception_type` 포함).
+    - 실행 루프 치명 예외 로깅 강화(`run_exception`) 및 `finally`에서 입력 해제 + `engine_state=IDLE` 복구 보장.
+    - 템플릿/비교 이미지 리소스 사전 검증(`_validate_step_resources`) 추가.
+  - 검증: `tests/test_exceptions.py` 신규 + 전체 회귀 통과.
 - Stage 3-5 PR-3-5-2 반영:
   - 옵션 툴바를 `Targeting / Flags / Excel` 3그룹으로 정돈.
   - 그룹 사이 수직 구분선 추가, 체크박스 라벨 축약, 툴바 입력 높이 정렬.
@@ -294,7 +301,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `465 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `522 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 
@@ -322,4 +329,4 @@
 - CI workflow retains split rule-guard/pytest jobs and adds actions/cache-based pip cache reuse.
 - Pre-commit now emits scope-size warnings at 7 files / 500 changed lines (warning-level guidance).
 - task_finish runs preflight checks (git, python, pytest, memory) before gate execution.
-- Baseline verification: 518 passed, 1 skipped.
+- Baseline verification: 522 passed, 1 skipped.

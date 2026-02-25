@@ -24,6 +24,13 @@ from .input_lock import (
     InputLockTimeoutError,
     get_global_input_manager,
 )
+from .exceptions import (
+    ActionError,
+    ExecutionError,
+    MacroBaseError,
+    ResourceError,
+    TargetWindowError,
+)
 
 from .models import StepData, RepeatConfig
 from .ocr_runtime import configure_tesseract_cmd
@@ -161,6 +168,7 @@ class MacroRunner(QThread):
         self._auto_enter_after_text = bool(auto_enter_after_text)
         self._step_started_at: dict[str, float] = {}
         self._run_finish_emitted = False
+        self.engine_state = "IDLE"
         self._pyautogui_defaults = {
             "PAUSE": getattr(pyautogui, "PAUSE", 0),
             "MINIMUM_DURATION": getattr(pyautogui, "MINIMUM_DURATION", 0),
@@ -267,7 +275,77 @@ class MacroRunner(QThread):
                 resolved = os.path.abspath(os.path.join(base or os.getcwd(), resolved))
             step.anchor_image_path = resolved
         except Exception as e:
+            if isinstance(e, MacroBaseError):
+                raise
             self.logger.debug("Failed to normalize template path '%s': %s", path, e)
+
+    def _set_engine_state(self, state: str):
+        self.engine_state = str(state or "IDLE").upper()
+
+    def _release_runtime_controls(self):
+        # Best-effort release to prevent lingering input ownership on failures.
+        for button in ("left", "right", "middle"):
+            try:
+                pyautogui.mouseUp(button=button)
+            except Exception:
+                pass
+        for key in ("shift", "ctrl", "alt", "win", "command"):
+            try:
+                pyautogui.keyUp(key)
+            except Exception:
+                pass
+
+    def _to_macro_error(self, exc: Exception, step: StepData | None = None, idx: int | None = None) -> MacroBaseError:
+        if isinstance(exc, MacroBaseError):
+            return exc
+        step_name = str(getattr(step, "name", "") or "")
+        step_type = str(getattr(step, "type", "") or "")
+        step_no = (int(idx) + 1) if isinstance(idx, int) and idx >= 0 else -1
+        if isinstance(exc, InputLockTimeoutError):
+            return ActionError(f"input lock timeout at step {step_no} ({step_name})")
+        if isinstance(exc, FileNotFoundError):
+            return ResourceError(f"file not found at step {step_no} ({step_name})")
+        if step is not None and step_type in {
+            "image_click",
+            "wait_for_image",
+            "image_branch",
+            "compare_images",
+            "run_macro",
+            "load_data_file",
+        }:
+            return ResourceError(f"resource failure at step {step_no} ({step_name}): {exc}")
+        if step is not None:
+            return ActionError(f"action failed at step {step_no} ({step_name}): {exc}")
+        return ExecutionError(str(exc))
+
+    def _emit_step_exception_telemetry(self, step: StepData, idx: int, error: MacroBaseError):
+        self._write_structured_event(
+            "ERROR",
+            "step_exception",
+            step_uuid=self._runtime_step_uuid(step),
+            step_index=int(idx),
+            step_name=str(getattr(step, "name", "") or ""),
+            exception_type=error.__class__.__name__,
+            error=str(error),
+        )
+
+    def _validate_step_resources(self, step: StepData):
+        step_type = str(getattr(step, "type", "") or "")
+        has_embedded_template = bool(getattr(step, "png_bytes", None))
+        if step_type in {"image_click", "wait_for_image", "image_branch"} and not has_embedded_template:
+            raw = str(getattr(step, "anchor_image_path", "") or getattr(step, "image_path", "") or "").strip()
+            if raw:
+                resolved = self._resolve_path(raw)
+                if resolved and not os.path.exists(resolved):
+                    raise ResourceError(f"template image not found: {resolved}")
+        if step_type == "compare_images":
+            for field_name in ("image_a_path", "image_b_path"):
+                raw = str(getattr(step, field_name, "") or "").strip()
+                if not raw:
+                    continue
+                resolved = self._resolve_path(raw)
+                if resolved and not os.path.exists(resolved):
+                    raise ResourceError(f"compare resource not found ({field_name}): {resolved}")
 
     def _write_structured_event(self, level: str, event: str, **payload):
         try:
@@ -555,6 +633,7 @@ class MacroRunner(QThread):
             self._loop_counters = {}
         run_started_at = self._run_started_at
         self._start_structured_run_log(resume_state is not None)
+        self._set_engine_state("RUNNING")
         
         try:
         # Attempt to activate target window before capture loop
@@ -569,6 +648,15 @@ class MacroRunner(QThread):
                         )
                 except Exception:
                     # Do not abort if activation fails
+                    tw_error = TargetWindowError(
+                        f"target window activation failed: {self.target_window_title}"
+                    )
+                    self._write_structured_event(
+                        "ERROR",
+                        "target_window_error",
+                        exception_type=tw_error.__class__.__name__,
+                        error=str(tw_error),
+                    )
                     self.logger.exception("Failed to activate target window (continuing)")
             with mss.mss() as sct:
                 mon = sct.monitors[0]
@@ -632,9 +720,16 @@ class MacroRunner(QThread):
                         try:
                             ok, fail_goto_id, steps_consumed = self._exec_step(sct, mon, step, i)
                         except Exception as e:
-                            self.log.emit(f"!! Step {i+1} error: {e}")
+                            macro_error = self._to_macro_error(e, step=step, idx=i)
+                            self.log.emit(
+                                f"!! Step {i+1} error [{macro_error.__class__.__name__}]: {macro_error}"
+                            )
                             traceback.print_exc()
-                            self._emit_step_failed(step, str(e))
+                            self._emit_step_exception_telemetry(step, i, macro_error)
+                            self._emit_step_failed(
+                                step,
+                                f"[{macro_error.__class__.__name__}] {macro_error}",
+                            )
                             emitted_failed = True
                             ok = False
                             fail_goto_id = None
@@ -709,14 +804,41 @@ class MacroRunner(QThread):
                 self._finish_run(False, reason="killed")
             else:
                 self._finish_run(True, reason="completed")
+        except MacroBaseError as e:
+            self.log.emit(f"!! runner exception [{e.__class__.__name__}]: {e}")
+            self._logger.exception("Runner macro exception", exc_info=e)
+            self.errorOccurred.emit(f"{e.__class__.__name__}: {e}")
+            self._write_structured_event(
+                "ERROR",
+                "run_exception",
+                exception_type=e.__class__.__name__,
+                step_index=int(getattr(self, "current_step_index", -1)),
+                error=str(e),
+            )
+            self._finish_run(False, reason=e.__class__.__name__)
         except Exception as e:
-            self.log.emit(f"!! runner exception: {e}")
+            macro_error = self._to_macro_error(e, idx=getattr(self, "current_step_index", -1))
+            self.log.emit(f"!! runner exception [{macro_error.__class__.__name__}]: {macro_error}")
             tb = traceback.format_exc()
             self.log.emit(tb)
-            self._logger.exception("Runner exception", exc_info=e)
-            self.errorOccurred.emit(str(e))
-            self._finish_run(False, reason="runner_exception")
+            self._logger.exception("Runner exception", exc_info=macro_error)
+            self.errorOccurred.emit(f"{macro_error.__class__.__name__}: {macro_error}")
+            self._write_structured_event(
+                "ERROR",
+                "run_exception",
+                exception_type=macro_error.__class__.__name__,
+                step_index=int(getattr(self, "current_step_index", -1)),
+                error=str(macro_error),
+            )
+            self._finish_run(False, reason=macro_error.__class__.__name__)
         finally:
+            self._set_engine_state("IDLE")
+            self._paused = False
+            self._pause_event.set()
+            try:
+                self._release_runtime_controls()
+            except Exception:
+                pass
             try:
                 self._structured_logger.close()
             except Exception:
@@ -737,16 +859,19 @@ class MacroRunner(QThread):
             self.msleep(int(s.pre_delay_ms))
 
         steps_consumed = 0
+        self._validate_step_resources(s)
 
         handler = self._step_handlers.get(s.type)
         if handler:
             # Normalize signatures if needed, but for now we used lambdas in __init__ to adapt them
             # Some handlers take (sct, mon, s, idx), others take less.
             # The lambdas in _step_handlers ensure they all accept (sct, mon, s, idx) and return (ok, goto_id, steps_consumed)
-            return handler(sct, mon, s, idx)
+            try:
+                return handler(sct, mon, s, idx)
+            except Exception as e:
+                raise self._to_macro_error(e, step=s, idx=idx) from e
         
-        self.log.emit(f"  !! unknown step type: {s.type}")
-        return (False, None, steps_consumed)
+        raise ActionError(f"unknown step type: {s.type}")
 
     def msleep(self, ms):
         if ms <= 0: return
