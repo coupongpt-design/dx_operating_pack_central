@@ -18,8 +18,11 @@ Commit message tests block: include targeted PASS/FAIL and full-suite exact pyte
 Commit message detail block: include Summary + Changes + Tests + Risks/Follow-up (or none)
 Hook install: run python tools/install_git_hooks.py; keep core.hooksPath=.githooks
 Hook enforcement: commit-msg requires commit sections/tests lines and gate-summary match; pre-commit blocks constitutional delete/rename/copy, backups/ changes, mixed constitutional+nonconstitutional staging, staged artifacts (__pycache__, *.pyc, logs/run_events_*.jsonl), and missing/stale post-task gate proof
-Post-task gate proof: run python tools/post_task_gate.py --targeted "<targeted pytest command>" before commit; proof must match current HEAD + staged hash; on risk trigger full pytest PASS is mandatory
-Push gate: pre-push runs rule guard tests (docs sync + steps mutation + hook guard)
+Hook cleanup exception: artifact cleanup commit may delete tracked artifact paths
+Post-task gate proof: run python tools/post_task_gate.py --targeted auto (or explicit command) before commit; proof must match current HEAD + staged hash; on high-risk paths (thread/signal/runner/StepData/serialization/BaseCommand/UndoStack) full pytest PASS is mandatory
+Standard finish command: prefer python tools/task_finish.py --subject "<commit subject>" to run gate + template generation
+Scope limit guard: pre-commit blocks oversized staged scope and forces atomic split commits
+Push gate: pre-push runs rule guard tests (docs sync + steps mutation + hook guard + selector/task_finish/post_task/ci-governance)
 CI governance gate: server-side run tools/ci_governance_guard.py to validate commit messages and file policy across commit range
 Waste budget: max 4 rg queries/task; max 2 file opens; if exceeded stop with top2 hypotheses + 1 missing info + next minimal query
 No duplicate queries: no repeated keyword+file search; plan queries once; refine only with new evidence
@@ -218,18 +221,25 @@ Sync policy: AGENTS.md canonical; .cursorrules mirrors this block only; directio
    - `commit-msg` rejects tests lines that do not match `.git/post_task_gate.json` summaries.
    - `pre-commit` rejects constitutional file delete/rename/copy.
    - `pre-commit` rejects staged runtime artifacts (`__pycache__/`, `*.pyc`, `logs/run_events_*.jsonl`).
+   - Exception: artifact cleanup commit may stage deletions of those artifact paths.
    - `pre-commit` rejects any staged change under `backups/`.
    - `pre-commit` rejects mixed change sets where constitutional files are staged with non-constitutional files.
    - `pre-commit` requires fresh post-task gate proof file (`.git/post_task_gate.json`) matching current `HEAD` and staged hash.
 10. Post-task gate proof:
    - Before commit, run:
-     - `python tools/post_task_gate.py --targeted "<targeted pytest command>"`
+     - `python tools/post_task_gate.py --targeted auto`
+     - or `python tools/post_task_gate.py --targeted "<targeted pytest command>"`
    - Gate script writes `.git/post_task_gate.json`.
    - If risk trigger is active, gate script must run full `python -m pytest -q` and mark PASS.
-11. Push gate:
+11. Standardized finish command:
+   - Preferred: `python tools/task_finish.py --subject "<commit subject>"`
+   - Script flow: auto targeted selection -> risk-based full suite -> gate proof -> commit template generation.
+12. Scope limit guard:
+   - `pre-commit` blocks over-wide staged scope (files/lines threshold) and requires atomic split commits.
+13. Push gate:
    - `pre-push` runs:
-     - `python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py tests/test_git_hook_guards.py`
-12. CI governance gate (server-side, `--no-verify` backstop):
+     - `python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py tests/test_git_hook_guards.py tests/test_test_selector.py tests/test_task_finish.py tests/test_post_task_gate.py tests/test_ci_governance_guard.py`
+14. CI governance gate (server-side, `--no-verify` backstop):
    - CI must run `python tools/ci_governance_guard.py`.
    - CI validates commit-message schema and commit-level file policy in pushed/PR commit range.
 
