@@ -5,6 +5,23 @@
 - 작업 종료는 `python tools/task_finish.py --subject "..." --scope ...` 경로를 표준으로 사용
 - 게이트 통과 후 운영 감사 권장: `python tools/project_audit.py`
 
+## Session 103 - Governance Master Asset Map / Audit 확장
+- Date: 2026-02-26
+- Summary:
+  - `ASSET_MAP.md`를 6대 자산 영역(Product, Rule Guard, DX Tools, Verification, Resources, Infrastructure) 기준으로 재정리.
+  - `tools/project_audit.py`를 전수 감사 포맷으로 확장:
+    - Verification Health(테스트 파일 수 + Gate 상태)
+    - Asset Integrity Matrix(6대 영역)
+    - Gate Freshness(TTL 30m)
+    - Resource Snapshot(images/logs)
+    - Docs Sync Health + Maintenance Guide
+  - `tools/task_finish.py`에 문서 3종 mtime drift(5분) 경고 로직 추가.
+  - `tools/task_finish.py` 성공 시 감사 안내 문구를 한국어 고정 문구로 통일.
+- Validation:
+  - `python -m pytest -q tests/test_project_audit.py tests/test_task_finish.py` -> `12 passed in 0.12s`
+  - `python -m pytest -q` -> `534 passed, 1 skipped in 41.89s`
+  - `python tools/project_audit.py` -> `project_audit_latest.md` 생성 확인
+
 ## [2026-02-23] 세션 40
 - **목표**: Multi-Agent 운영 체계에 Guardian Hard Gate/롤백/세션 아티팩트 저장을 반영하고 모드 트리거를 AGENTS 규칙과 동기화.
 - **변경사항**:

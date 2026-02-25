@@ -1,6 +1,10 @@
 # 프로젝트 상태
 
 ## 최근 업데이트
+- 거버넌스 전수(6대 영역) 확장:
+  - `ASSET_MAP.md`를 Product/Rule Guard/DX Tools/Verification/Resources/Infrastructure 기준으로 재정리.
+  - `tools/project_audit.py`가 테스트 자산 수량/리소스 스냅샷/자산 매트릭스를 포함한 전수 감사 리포트를 생성하도록 확장.
+  - `tools/task_finish.py`에 문서 3종 mtime 드리프트(5분) 경고를 추가하고, 종료 안내 문구를 감사 실행 가이드(한국어)로 통일.
 - 거버넌스 자동화/자산 관리 체계 고도화:
   - 루트 `ASSET_MAP.md` 신설(코드/규칙/도구/문서/CI 자산 지도).
   - `tools/project_audit.py` 신설:
@@ -326,7 +330,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `532 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `534 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 

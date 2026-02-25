@@ -4,10 +4,10 @@ import argparse
 import json
 import os
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable
 
 
 DEFAULT_REPORT_PATH = Path("project_audit_latest.md")
@@ -20,6 +20,7 @@ DOC_SYNC_FILES = (
     "DOC_INDEX.md",
     "ASSET_MAP.md",
 )
+TEST_GLOB_PATTERNS = ("tests/test_*.py", "test_*.py")
 
 
 ASSET_GROUPS: dict[str, list[str]] = {
@@ -32,6 +33,7 @@ ASSET_GROUPS: dict[str, list[str]] = {
     "Rule Guard": [
         "AGENTS.md",
         ".cursorrules",
+        "tools/git_hook_guards.py",
         "tests/test_rule_docs_sync.py",
         "tests/test_rule_guard_steps_mutation.py",
         ".githooks/pre-commit",
@@ -45,15 +47,25 @@ ASSET_GROUPS: dict[str, list[str]] = {
         "tools/post_task_gate.py",
         "tools/project_audit.py",
     ],
-    "Docs": [
+    "Verification": [
+        "tests",
+        "pytest.ini",
+        "test_core_logic.py",
+    ],
+    "Resources": [
+        "images",
+        "logs",
+        "app/core/scenario_wizard_templates.json",
+        "app/core/scenario_wizard_user_templates.json",
+        "app/utils/runtime_paths.py",
+    ],
+    "Infrastructure": [
         "ASSET_MAP.md",
         "now_spec.md",
         "PROJECT_STATUS.md",
         "DEV_LOG.md",
         "DOC_INDEX.md",
         "USER_GUIDE.md",
-    ],
-    "CI": [
         ".github/workflows/ci.yml",
     ],
 }
@@ -135,32 +147,68 @@ def _format_gate_status() -> tuple[str, bool]:
     )
 
 
+def _count_test_files() -> int:
+    files: set[Path] = set()
+    for pattern in TEST_GLOB_PATTERNS:
+        files.update(Path(".").glob(pattern))
+    return len(files)
+
+
+def _resource_snapshot() -> list[str]:
+    images_dir = Path("images")
+    logs_dir = Path("logs")
+    image_count = 0
+    if images_dir.exists():
+        for pattern in ("*.png", "*.jpg", "*.jpeg", "*.bmp", "*.webp"):
+            image_count += len(list(images_dir.glob(pattern)))
+    log_jsonl_count = len(list(logs_dir.glob("*.jsonl"))) if logs_dir.exists() else 0
+    return [
+        f"- images 파일 수(대표 확장자): {image_count}",
+        f"- logs/*.jsonl 파일 수: {log_jsonl_count}",
+    ]
+
+
 def run_audit(report_path: Path) -> int:
     checks = list(_iter_asset_checks())
     missing_assets = [c for c in checks if not c.exists]
     gate_block, gate_fresh = _format_gate_status()
     docs_table, missing_docs, docs_out_of_sync = _format_docs_mtime_table()
+    test_file_count = _count_test_files()
+    gate_exists = _resolve_gate_file() is not None
+    resource_lines = _resource_snapshot()
 
     lines: list[str] = []
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    lines.append(f"# 🔍 Project Audit Report ({now})")
+    lines.append(f"# 🔍 Project Governance Audit Report ({now})")
     lines.append("")
-    lines.append("## 1) Asset Integrity")
+    lines.append("## 1) Verification Health")
+    lines.append(f"- 총 테스트 파일 수: {test_file_count}개")
+    lines.append(f"- Gate 상태: {'PASS' if gate_exists else 'MISSING'}")
+    lines.append("")
+    lines.append("## 2) Asset Integrity Matrix")
     lines.append("| Group | Path | Status |")
     lines.append("| :--- | :--- | :--- |")
     for check in checks:
         status = "✅" if check.exists else "❌"
         lines.append(f"| {check.group} | `{check.path}` | {status} |")
     lines.append("")
-    lines.append("## 2) Gate Freshness")
+    lines.append("## 3) Gate Freshness")
     lines.append(gate_block)
     lines.append("")
-    lines.append("## 3) Docs Sync Health")
+    lines.append("## 4) Resource Snapshot")
+    lines.extend(resource_lines)
+    lines.append("")
+    lines.append("## 5) Docs Sync Health")
     lines.append("| Path | Exists | Last Modified |")
     lines.append("| :--- | :--- | :--- |")
     lines.append(docs_table)
     lines.append("")
-    lines.append("## 4) Maintenance Checklist")
+    lines.append("## 6) Maintenance Guide")
+    lines.append("- [ ] `task_finish.py`를 통한 문서 동기화 여부 확인")
+    lines.append("- [ ] 30분 초과 stale gate 재실행 여부 점검")
+    lines.append("- [ ] 누락 자산 발생 시 ASSET_MAP와 실제 경로 동시 갱신")
+    lines.append("")
+    lines.append("## 7) Maintenance Checklist")
     lines.append(f"- [{'x' if gate_fresh else ' '}] Gate TTL(30m) fresh")
     lines.append(f"- [{' ' if docs_out_of_sync else 'x'}] Doc mtimes reasonably aligned (<=1h gap)")
     lines.append(f"- [{' ' if missing_assets else 'x'}] Required assets present")

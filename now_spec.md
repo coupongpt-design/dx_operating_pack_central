@@ -228,7 +228,7 @@
 - 스모크 실행 진입점:
   - `python run_smoke_suite.py --quick` (핵심 런타임/매칭 게이트)
   - `python run_smoke_suite.py` (핵심 게이트 + 전체 health check)
-- 최신 로컬 기준: `python -m pytest -q` = `532 passed, 1 skipped`.
+- 최신 로컬 기준: `python -m pytest -q` = `534 passed, 1 skipped`.
 
 ### Smart Recorder Raw Event Core (Stage 3-3 PR-3-3-1)
 - `InputRecorder`는 스텝 생성 경로와 별개로 Raw Event 스트림을 제공:
@@ -528,3 +528,15 @@
   - Recovery actions:
     - release runtime controls (mouse/key up)
     - non-dry-run only: ESC press + mouse move to home `(10,10)`
+
+## Governance Master Audit (Ultimate Executor 반영)
+- `ASSET_MAP.md`는 6대 영역( Product / Rule Guard / DX Tools / Verification / Resources / Infrastructure ) 기준의 마스터 자산 지도로 운영.
+- `tools/project_audit.py`는 아래 항목을 한 번에 점검:
+  - Verification Health(테스트 파일 수, gate 존재 상태)
+  - Asset Integrity Matrix(6대 영역별 경로 존재 여부)
+  - Gate Freshness(TTL 30분)
+  - Resource Snapshot(images/logs 개수)
+  - Docs Sync Health + Maintenance Guide
+- `tools/task_finish.py`는 문서 3종(`PROJECT_STATUS.md`, `now_spec.md`, `DEV_LOG.md`) 수정시간 격차가 5분을 초과하면 경고를 출력.
+- `tools/task_finish.py` 성공 메시지에는 감사 실행 안내가 고정됨:
+  - `현재 프로젝트 자산 상태를 확인하려면 python tools/project_audit.py를 실행하세요`

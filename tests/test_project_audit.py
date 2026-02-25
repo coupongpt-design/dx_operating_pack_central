@@ -31,7 +31,8 @@ def test_run_audit_writes_report_when_assets_exist(tmp_path, monkeypatch) -> Non
     assert rc == 0
     assert report_path.exists()
     text = report_path.read_text(encoding="utf-8")
-    assert "Asset Integrity" in text
+    assert "Verification Health" in text
+    assert "Asset Integrity Matrix" in text
     assert "Gate Freshness" in text
 
 

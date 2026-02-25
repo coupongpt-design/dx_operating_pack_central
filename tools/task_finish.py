@@ -25,6 +25,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution fallba
 TEMPLATE_PATH = Path(".git") / "TASK_COMMIT_TEMPLATE.md"
 ALLOWED_SCOPES = ("feature", "rule", "cleanup", "docs", "test")
 DOC_SYNC_FILES = ("PROJECT_STATUS.md", "now_spec.md", "DEV_LOG.md")
+DOC_MTIME_WARN_SEC = 5 * 60
 
 
 def _git(*args: str) -> str:
@@ -84,6 +85,28 @@ def _confirm_doc_sync(
         f"(missing={missing})"
     )
     return False
+
+
+def _doc_mtime_gap_seconds(paths: Sequence[str] = DOC_SYNC_FILES) -> float:
+    mtimes: list[float] = []
+    for rel in paths:
+        path = Path(rel)
+        if path.exists():
+            mtimes.append(path.stat().st_mtime)
+    if len(mtimes) < 2:
+        return 0.0
+    return max(mtimes) - min(mtimes)
+
+
+def _warn_doc_mtime_drift(threshold_sec: int = DOC_MTIME_WARN_SEC) -> None:
+    gap = _doc_mtime_gap_seconds()
+    if gap <= threshold_sec:
+        return
+    print(
+        "doc-sync warning: docs modified-time drift detected "
+        f"(gap={int(gap)}s, threshold={threshold_sec}s). "
+        "check PROJECT_STATUS.md / now_spec.md / DEV_LOG.md alignment."
+    )
 
 
 def recommend_scope() -> str:
@@ -208,6 +231,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     staged_paths = _staged_paths()
     if not _confirm_doc_sync(staged_paths, confirmed_flag=confirm_doc_sync):
         return 1
+    _warn_doc_mtime_drift()
 
     rc = run_gate(targeted_cmd)
     if rc != 0:
@@ -220,7 +244,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     TEMPLATE_PATH.write_text(template, encoding="utf-8")
     print(f"commit template written: {TEMPLATE_PATH}")
     print(f"scope suggestion: {suggested_scope} (allowed: {'|'.join(ALLOWED_SCOPES)})")
-    print("audit hint: run python tools/project_audit.py (after successful gate/template generation)")
+    print("현재 프로젝트 자산 상태를 확인하려면 `python tools/project_audit.py`를 실행하세요")
     if run_audit:
         audit_rc = subprocess.call([sys.executable, "tools/project_audit.py"])
         if audit_rc != 0:

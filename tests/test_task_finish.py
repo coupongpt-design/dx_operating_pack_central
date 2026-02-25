@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import os
+import time
+
 from tools.task_finish import build_template_text
 from tools.task_finish import _confirm_doc_sync
+from tools.task_finish import _doc_mtime_gap_seconds
 from tools.task_finish import _needs_doc_sync_confirmation
 from tools.task_finish import parse_args
 
@@ -78,3 +82,20 @@ def test_confirm_doc_sync_passes_with_explicit_flag() -> None:
 
 def test_confirm_doc_sync_blocks_partial_without_flag() -> None:
     assert _confirm_doc_sync(["PROJECT_STATUS.md"], confirmed_flag=False) is False
+
+
+def test_doc_mtime_gap_seconds_returns_zero_without_docs(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert _doc_mtime_gap_seconds() == 0.0
+
+
+def test_doc_mtime_gap_seconds_detects_drift(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    now = time.time()
+    paths = ["PROJECT_STATUS.md", "now_spec.md", "DEV_LOG.md"]
+    for name in paths:
+        (tmp_path / name).write_text("x", encoding="utf-8")
+    os.utime(tmp_path / "PROJECT_STATUS.md", (now - 420, now - 420))
+    os.utime(tmp_path / "now_spec.md", (now - 60, now - 60))
+    os.utime(tmp_path / "DEV_LOG.md", (now, now))
+    assert _doc_mtime_gap_seconds() >= 420 - 1
