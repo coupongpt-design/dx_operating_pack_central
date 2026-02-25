@@ -25,6 +25,16 @@
   - `commit-msg`: Summary/Changes/Tests/Risks 및 테스트 라인 누락 커밋 차단
   - `pre-commit`: constitutional 파일 delete/rename/copy 및 산출물 스테이징 차단
   - 설치 스크립트: `python tools/install_git_hooks.py` (`core.hooksPath=.githooks`)
+- Git 거버넌스 하드게이트 2차 강화(Session 93):
+  - `pre-commit`:
+    - `backups/` 변경 스테이징 차단
+    - constitutional + non-constitutional 혼합 커밋 차단
+    - `.git/post_task_gate.json` 증적(HEAD/staged-hash 일치) 없으면 커밋 차단
+  - `tools/post_task_gate.py`:
+    - targeted 테스트 실행 + 리스크 트리거 시 full `pytest -q` 자동 실행
+    - 결과를 증적 파일로 저장
+  - `pre-push`:
+    - `tests/test_rule_docs_sync.py`, `tests/test_rule_guard_steps_mutation.py`, `tests/test_git_hook_guards.py` 자동 실행
 - Smart Recorder 변환 엔진(Stage 3-3 PR-3-3-2):
   - `app/core/smart_recorder.py`의 `SmartTransformer`가 Raw Event를 분석해 `type_text`/`key_press`를 분리 생성.
   - 텍스트 병합 규칙:

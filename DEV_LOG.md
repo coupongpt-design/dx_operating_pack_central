@@ -1798,3 +1798,17 @@
 - Updated governance docs:
   - `AGENTS.md` + `.cursorrules` with mandatory hook install/enforcement lines.
   - `.gitignore` includes `logs/run_events_*.jsonl`.
+
+## Session 93 - Governance Escalation (Hard Enforcement Upgrade)
+- Strengthened hook governance from advisory to enforced gate:
+  - `pre-commit` now blocks:
+    - any staged change under `backups/`
+    - mixed constitutional + non-constitutional staging
+    - commit without fresh `.git/post_task_gate.json` proof (HEAD/staged-hash match required)
+  - `post-task gate` script added:
+    - `python tools/post_task_gate.py --targeted "<targeted pytest command>"`
+    - auto-runs full suite when risk trigger is active
+    - writes proof record consumed by `pre-commit`
+  - `pre-push` added:
+    - runs rule guard tests (`docs sync`, `steps mutation`, `hook guards`)
+- Added unit tests for new guard logic in `tests/test_git_hook_guards.py`.

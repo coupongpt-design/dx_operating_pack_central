@@ -1,0 +1,2 @@
+#!/bin/sh
+python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py tests/test_git_hook_guards.py

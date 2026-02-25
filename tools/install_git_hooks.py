@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-REQUIRED_HOOKS = ("commit-msg", "pre-commit")
+REQUIRED_HOOKS = ("commit-msg", "pre-commit", "pre-push")
 
 
 def _git(*args: str) -> str:

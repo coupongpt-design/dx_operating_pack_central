@@ -401,3 +401,23 @@
   - `__pycache__/`
   - `*.pyc`
   - `logs/run_events_*.jsonl`
+
+## Git Governance Hard Gate V2 (Session 93)
+- `pre-commit` additional enforcement:
+  - block staged changes under `backups/`
+  - block mixed staging of constitutional + non-constitutional files
+  - require `.git/post_task_gate.json` proof file with:
+    - current `HEAD` match
+    - current staged hash match
+    - targeted PASS
+    - full-suite PASS when risk trigger active
+- `post-task gate` tool:
+  - command: `python tools/post_task_gate.py --targeted "<targeted pytest command>"`
+  - computes staged hash from `git diff --cached --name-status`
+  - detects risk trigger (`files>=5` or `stepdata/serialization/runner/signal`)
+  - runs full `python -m pytest -q` automatically if risk
+- `pre-push` gate:
+  - runs rule guard tests:
+    - `tests/test_rule_docs_sync.py`
+    - `tests/test_rule_guard_steps_mutation.py`
+    - `tests/test_git_hook_guards.py`

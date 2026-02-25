@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import time
+
+from tools.git_hook_guards import compute_staged_hash
 from tools.git_hook_guards import parse_name_status
 from tools.git_hook_guards import validate_commit_message
+from tools.git_hook_guards import validate_gate_record
 from tools.git_hook_guards import validate_staged_entries
 
 
@@ -63,3 +67,60 @@ def test_validate_staged_entries_blocks_runtime_log_artifact() -> None:
 def test_validate_staged_entries_allows_normal_code_change() -> None:
     entries = parse_name_status("M\tapp/main.py\nA\ttests/test_new_feature.py\n")
     assert validate_staged_entries(entries) == []
+
+
+def test_validate_staged_entries_blocks_backups_path() -> None:
+    entries = parse_name_status("M\tbackups/snapshot.py\n")
+    errors = validate_staged_entries(entries)
+    assert any("blocked protected path change" in err for err in errors)
+
+
+def test_validate_staged_entries_blocks_constitutional_mixed_changes() -> None:
+    entries = parse_name_status("M\tAGENTS.md\nM\tapp/main.py\n")
+    errors = validate_staged_entries(entries)
+    assert any("must be isolated" in err for err in errors)
+
+
+def test_validate_gate_record_accepts_valid_record() -> None:
+    entries = parse_name_status("M\tapp/main.py\n")
+    staged_hash = compute_staged_hash(entries)
+    now = time.time()
+    record = {
+        "created_at": now,
+        "head": "abc123",
+        "staged_hash": staged_hash,
+        "targeted_pass": True,
+        "risk": True,
+        "full_suite_pass": True,
+    }
+    errors = validate_gate_record(
+        record,
+        current_head="abc123",
+        current_staged_hash=staged_hash,
+        now_ts=now + 1,
+    )
+    assert errors == []
+
+
+def test_validate_gate_record_rejects_mismatch_and_missing_full_suite() -> None:
+    entries = parse_name_status("M\tapp/main.py\n")
+    staged_hash = compute_staged_hash(entries)
+    now = time.time()
+    record = {
+        "created_at": now - (4 * 60 * 60),
+        "head": "old",
+        "staged_hash": "other",
+        "targeted_pass": True,
+        "risk": True,
+        "full_suite_pass": False,
+    }
+    errors = validate_gate_record(
+        record,
+        current_head="new",
+        current_staged_hash=staged_hash,
+        now_ts=now,
+    )
+    assert any("head mismatch" in err for err in errors)
+    assert any("staged hash mismatch" in err for err in errors)
+    assert any("full suite PASS missing" in err for err in errors)
+    assert any("stale" in err for err in errors)

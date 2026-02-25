@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 REQUIRED_COMMIT_HEADERS = (
     "Summary:",
@@ -25,6 +29,20 @@ BLOCKED_STAGE_PATTERNS = (
     re.compile(r"\.pyc$"),
     re.compile(r"^logs/run_events_.*\.jsonl$"),
 )
+
+RISKY_PATH_PATTERNS = (
+    re.compile(r"stepdata", re.IGNORECASE),
+    re.compile(r"serialization", re.IGNORECASE),
+    re.compile(r"runner", re.IGNORECASE),
+    re.compile(r"signal", re.IGNORECASE),
+)
+
+BLOCKED_USER_PATH_PATTERNS = (
+    re.compile(r"(^|/)backups/"),
+)
+
+GATE_FILE = Path(".git") / "post_task_gate.json"
+GATE_MAX_AGE_SEC = 3 * 60 * 60
 
 
 @dataclass(frozen=True)
@@ -67,23 +85,98 @@ def parse_name_status(text: str) -> list[StagedEntry]:
     return entries
 
 
+def compute_staged_hash(entries: list[StagedEntry]) -> str:
+    canon = "\n".join(f"{e.status}\t" + "\t".join(e.paths) for e in entries)
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()
+
+
+def is_risk_triggered(entries: list[StagedEntry]) -> bool:
+    file_set = {path for entry in entries for path in entry.paths}
+    if len(file_set) >= 5:
+        return True
+    for path in file_set:
+        if any(pattern.search(path) for pattern in RISKY_PATH_PATTERNS):
+            return True
+    return False
+
+
+def _is_constitutional(path: str) -> bool:
+    return path in CONSTITUTIONAL_FILES
+
+
 def validate_staged_entries(entries: list[StagedEntry]) -> list[str]:
     errors: list[str] = []
+    has_constitutional = False
+    has_non_constitutional = False
+
     for entry in entries:
         code = entry.status[:1]
         for path in entry.paths:
-            if path in CONSTITUTIONAL_FILES and code in {"D", "R", "C"}:
+            if _is_constitutional(path):
+                has_constitutional = True
+            else:
+                has_non_constitutional = True
+
+            if _is_constitutional(path) and code in {"D", "R", "C"}:
                 errors.append(
                     f"constitutional file may not be {entry.status}: {path} "
                     "(edit-in-place only)"
                 )
             if any(pattern.search(path) for pattern in BLOCKED_STAGE_PATTERNS):
                 errors.append(f"blocked staged artifact path: {path}")
+            if any(pattern.search(path) for pattern in BLOCKED_USER_PATH_PATTERNS):
+                errors.append(f"blocked protected path change: {path}")
+
+    if has_constitutional and has_non_constitutional:
+        errors.append(
+            "constitutional file changes must be isolated (no mixing with feature/runtime files)"
+        )
+    return errors
+
+
+def validate_gate_record(
+    record: dict[str, Any],
+    *,
+    current_head: str,
+    current_staged_hash: str,
+    now_ts: float | None = None,
+) -> list[str]:
+    errors: list[str] = []
+    now = now_ts if now_ts is not None else time.time()
+
+    head = str(record.get("head", ""))
+    staged_hash = str(record.get("staged_hash", ""))
+    created_at = float(record.get("created_at", 0.0))
+    targeted_pass = bool(record.get("targeted_pass", False))
+    risk = bool(record.get("risk", False))
+    full_suite_pass = bool(record.get("full_suite_pass", False))
+
+    if head != current_head:
+        errors.append("post-task gate head mismatch; rerun gate script")
+    if staged_hash != current_staged_hash:
+        errors.append("post-task gate staged hash mismatch; rerun gate script")
+    if not targeted_pass:
+        errors.append("post-task gate targeted tests not marked PASS")
+    if risk and not full_suite_pass:
+        errors.append("risk trigger active but full suite PASS missing in post-task gate")
+    if created_at <= 0:
+        errors.append("post-task gate timestamp missing/invalid")
+    elif now - created_at > GATE_MAX_AGE_SEC:
+        errors.append("post-task gate is stale; rerun gate script")
     return errors
 
 
 def _git(*args: str) -> str:
     return subprocess.check_output(["git", *args], text=True, encoding="utf-8", errors="replace")
+
+
+def _load_gate_record() -> dict[str, Any] | None:
+    if not GATE_FILE.exists():
+        return None
+    try:
+        return json.loads(GATE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return None
 
 
 def run_commit_msg_guard(msg_file: str) -> int:
@@ -101,6 +194,27 @@ def run_pre_commit_guard() -> int:
     staged_text = _git("diff", "--cached", "--name-status")
     entries = parse_name_status(staged_text)
     errors = validate_staged_entries(entries)
+
+    if not entries:
+        errors.append("no staged changes detected")
+
+    gate_record = _load_gate_record()
+    if gate_record is None:
+        errors.append(
+            "post-task gate record missing: run "
+            "'python tools/post_task_gate.py --targeted \"<targeted pytest command>\"'"
+        )
+    else:
+        current_head = _git("rev-parse", "HEAD").strip()
+        current_staged_hash = compute_staged_hash(entries)
+        errors.extend(
+            validate_gate_record(
+                gate_record,
+                current_head=current_head,
+                current_staged_hash=current_staged_hash,
+            )
+        )
+
     if not errors:
         return 0
     print("[pre-commit] rejected:")
