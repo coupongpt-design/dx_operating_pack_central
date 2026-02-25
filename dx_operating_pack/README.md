@@ -20,6 +20,10 @@
 8. `python tools/generate_context_snapshot.py` 실행해 AI 컨텍스트 스냅샷 생성
 9. `python tools/check_ai_security.py` 실행해 시크릿 누수 점검
 
+## 부트스트랩(원라인)
+- `curl -fsSL <RAW_SETUP_DX_URL> -o setup_dx.py && python setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite`
+- `wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite`
+
 ## 핵심 명령
 - 시작 전 인덱스 점검: `python tools/task_start_guard.py`
 - 작업 종료 표준: `python tools/task_finish.py --subject "<msg>" --scope <feature|rule|cleanup|docs|test>`
@@ -38,6 +42,7 @@
 - 운영 시스템(규칙/가드/게이트/CI/멀티 에이전트)
 - 재사용 코어 샘플(`reusable/core`, `reusable/ui`)
 - AI 전용 문서/프롬프트/요약 도구
+- 온보딩 가이드(`AGENT_ONBOARDING.md`)
 - 생성 리포트(`docs_for_ai/CONTEXT_SNAPSHOT.md`, `DEPENDENCY_GRAPH.md`, `TOKEN_USAGE_REPORT.md`)
 - AI 지침형 매니페스트(`MANIFEST_AI.yaml`)
 
