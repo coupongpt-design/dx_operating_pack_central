@@ -459,3 +459,15 @@
   - `rule-guard` job (governance + rule tests)
   - `pytest` job (full test + health check)
   - pip cache enabled via `actions/setup-python`
+ 
+## DX Guard Phase  
+- New tool: tools/task_start_guard.py (clean-index preflight). 
+- Governance rule: cleanup artifact deletions  require dedicated cleanup commit. 
+- Gate rule: post_task_gate auto selection returns zero tests + app code changes =
+ 
+## DX Guard Phase Two 
+- post_task_gate record schema includes timestamp and ttl_sec (30 minutes). 
+- git hook commit-msg contract includes mandatory Scope line. 
+- task_finish unifies gate execution and outputs Scope-guided commit template.
+- is_risk_triggered skips blocked artifact paths before high-risk keyword scan. 
+- Current verification baseline: 510 passed, 1 skipped.

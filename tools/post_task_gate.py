@@ -23,10 +23,21 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution fallba
     from test_selector import select_tests
 
 GATE_FILE = Path(".git") / "post_task_gate.json"
+GATE_TTL_SEC = 30 * 60
 
 
 def _git(*args: str) -> str:
     return subprocess.check_output(["git", *args], text=True, encoding="utf-8", errors="replace")
+
+
+def _has_app_code_changes(entries: Sequence[object]) -> bool:
+    for entry in entries:
+        paths = getattr(entry, "paths", ())
+        for path in paths:
+            norm = str(path).replace("\\", "/")
+            if norm.startswith("app/") and norm.endswith(".py"):
+                return True
+    return False
 
 
 def _run_shell(command: str) -> tuple[int, str]:
@@ -67,7 +78,13 @@ def run_gate(targeted_cmd: str) -> int:
         staged_paths = [p for e in entries for p in e.paths]
         selected_tests = filter_existing_tests(select_tests(staged_paths))
         if not selected_tests:
-            print("post-task gate: auto targeted selection returned no tests")
+            if _has_app_code_changes(entries):
+                print(
+                    "post-task gate: app code changes detected but auto targeted "
+                    "selection returned no tests"
+                )
+            else:
+                print("post-task gate: auto targeted selection returned no tests")
             return 1
         effective_targeted_cmd = build_pytest_command(selected_tests)
 
@@ -86,8 +103,11 @@ def run_gate(targeted_cmd: str) -> int:
         full_summary = _extract_pytest_summary(full_output)
         full_suite_pass = full_rc == 0
 
+    gate_ts = time.time()
     record = {
-        "created_at": time.time(),
+        "timestamp": gate_ts,
+        "created_at": gate_ts,
+        "ttl_sec": GATE_TTL_SEC,
         "head": head,
         "staged_hash": staged_hash,
         "risk": risk,
@@ -104,6 +124,7 @@ def run_gate(targeted_cmd: str) -> int:
     GATE_FILE.write_text(json.dumps(record, ensure_ascii=True, indent=2), encoding="utf-8")
 
     print(f"post-task gate written: {GATE_FILE}")
+    print(f"gate ttl: {GATE_TTL_SEC // 60} minutes")
     print(f"targeted: {'PASS' if targeted_pass else 'FAIL'} | {targeted_summary}")
     if selected_tests:
         print(f"targeted auto tests: {', '.join(selected_tests)}")

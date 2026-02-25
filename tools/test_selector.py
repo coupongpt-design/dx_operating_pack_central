@@ -23,6 +23,13 @@ MAPPINGS: list[tuple[re.Pattern[str], list[str]]] = [
         ["tests/test_test_selector.py"],
     ),
     (
+        re.compile(r"^tools/task_start_guard\.py$"),
+        [
+            "tests/test_task_start_guard.py",
+            "tests/test_git_hook_guards.py",
+        ],
+    ),
+    (
         re.compile(r"^app/core/(data_orchestration|session_adapter|excel_io)\.py$"),
         [
             "tests/test_data_orchestration_v2.py",

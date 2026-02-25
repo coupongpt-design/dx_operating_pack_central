@@ -15,6 +15,7 @@ REQUIRED_COMMIT_HEADERS = (
     "Changes:",
     "Tests:",
     "Risks/Follow-up:",
+    "Scope:",
 )
 
 CONSTITUTIONAL_FILES = {
@@ -46,9 +47,11 @@ BLOCKED_USER_PATH_PATTERNS = (
 )
 
 GATE_FILE = Path(".git") / "post_task_gate.json"
-GATE_MAX_AGE_SEC = 3 * 60 * 60
+GATE_MAX_AGE_SEC = 30 * 60
 MAX_STAGE_FILES = 18
 MAX_STAGE_LINES = 1400
+CLEANUP_ATOMIC_THRESHOLD = 10
+ALLOWED_SCOPES = ("feature", "rule", "cleanup", "docs", "test")
 
 
 @dataclass(frozen=True)
@@ -74,6 +77,16 @@ def validate_commit_message(text: str) -> list[str]:
 
     if not re.search(r"(?mi)^\s*-\s*full suite:\s*\S+", normalized):
         errors.append("missing tests line: '- full suite: ...'")
+    scope_match = re.search(r"(?mi)^\s*Scope:\s*([a-z_]+)\s*$", normalized)
+    if not scope_match:
+        errors.append("missing scope line: 'Scope: feature|rule|cleanup|docs|test'")
+    else:
+        scope = scope_match.group(1).strip().lower()
+        if scope not in ALLOWED_SCOPES:
+            errors.append(
+                "invalid scope value: "
+                f"'{scope}' (allowed: {'|'.join(ALLOWED_SCOPES)})"
+            )
 
     return errors
 
@@ -111,6 +124,8 @@ def compute_staged_hash(entries: list[StagedEntry]) -> str:
 def is_risk_triggered(entries: list[StagedEntry]) -> bool:
     file_set = {path for entry in entries for path in entry.paths}
     for path in file_set:
+        if _is_blocked_artifact(path):
+            continue
         if any(pattern.search(path) for pattern in HIGH_RISK_PATH_PATTERNS):
             return True
     return False
@@ -175,6 +190,8 @@ def validate_staged_entries(entries: list[StagedEntry]) -> list[str]:
     errors: list[str] = []
     has_constitutional = False
     has_non_constitutional = False
+    cleanup_artifact_delete_count = 0
+    has_non_cleanup_change = False
 
     for entry in entries:
         code = entry.status[:1]
@@ -193,10 +210,20 @@ def validate_staged_entries(entries: list[StagedEntry]) -> list[str]:
                 errors.append(f"blocked staged artifact path: {path}")
             if any(pattern.search(path) for pattern in BLOCKED_USER_PATH_PATTERNS):
                 errors.append(f"blocked protected path change: {path}")
+            if _is_blocked_artifact(path) and code == "D":
+                cleanup_artifact_delete_count += 1
+            else:
+                has_non_cleanup_change = True
 
     if has_constitutional and has_non_constitutional:
         errors.append(
             "constitutional file changes must be isolated (no mixing with feature/runtime files)"
+        )
+    if cleanup_artifact_delete_count >= CLEANUP_ATOMIC_THRESHOLD and has_non_cleanup_change:
+        errors.append(
+            "cleanup artifact deletions >= "
+            f"{CLEANUP_ATOMIC_THRESHOLD} must be isolated in a dedicated "
+            "chore(cleanup) commit"
         )
     return errors
 
@@ -213,7 +240,11 @@ def validate_gate_record(
 
     head = str(record.get("head", ""))
     staged_hash = str(record.get("staged_hash", ""))
-    created_at = float(record.get("created_at", 0.0))
+    gate_ts_raw = record.get("timestamp", record.get("created_at", 0.0))
+    try:
+        gate_ts = float(gate_ts_raw)
+    except (TypeError, ValueError):
+        gate_ts = 0.0
     targeted_pass = bool(record.get("targeted_pass", False))
     risk = bool(record.get("risk", False))
     full_suite_pass = bool(record.get("full_suite_pass", False))
@@ -226,9 +257,9 @@ def validate_gate_record(
         errors.append("post-task gate targeted tests not marked PASS")
     if risk and not full_suite_pass:
         errors.append("risk trigger active but full suite PASS missing in post-task gate")
-    if created_at <= 0:
+    if gate_ts <= 0:
         errors.append("post-task gate timestamp missing/invalid")
-    elif now - created_at > GATE_MAX_AGE_SEC:
+    elif now - gate_ts > GATE_MAX_AGE_SEC:
         errors.append("post-task gate is stale; rerun gate script")
     return errors
 

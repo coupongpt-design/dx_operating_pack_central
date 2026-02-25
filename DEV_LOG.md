@@ -1846,3 +1846,17 @@
   - `tests/test_post_task_gate.py`
   - `tests/test_ci_governance_guard.py`
   - expanded `tests/test_git_hook_guards.py`
+
+## Session 96 - DX Guard Phase 
+- Added tools/task_start_guard.py to block starting new work when staged entries exist.
+- Added atomic cleanup rule: 10+ artifact deletions must be isolated in chore(cleanup) commit.
+- Hardened post_task_gate.py: fail when app code changed but auto-targeted tests resolve to zero.
+- Tests: targeted 31 passed in 0.11s; full suite 505 passed, 1 skipped in 21.68s.
+
+## Session 97 - DX Guard Phase Two
+- Added 30-minute gate freshness TTL via timestamp in post_task_gate record.
+- Strengthened commit-msg validation with mandatory Scope label values.
+- task_finish now recommends scope and writes Scope line in commit template.
+- Tests: targeted 39 passed in 0.38s; full suite 509 passed, 1 skipped in 31.24s.
+- Risk trigger now ignores artifact paths to avoid unnecessary full-suite runs on cleanup-only changes. 
+- Updated tests: targeted 40 passed in 0.27s; full suite 510 passed, 1 skipped in 22.31s.

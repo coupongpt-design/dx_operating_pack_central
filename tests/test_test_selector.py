@@ -19,3 +19,9 @@ def test_select_tests_includes_changed_test_file_itself() -> None:
 def test_build_pytest_command() -> None:
     cmd = build_pytest_command(["tests/test_a.py", "tests/test_b.py"])
     assert cmd == "python -m pytest -q tests/test_a.py tests/test_b.py"
+
+
+def test_select_tests_for_task_start_guard() -> None:
+    tests = select_tests(["tools/task_start_guard.py"])
+    assert "tests/test_task_start_guard.py" in tests
+    assert "tests/test_git_hook_guards.py" in tests

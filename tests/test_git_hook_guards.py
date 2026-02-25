@@ -18,6 +18,8 @@ from tools.git_hook_guards import validate_staged_entries
 def test_validate_commit_message_accepts_required_sections() -> None:
     message = """feat: sample
 
+Scope: feature
+
 Summary:
 - short summary
 
@@ -37,6 +39,8 @@ Risks/Follow-up:
 def test_validate_commit_message_rejects_missing_targeted() -> None:
     message = """feat: sample
 
+Scope: feature
+
 Summary:
 - short summary
 Changes:
@@ -48,6 +52,28 @@ Risks/Follow-up:
 """
     errors = validate_commit_message(message)
     assert any("targeted" in err for err in errors)
+
+
+def test_validate_commit_message_rejects_invalid_scope() -> None:
+    message = """feat: sample
+
+Scope: unknown
+
+Summary:
+- short summary
+
+Changes:
+- file.py changed
+
+Tests:
+- targeted: PASS
+- full suite: not required (no risk trigger)
+
+Risks/Follow-up:
+- none
+"""
+    errors = validate_commit_message(message)
+    assert any("invalid scope value" in err for err in errors)
 
 
 def test_extract_tests_lines_returns_values() -> None:
@@ -97,6 +123,11 @@ def test_is_risk_triggered_only_on_high_risk_paths() -> None:
     assert is_risk_triggered(high) is True
 
 
+def test_is_risk_triggered_ignores_artifact_paths() -> None:
+    artifact_only = parse_name_status("D\ttests/__pycache__/test_signal_and_logic.cpython-313.pyc\n")
+    assert is_risk_triggered(artifact_only) is False
+
+
 def test_parse_numstat_and_scope_limits() -> None:
     files, changed = parse_numstat("10\t2\tapp/main.py\n3\t1\tapp/ui/widgets.py\n")
     assert files == 2
@@ -117,6 +148,21 @@ def test_is_artifact_cleanup_only_false_for_non_delete() -> None:
     assert is_artifact_cleanup_only(entries) is False
 
 
+def test_validate_staged_entries_blocks_large_cleanup_mixed_commit() -> None:
+    staged = "".join([f"D\tlogs/run_{i}.jsonl\n" for i in range(10)])
+    staged += "M\tapp/main.py\n"
+    entries = parse_name_status(staged)
+    errors = validate_staged_entries(entries)
+    assert any("chore(cleanup)" in err for err in errors)
+
+
+def test_validate_staged_entries_allows_large_cleanup_only_commit() -> None:
+    staged = "".join([f"D\tlogs/run_{i}.jsonl\n" for i in range(10)])
+    entries = parse_name_status(staged)
+    errors = validate_staged_entries(entries)
+    assert all("chore(cleanup)" not in err for err in errors)
+
+
 def test_validate_staged_entries_blocks_backups_path() -> None:
     entries = parse_name_status("M\tbackups/snapshot.py\n")
     errors = validate_staged_entries(entries)
@@ -134,7 +180,7 @@ def test_validate_gate_record_accepts_valid_record() -> None:
     staged_hash = compute_staged_hash(entries)
     now = time.time()
     record = {
-        "created_at": now,
+        "timestamp": now,
         "head": "abc123",
         "staged_hash": staged_hash,
         "targeted_pass": True,
@@ -171,6 +217,27 @@ def test_validate_gate_record_rejects_mismatch_and_missing_full_suite() -> None:
     assert any("head mismatch" in err for err in errors)
     assert any("staged hash mismatch" in err for err in errors)
     assert any("full suite PASS missing" in err for err in errors)
+    assert any("stale" in err for err in errors)
+
+
+def test_validate_gate_record_rejects_over_30min_old_timestamp() -> None:
+    entries = parse_name_status("M\tapp/main.py\n")
+    staged_hash = compute_staged_hash(entries)
+    now = time.time()
+    record = {
+        "timestamp": now - (31 * 60),
+        "head": "abc123",
+        "staged_hash": staged_hash,
+        "targeted_pass": True,
+        "risk": False,
+        "full_suite_pass": True,
+    }
+    errors = validate_gate_record(
+        record,
+        current_head="abc123",
+        current_staged_hash=staged_hash,
+        now_ts=now,
+    )
     assert any("stale" in err for err in errors)
 
 
