@@ -304,7 +304,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `522 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `524 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 
@@ -332,4 +332,4 @@
 - CI workflow retains split rule-guard/pytest jobs and adds actions/cache-based pip cache reuse.
 - Pre-commit now emits scope-size warnings at 7 files / 500 changed lines (warning-level guidance).
 - task_finish runs preflight checks (git, python, pytest, memory) before gate execution.
-- Baseline verification: 522 passed, 1 skipped.
+- Baseline verification: 524 passed, 1 skipped.

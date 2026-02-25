@@ -1915,3 +1915,4 @@
     - 동적 `compare_images` 경로 precheck 스킵 테스트 추가.
 - Validation:
   - `python -m pytest -q tests/test_exceptions.py` -> `6 passed in 2.18s`
+  - `python -m pytest -q` -> `524 passed, 1 skipped in 37.01s`
