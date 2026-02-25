@@ -1,0 +1,86 @@
+# TOKEN USAGE REPORT
+
+## Top by Line Count
+- `D:\down\autocording\매크로모듈화\app\main.py` | lines=4995 | bytes=211941 | est_tokens=52985
+- `D:\down\autocording\매크로모듈화\app\ui\dialogs.py` | lines=3443 | bytes=161594 | est_tokens=40398
+- `D:\down\autocording\매크로모듈화\%BDIR%\scenario_wizard_templates.json` | lines=3203 | bytes=82562 | est_tokens=20640
+- `D:\down\autocording\매크로모듈화\backups\wizard_b_pre_user_template_edit_20260221\scenario_wizard_templates.json` | lines=3203 | bytes=82562 | est_tokens=20640
+- `D:\down\autocording\매크로모듈화\app\core\scenario_wizard_templates.json` | lines=3203 | bytes=82790 | est_tokens=20697
+- `D:\down\autocording\매크로모듈화\backups\prework_backup_20260216_061947\app\main.py` | lines=2633 | bytes=109855 | est_tokens=27463
+- `D:\down\autocording\매크로모듈화\backups\maintenance_backup_20260213_1\app\main.py` | lines=2570 | bytes=103183 | est_tokens=25795
+- `D:\down\autocording\매크로모듈화\backups\prework_backup_20260216_061947\app\ui\dialogs.py` | lines=2474 | bytes=117222 | est_tokens=29305
+- `D:\down\autocording\매크로모듈화\backups\maintenance_backup_20260213_1\app\ui\dialogs.py` | lines=2444 | bytes=115211 | est_tokens=28802
+- `D:\down\autocording\매크로모듈화\app\core\runner.py` | lines=2431 | bytes=105455 | est_tokens=26363
+- `D:\down\autocording\매크로모듈화\1111.json` | lines=2208 | bytes=65659 | est_tokens=16414
+- `D:\down\autocording\매크로모듈화\backups\prework_backup_20260216_061947\1111.json` | lines=2208 | bytes=65659 | est_tokens=16414
+- `D:\down\autocording\매크로모듈화\2121.json` | lines=2089 | bytes=124016 | est_tokens=31004
+- `D:\down\autocording\매크로모듈화\backups\prework_backup_20260216_061947\2121.json` | lines=2089 | bytes=124016 | est_tokens=31004
+- `D:\down\autocording\매크로모듈화\backups\prework_backup_20260216_061947\app\core\runner.py` | lines=1995 | bytes=86744 | est_tokens=21686
+- `D:\down\autocording\매크로모듈화\DEV_LOG.md` | lines=1874 | bytes=119563 | est_tokens=29890
+- `D:\down\autocording\매크로모듈화\dx_operating_pack\templates\DEV_LOG.template.md` | lines=1874 | bytes=119563 | est_tokens=29890
+- `D:\down\autocording\매크로모듈화\app\ui\scenario_wizard.py` | lines=1791 | bytes=71322 | est_tokens=17830
+- `D:\down\autocording\매크로모듈화\app\core\scenario_wizard.py` | lines=1298 | bytes=46841 | est_tokens=11710
+- `D:\down\autocording\매크로모듈화\app\utils\matcher.py` | lines=1018 | bytes=42617 | est_tokens=10654
+- `D:\down\autocording\매크로모듈화\tools\generate_scenario_wizard_templates.py` | lines=979 | bytes=36393 | est_tokens=9098
+- `D:\down\autocording\매크로모듈화\dx_operating_pack\tools\generate_scenario_wizard_templates.py` | lines=979 | bytes=36393 | est_tokens=9098
+- `D:\down\autocording\매크로모듈화\tests\test_ui_integration.py` | lines=796 | bytes=22903 | est_tokens=5725
+- `D:\down\autocording\매크로모듈화\backups\prework_backup_20260216_061947\app\utils\matcher.py` | lines=785 | bytes=32800 | est_tokens=8200
+- `D:\down\autocording\매크로모듈화\backups\flow_editor_ui_20260222\DEV_LOG.md` | lines=744 | bytes=47798 | est_tokens=11949
+
+## Top by Estimated Tokens
+- `D:\down\autocording\매크로모듈화\app\main.py` | est_tokens=52985 | lines=4995 | bytes=211941
+- `D:\down\autocording\매크로모듈화\app\ui\dialogs.py` | est_tokens=40398 | lines=3443 | bytes=161594
+- `D:\down\autocording\매크로모듈화\2121.json` | est_tokens=31004 | lines=2089 | bytes=124016
+- `D:\down\autocording\매크로모듈화\backups\prework_backup_20260216_061947\2121.json` | est_tokens=31004 | lines=2089 | bytes=124016
+- `D:\down\autocording\매크로모듈화\DEV_LOG.md` | est_tokens=29890 | lines=1874 | bytes=119563
+- `D:\down\autocording\매크로모듈화\dx_operating_pack\templates\DEV_LOG.template.md` | est_tokens=29890 | lines=1874 | bytes=119563
+- `D:\down\autocording\매크로모듈화\backups\prework_backup_20260216_061947\app\ui\dialogs.py` | est_tokens=29305 | lines=2474 | bytes=117222
+- `D:\down\autocording\매크로모듈화\backups\maintenance_backup_20260213_1\app\ui\dialogs.py` | est_tokens=28802 | lines=2444 | bytes=115211
+- `D:\down\autocording\매크로모듈화\backups\prework_backup_20260216_061947\app\main.py` | est_tokens=27463 | lines=2633 | bytes=109855
+- `D:\down\autocording\매크로모듈화\app\core\runner.py` | est_tokens=26363 | lines=2431 | bytes=105455
+- `D:\down\autocording\매크로모듈화\backups\maintenance_backup_20260213_1\app\main.py` | est_tokens=25795 | lines=2570 | bytes=103183
+- `D:\down\autocording\매크로모듈화\backups\prework_backup_20260216_061947\app\core\runner.py` | est_tokens=21686 | lines=1995 | bytes=86744
+- `D:\down\autocording\매크로모듈화\app\core\scenario_wizard_templates.json` | est_tokens=20697 | lines=3203 | bytes=82790
+- `D:\down\autocording\매크로모듈화\%BDIR%\scenario_wizard_templates.json` | est_tokens=20640 | lines=3203 | bytes=82562
+- `D:\down\autocording\매크로모듈화\backups\wizard_b_pre_user_template_edit_20260221\scenario_wizard_templates.json` | est_tokens=20640 | lines=3203 | bytes=82562
+- `D:\down\autocording\매크로모듈화\app\ui\scenario_wizard.py` | est_tokens=17830 | lines=1791 | bytes=71322
+- `D:\down\autocording\매크로모듈화\1111.json` | est_tokens=16414 | lines=2208 | bytes=65659
+- `D:\down\autocording\매크로모듈화\backups\prework_backup_20260216_061947\1111.json` | est_tokens=16414 | lines=2208 | bytes=65659
+- `D:\down\autocording\매크로모듈화\backups\flow_editor_ui_20260222\DEV_LOG.md` | est_tokens=11949 | lines=744 | bytes=47798
+- `D:\down\autocording\매크로모듈화\app\core\scenario_wizard.py` | est_tokens=11710 | lines=1298 | bytes=46841
+- `D:\down\autocording\매크로모듈화\app\utils\matcher.py` | est_tokens=10654 | lines=1018 | bytes=42617
+- `D:\down\autocording\매크로모듈화\%BDIR%\DEV_LOG.md` | est_tokens=10518 | lines=664 | bytes=42074
+- `D:\down\autocording\매크로모듈화\backups\wizard_b_pre_user_template_edit_20260221\DEV_LOG.md` | est_tokens=10518 | lines=664 | bytes=42074
+- `D:\down\autocording\매크로모듈화\now_spec.md` | est_tokens=9109 | lines=480 | bytes=36437
+- `D:\down\autocording\매크로모듈화\dx_operating_pack\templates\now_spec.template.md` | est_tokens=9109 | lines=480 | bytes=36437
+
+## Split Recommendations
+- `D:\down\autocording\매크로모듈화\app\main.py` -> split candidate (lines=4995, est_tokens=52985, bytes=211941)
+- `D:\down\autocording\매크로모듈화\app\ui\dialogs.py` -> split candidate (lines=3443, est_tokens=40398, bytes=161594)
+- `D:\down\autocording\매크로모듈화\%BDIR%\scenario_wizard_templates.json` -> split candidate (lines=3203, est_tokens=20640, bytes=82562)
+- `D:\down\autocording\매크로모듈화\backups\wizard_b_pre_user_template_edit_20260221\scenario_wizard_templates.json` -> split candidate (lines=3203, est_tokens=20640, bytes=82562)
+- `D:\down\autocording\매크로모듈화\app\core\scenario_wizard_templates.json` -> split candidate (lines=3203, est_tokens=20697, bytes=82790)
+- `D:\down\autocording\매크로모듈화\backups\prework_backup_20260216_061947\app\main.py` -> split candidate (lines=2633, est_tokens=27463, bytes=109855)
+- `D:\down\autocording\매크로모듈화\backups\maintenance_backup_20260213_1\app\main.py` -> split candidate (lines=2570, est_tokens=25795, bytes=103183)
+- `D:\down\autocording\매크로모듈화\backups\prework_backup_20260216_061947\app\ui\dialogs.py` -> split candidate (lines=2474, est_tokens=29305, bytes=117222)
+- `D:\down\autocording\매크로모듈화\backups\maintenance_backup_20260213_1\app\ui\dialogs.py` -> split candidate (lines=2444, est_tokens=28802, bytes=115211)
+- `D:\down\autocording\매크로모듈화\app\core\runner.py` -> split candidate (lines=2431, est_tokens=26363, bytes=105455)
+- `D:\down\autocording\매크로모듈화\1111.json` -> split candidate (lines=2208, est_tokens=16414, bytes=65659)
+- `D:\down\autocording\매크로모듈화\backups\prework_backup_20260216_061947\1111.json` -> split candidate (lines=2208, est_tokens=16414, bytes=65659)
+- `D:\down\autocording\매크로모듈화\2121.json` -> split candidate (lines=2089, est_tokens=31004, bytes=124016)
+- `D:\down\autocording\매크로모듈화\backups\prework_backup_20260216_061947\2121.json` -> split candidate (lines=2089, est_tokens=31004, bytes=124016)
+- `D:\down\autocording\매크로모듈화\backups\prework_backup_20260216_061947\app\core\runner.py` -> split candidate (lines=1995, est_tokens=21686, bytes=86744)
+- `D:\down\autocording\매크로모듈화\DEV_LOG.md` -> split candidate (lines=1874, est_tokens=29890, bytes=119563)
+- `D:\down\autocording\매크로모듈화\dx_operating_pack\templates\DEV_LOG.template.md` -> split candidate (lines=1874, est_tokens=29890, bytes=119563)
+- `D:\down\autocording\매크로모듈화\app\ui\scenario_wizard.py` -> split candidate (lines=1791, est_tokens=17830, bytes=71322)
+- `D:\down\autocording\매크로모듈화\app\core\scenario_wizard.py` -> split candidate (lines=1298, est_tokens=11710, bytes=46841)
+- `D:\down\autocording\매크로모듈화\app\utils\matcher.py` -> split candidate (lines=1018, est_tokens=10654, bytes=42617)
+- `D:\down\autocording\매크로모듈화\tools\generate_scenario_wizard_templates.py` -> split candidate (lines=979, est_tokens=9098, bytes=36393)
+- `D:\down\autocording\매크로모듈화\dx_operating_pack\tools\generate_scenario_wizard_templates.py` -> split candidate (lines=979, est_tokens=9098, bytes=36393)
+- `D:\down\autocording\매크로모듈화\backups\prework_backup_20260216_061947\app\utils\matcher.py` -> split candidate (lines=785, est_tokens=8200, bytes=32800)
+- `D:\down\autocording\매크로모듈화\backups\flow_editor_ui_20260222\DEV_LOG.md` -> split candidate (lines=744, est_tokens=11949, bytes=47798)
+- `D:\down\autocording\매크로모듈화\%BDIR%\DEV_LOG.md` -> split candidate (lines=664, est_tokens=10518, bytes=42074)
+- `D:\down\autocording\매크로모듈화\backups\wizard_b_pre_user_template_edit_20260221\DEV_LOG.md` -> split candidate (lines=664, est_tokens=10518, bytes=42074)
+- `D:\down\autocording\매크로모듈화\now_spec.md` -> split candidate (lines=480, est_tokens=9109, bytes=36437)
+- `D:\down\autocording\매크로모듈화\dx_operating_pack\templates\now_spec.template.md` -> split candidate (lines=480, est_tokens=9109, bytes=36437)
+

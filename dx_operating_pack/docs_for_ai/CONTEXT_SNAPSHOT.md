@@ -1,0 +1,396 @@
+# CONTEXT SNAPSHOT
+
+- generated_at_utc: 2026-02-25T12:06:54.284467+00:00
+- project_root: `D:\down\autocording\매크로모듈화`
+- scanned_dirs: `app/core, app/ui, tools, tests`
+- file_count: 407
+- python_file_count: 139
+
+## Directory Summary
+- `app/core`: 84 files
+- `app/ui`: 46 files
+- `tools`: 21 files
+- `tests`: 256 files
+
+## Key Python Interfaces
+- `app\core\commands.py`
+  - classes: Command, AddStepCommand, RemoveStepCommand, EditStepCommand, MoveStepCommand
+  - functions: -
+- `app\core\config.py`
+  - classes: ConfigManager
+  - functions: -
+- `app\core\data_orchestration.py`
+  - classes: OrchestrationJob, ResultAggregator, JobQueueManager
+  - functions: -
+- `app\core\evaluator.py`
+  - classes: ConditionEvaluator
+  - functions: -
+- `app\core\excel_io.py`
+  - classes: ExcelDataLoader, ExcelResultExporter
+  - functions: -
+- `app\core\input_emulator.py`
+  - classes: HumanMouse
+  - functions: -
+- `app\core\input_lock.py`
+  - classes: InputLockTimeoutError, InputLockToken, GlobalInputManager
+  - functions: get_global_input_manager
+- `app\core\logic_path_simulator.py`
+  - classes: SimulationTransition, SimulationReport, LogicPathSimulator
+  - functions: -
+- `app\core\models.py`
+  - classes: ActionType, StepData, RepeatConfig, TriggerData
+  - functions: -
+- `app\core\multi_role_ai.py`
+  - classes: RoleDefinition, RoleTurn, OrchestrationResult, RoleBackend, HeuristicRoleBackend
+  - functions: _clip_tail, _clean_text, _short_line, default_roles, load_roles_from_json, render_result_markdown
+- `app\core\ocr_runtime.py`
+  - classes: -
+  - functions: _normalize_cmd, _command_exists, _get_settings, load_tesseract_cmd_from_settings, save_tesseract_cmd_to_settings, resolve_tesseract_cmd, configure_tesseract_cmd, get_tesseract_status
+- `app\core\recorder.py`
+  - classes: InputRecorder
+  - functions: -
+- `app\core\run_history.py`
+  - classes: RunSummary
+  - functions: _parse_iso_ts, _to_int, load_run_events, summarize_run_events, list_run_summaries
+- `app\core\runner.py`
+  - classes: MacroRunner
+  - functions: -
+- `app\core\scenario_wizard.py`
+  - classes: -
+  - functions: _new_id, _new_step, _validate_catalog_data, _load_catalog_from_path, load_template_catalog, load_user_template_catalog, _template_with_source, list_user_templates
+- `app\core\scenario_wizard_flow.py`
+  - classes: ValidationIssue
+  - functions: _new_id, atomic_write_json, _iter_step_references, _blueprint_step_id, _iter_blueprint_references, _step_from_blueprint, materialize_custom_flow_steps, _issue
+- `app\core\scheduler.py`
+  - classes: MacroScheduler
+  - functions: -
+- `app\core\session_adapter.py`
+  - classes: RunnerLike, SessionJobAdapter
+  - functions: -
+- `app\core\session_manager.py`
+  - classes: GameSession, SessionManager
+  - functions: -
+- `app\core\smart_recorder.py`
+  - classes: SmartStep, SmartProposal, SmartTransformer
+  - functions: -
+- `app\core\template_processor.py`
+  - classes: TemplateProcessor
+  - functions: -
+- `app\core\trigger_engine.py`
+  - classes: TriggerWatcher
+  - functions: -
+- `app\core\vision.py`
+  - classes: ImageProcessor
+  - functions: -
+- `app\core\window_manager.py`
+  - classes: WindowManager
+  - functions: -
+- `app\ui\debug_overlay.py`
+  - classes: DebugOverlay
+  - functions: -
+- `app\ui\dialogs.py`
+  - classes: BaseDialog, ConditionalActionWizardDialog, ImageStepDialog, NotImageDialog, TargetDialog
+  - functions: -
+- `app\ui\history_viewer.py`
+  - classes: ExecutionHistoryDialog
+  - functions: _safe_text
+- `app\ui\hotkeys.py`
+  - classes: SystemHotkeys, _KeyCapG, HotkeySettingsDialog
+  - functions: -
+- `app\ui\overlay.py`
+  - classes: VisualImageCaptureOverlay, CoordinateGuideOverlay, RecordingStatusOverlay
+  - functions: -
+- `app\ui\scenario_wizard.py`
+  - classes: FlowValidationDialog, FlowStepEditDialog, CustomFlowEditorDialog, UserTemplateEditDialog, ScenarioWizardDialog
+  - functions: _difficulty_label, _template_source_label, _flow_step_id, _new_flow_step_id
+- `app\ui\selectors.py`
+  - classes: ROISelector, _Overlay, PointSelector, _InlinePointOverlay, CrosshairOverlay
+  - functions: safe_select_point
+- `app\ui\styles.py`
+  - classes: DarkTheme
+  - functions: -
+- `app\ui\tabs\manager_tab.py`
+  - classes: ManagerTab
+  - functions: -
+- `app\ui\trigger_dialog.py`
+  - classes: TriggerEditDialog
+  - functions: -
+- `app\ui\widgets.py`
+  - classes: StepItemWidget, StepList
+  - functions: -
+- `app\ui\window_selector.py`
+  - classes: WindowSelectorDialog
+  - functions: -
+- `tests\test_action_dialog_flows.py`
+  - classes: -
+  - functions: qapp, _make_dialog, _set_action_type, test_action_dialog_pick_click_updates_coordinates, test_action_dialog_keyboard_mode_saved, test_action_dialog_key_record_button_captures_special_key, test_action_dialog_key_record_disabled_for_text_mode, test_action_dialog_mouse_mode_switches_groups
+- `tests\test_action_dialog_visibility.py`
+  - classes: -
+  - functions: qapp, test_action_dialog_visibility, test_action_dialog_expected_widgets_visible, test_jump_if_variable_suggestions_include_ocr_store
+- `tests\test_actions.py`
+  - classes: -
+  - functions: test_human_mouse_click_and_move, test_human_mouse_drag, test_keyboard_press
+- `tests\test_automation_scenarios.py`
+  - classes: -
+  - functions: qapp, isolate_settings, dummy_mss, patched_runner, test_hotkey_signals, test_trigger_watcher_resilience, test_macro_runner_screenshot, test_macro_runner_ocr
+- `tests\test_branch_variable.py`
+  - classes: -
+  - functions: test_runner_variable_branch_true_false, test_runner_variable_branch_ocr, test_branch_dialog_saves_variable_mode
+- `tests\test_branching.py`
+  - classes: _FakeMSS
+  - functions: test_jump_if_skips_and_jumps
+- `tests\test_branching_and_loops.py`
+  - classes: -
+  - functions: _build_runner, test_jump_if_prefers_step_id, test_jump_if_falls_back_to_index_when_id_missing
+- `tests\test_ci_governance_guard.py`
+  - classes: -
+  - functions: test_semantics_risk_requires_full_suite_pass_fail, test_semantics_non_risk_allows_not_required
+- `tests\test_compare_images_modes.py`
+  - classes: -
+  - functions: _write_png, test_compare_images_mse, test_compare_images_ssim, test_compare_images_hash
+- `tests\test_condition_evaluator.py`
+  - classes: -
+  - functions: test_condition_evaluator_parses_commas
+- `tests\test_conditional_wizard_generation.py`
+  - classes: -
+  - functions: qapp, _set_combo_by_data, _write_dummy_png, test_conditional_wizard_generates_click_flow, test_conditional_wizard_generates_jump_targets, test_conditional_wizard_generated_steps_compatible_with_addsteps_command, test_conditional_wizard_generates_retry_then_stop_flow, test_conditional_wizard_generates_image_check_flow
+- `tests\test_config_manager.py`
+  - classes: -
+  - functions: _backup_values, _restore_values, test_load_hotkeys_fallback_and_normalization, test_save_hotkeys_coerces_invalid_values_to_defaults, test_save_record_settings_coerces_invalid_numbers, test_numeric_coercion_falls_back_on_overflow_and_bad_types
+- `tests\test_coordinate_overlay_mapping.py`
+  - classes: -
+  - functions: qapp, test_coordinate_overlay_show_marker_stores_payload, test_coordinate_overlay_has_transparent_mouse_passthrough, test_coordinate_overlay_shared_instance_reuse, test_step_list_coordinate_preview_signal_on_selection, test_step_list_coordinate_preview_cleared_on_non_coordinate_selection, test_mainwindow_routes_coordinate_preview_to_overlay, test_mainwindow_coordinate_preview_guard_blocks_when_running
+- `tests\test_csv_loader.py`
+  - classes: -
+  - functions: test_bom, test_bom
+- `tests\test_data_loader.py`
+  - classes: -
+  - functions: test_load_data_rows_csv_skips_empty_rows, test_load_data_rows_xlsx
+- `tests\test_data_orchestration_v2.py`
+  - classes: -
+  - functions: _drain_worker, test_distribution_no_duplicate, _request_until_job, test_retry_cap, test_failure_isolation, test_aggregation_correctness, test_multithread_stress, test_retry_backoff_delays_redispatch_until_next_retry_time
+- `tests\test_drag_drop_undo.py`
+  - classes: -
+  - functions: test_move_step_command_undo_redo
+- `tests\test_drag_path_human.py`
+  - classes: -
+  - functions: test_drag_path_human_uses_human_mouse
+- `tests\test_e2e_basic.py`
+  - classes: _DummyMSS
+  - functions: qapp, _patch_clipboard, _patch_pyautogui, _patch_mss, patched_env, test_e2e_1_macro_save_load_run_loop, test_e2e_2_branch_dialog_roundtrip, test_e2e_3_trigger_watcher
+- `tests\test_e2e_branch_variable.py`
+  - classes: -
+  - functions: _dummy_mss, test_e2e_branch_variable
+- `tests\test_e2e_runtime_orchestration.py`
+  - classes: _Signal, _DummyMainRunner, _DummyTriggerRunner, _DummyScheduledRunner, _FakeRecorder
+  - functions: qapp, isolate_settings, window, _write_macro_json, test_e2e_trigger_macro_pause_resume_with_real_files, test_e2e_scheduler_sequence_runs_queue_in_order_with_real_files, test_e2e_record_then_playback_transition
+- `tests\test_e2e_workflow.py`
+  - classes: _FakeRunner
+  - functions: _rebuild_list_ui, test_e2e_architect_edit_save, test_e2e_commander_load_run
+- `tests\test_excel_io.py`
+  - classes: -
+  - functions: _create_sample_xlsx, test_excel_data_loader_maps_headers_and_skips_empty, test_excel_result_exporter_appends_status_and_error_reason
+- `tests\test_excel_payload_runner_template.py`
+  - classes: _FakeInputLockManager
+  - functions: _build_window, test_excel_payload_runner_replaces_double_brace_token, test_excel_payload_runner_uses_payload_text_when_template_missing, test_excel_payload_runner_template_has_priority_and_case_insensitive_binding, test_excel_payload_runner_blocks_unresolved_placeholder, test_excel_payload_runner_fallback_uses_keyboard_text_step, test_excel_payload_runner_uses_clipboard_paste_for_non_ascii, test_excel_payload_runner_ascii_write_is_locked
+- `tests\test_excel_toolbar_responsive.py`
+  - classes: -
+  - functions: qapp, test_excel_toolbar_priority_controls_are_fixed, test_excel_path_field_elides_but_keeps_full_text, test_excel_priority_controls_stay_visible_on_narrow_width, test_option_toolbar_is_split_into_core_and_advanced_rows, test_excel_mode_visual_feedback_updates_core_row_and_badge, test_left_panel_run_stop_smart_capture_visible_on_narrow_width, test_left_panel_run_stop_buttons_dispatch_existing_paths
+- `tests\test_final_cleanup_guard.py`
+  - classes: -
+  - functions: qapp, test_record_cancel_cleans_record_prop_images, test_add_recorded_steps_command_undo_redo_restores_image_file
+- `tests\test_git_hook_guards.py`
+  - classes: -
+  - functions: test_validate_commit_message_accepts_required_sections, test_validate_commit_message_rejects_missing_targeted, test_validate_commit_message_rejects_invalid_scope, test_extract_tests_lines_returns_values, test_parse_name_status_handles_rename, test_validate_staged_entries_blocks_constitutional_rename, test_validate_staged_entries_blocks_runtime_log_artifact, test_validate_staged_entries_allows_artifact_deletion
+- `tests\test_hotkeys_mapping.py`
+  - classes: _DummyMainWindow
+  - functions: test_get_vk_alias_mapping, test_parse_combo_invalid_returns_none_vk, test_get_vk_extended_mapping, test_parse_combo_allows_any_order_and_spaces, test_parse_combo_rejects_multiple_key_tokens
+- `tests\test_human_mouse.py`
+  - classes: DummyPyAuto
+  - functions: test_move_to_generates_curve, test_click_calls_move_and_press
+- `tests\test_image_dialog_presets.py`
+  - classes: -
+  - functions: qapp, _make_dialog, test_auto_fg_preset_applies_stable_values, test_auto_fg_tune_change_sets_custom_preset, test_auto_fg_preset_persists_on_accept, test_auto_fg_preset_hint_updates, test_auto_fg_suggest_preset_applies_stable, test_auto_fg_recommendation_detects_aggressive
+- `tests\test_input_lock_runner.py`
+  - classes: DummyMSS
+  - functions: _read_jsonl, _dummy_pyautogui, test_global_input_manager_times_out_when_held_by_other_thread, test_runner_writes_input_lock_events_on_success, test_runner_writes_input_lock_timeout_and_fails, test_input_lock_serializes_concurrent_runners
+- `tests\test_integration_core_logic_patch_guard.py`
+  - classes: -
+  - functions: test_integration_tests_do_not_patch_core_binding_queue_lock_logic
+- `tests\test_logic_path_simulator.py`
+  - classes: -
+  - functions: qapp, _write_excel, test_logic_path_simulator_jump_if_path_matches_context, test_logic_path_simulator_max_hops_guard_on_infinite_loop, test_main_run_logic_simulation_highlights_expected_path
+- `tests\test_macro_io_compat.py`
+  - classes: -
+  - functions: _roundtrip, test_macro_io_preserves_fields
+- `tests\test_macro_io_package.py`
+  - classes: -
+  - functions: _tiny_png_bytes, test_save_macro_writes_template_and_assets, test_load_macro_supports_legacy_scenario_images, test_load_macro_blocks_unsafe_asset_paths
+- `tests\test_macro_load_formats.py`
+  - classes: -
+  - functions: test_load_macro_json_formatted_macro_extension, test_save_macro_extension_writes_zip_package, test_load_macro_zip_restores_meta_target_window
+- `tests\test_main_scenario_wizard_integration.py`
+  - classes: -
+  - functions: qapp, test_scenario_wizard_button_inserts_steps, test_scenario_wizard_insert_after_selected_row
+- `tests\test_main_trigger_scheduler_integration.py`
+  - classes: DummySignal, DummyMainRunner, DummyTriggerRunner, DummyScheduledRunner
+  - functions: qapp, isolate_settings, window, _trigger_run_macro, _set_simple_comment_steps, test_trigger_run_macro_pauses_main_and_starts_trigger_runner, test_trigger_load_failure_resumes_main_runner, test_on_trigger_finished_resumes_paused_runner
+- `tests\test_manager_tab_integration.py`
+  - classes: DummyRunner
+  - functions: _add_session, test_manager_tab_add_session_updates_table, test_manager_tab_start_all_without_runner_sets_pending, test_manager_tab_start_all_with_runner_sets_running, test_manager_tab_start_all_builds_runner_when_missing
+- `tests\test_matcher_quality.py`
+  - classes: -
+  - functions: test_high_quality_prefers_best_score, test_high_quality_skips_forced_gray_when_color_enabled, test_high_quality_color_mode_can_enable_gray_fallback, test_high_quality_color_fallback_bypasses_color_gate, test_match_template_with_color_uses_mask_aware_method, test_color_gate_uses_mask_pixels_only, test_auto_foreground_mask_generated_without_alpha, test_auto_foreground_mask_is_passed_to_matching
+- `tests\test_multi_role_ai.py`
+  - classes: RecordingBackend
+  - functions: test_multi_role_ai_compact_default_chain, test_multi_role_ai_auto_switches_to_precision, test_multi_role_ai_auto_switches_to_precision_on_changed_files_threshold, test_multi_role_ai_auto_switches_to_precision_on_risk_files, test_multi_role_ai_raises_for_unknown_role, test_multi_role_ai_prompt_contains_context_truncation_marker, test_load_roles_from_json_and_run, test_custom_roles_run_without_explicit_role_ids
+- `tests\test_ocr_pipeline.py`
+  - classes: _DummyFrame, _DummyMSS
+  - functions: test_ocr_store_populates_context, test_ocr_store_handles_none, test_ocr_check_text_applies_whitelist_and_target_height
+- `tests\test_ocr_runtime.py`
+  - classes: _DummySettings
+  - functions: test_resolve_tesseract_cmd_prefers_env, test_resolve_tesseract_cmd_uses_settings_when_env_missing, test_configure_tesseract_cmd_sets_pytesseract_module
+- `tests\test_post_task_gate.py`
+  - classes: -
+  - functions: test_parse_targeted_auto, test_parse_targeted_manual_command, test_has_app_code_changes_detects_python_paths, test_run_gate_auto_fails_when_app_changed_but_no_tests, test_run_gate_writes_timestamp_and_ttl
+- `tests\test_preflight_env.py`
+  - classes: -
+  - functions: test_check_required_commands_reports_missing, test_check_pytest_available_pass, test_check_memory_skipped_when_unknown, test_run_preflight_fails_on_any_error
+- `tests\test_recorder_advanced.py`
+  - classes: -
+  - functions: _btn, mock_listeners, test_hybrid_filter_jitter, test_hybrid_filter_precision, test_drag_resample
+- `tests\test_recorder_logic.py`
+  - classes: DummyListener
+  - functions: test_record_delay_default_enabled, test_record_settings_none_values_fallback_to_defaults, mock_listeners, test_queue_overflow, test_distance_filter_skips_micro_moves, test_wildcard_combo_ignored, test_stop_safety, test_record_delay_calc_enabled
+- `tests\test_recording_integration.py`
+  - classes: _Signal, _DummyRecorder, _FakeOverlay
+  - functions: qapp, test_recording_hud_visibility_on_start_stop, test_recording_click_event_triggers_overlay_ripple
+- `tests\test_rule_docs_sync.py`
+  - classes: -
+  - functions: _extract_sync_block, test_agents_and_cursorrules_sync_block_match
+- `tests\test_rule_guard_steps_mutation.py`
+  - classes: _StepsMutationGuard
+  - functions: _is_self_steps, test_mainwindow_steps_do_not_use_direct_mutation
+- `tests\test_run_history.py`
+  - classes: -
+  - functions: _write_jsonl, test_load_run_events_skips_broken_lines, test_summarize_run_events_success_with_slowest_step, test_summarize_run_events_failed_when_finish_event_false, test_list_run_summaries_returns_newest_first
+- `tests\test_runner_logic.py`
+  - classes: -
+  - functions: patched_runner, test_ocr_store_and_context, test_dynamic_substitution_with_context, test_load_data_file_resolves_relative_path, test_screenshot_roi_fullscreen_when_roi_missing, test_capture_on_fail_triggers_screenshot, test_perf_mode_pyautogui_settings, test_perf_mode_poll_interval_default
+- `tests\test_runner_structured_jsonl.py`
+  - classes: DummyMSS
+  - functions: _read_jsonl, test_runner_writes_structured_jsonl_success, test_runner_writes_structured_jsonl_failure, test_runner_pause_resume_logs_events, test_runner_kill_logs_events_and_finishes_failed
+- `tests\test_runtime_paths.py`
+  - classes: -
+  - functions: test_get_resource_path_points_to_repo_resource, test_get_writable_app_dir_env_override
+- `tests\test_scenario_flow_hints.py`
+  - classes: -
+  - functions: qapp, _build_excel, test_build_step_flow_hint_for_jump_and_loop, test_refresh_step_list_shows_case_insensitive_excel_preview, test_refresh_step_list_builds_flow_edges_for_jump_and_loop, test_refresh_step_list_builds_flow_edges_for_step_fail_and_match_routes
+- `tests\test_scenario_wizard_catalog_integrity.py`
+  - classes: -
+  - functions: _sample_value, test_wizard_all_templates_plan_with_valid_sample_inputs
+- `tests\test_scenario_wizard_core.py`
+  - classes: -
+  - functions: test_wizard_template_catalog_has_expected_entries, test_wizard_plan_requires_message_text, test_wizard_chat_repeater_builds_linked_loop, test_wizard_data_driven_submacro_builds_load_and_loop, test_wizard_ocr_guard_jump_targets_skip_step, test_wizard_periodic_capture_warns_without_increment_token
+- `tests\test_scenario_wizard_custom_flow.py`
+  - classes: -
+  - functions: test_plan_custom_flow_template, test_plan_custom_flow_with_orphan_reference_errors
+- `tests\test_scenario_wizard_data_mapping_ui.py`
+  - classes: -
+  - functions: qapp, test_scenario_wizard_column_mapping_inserts_placeholder
+- `tests\test_scenario_wizard_data_validation.py`
+  - classes: -
+  - functions: test_plan_template_reports_missing_data_column, test_plan_template_warns_on_empty_data_rows, test_plan_template_accepts_xlsx_data_file
+- `tests\test_scenario_wizard_flow_validator.py`
+  - classes: -
+  - functions: test_flow_validator_detects_duplicate_ids, test_flow_validator_detects_orphan_reference, test_flow_validator_detects_loop_pairing_error, test_materialize_custom_flow_steps_remaps_ids_and_refs, test_atomic_write_json_replaces_file, test_validate_custom_flow_blueprint_returns_detailed_issues, test_find_references_and_delete_with_lazy_repair, test_delete_with_lazy_repair_sets_none_when_no_next
+- `tests\test_scenario_wizard_user_template_ui.py`
+  - classes: -
+  - functions: qapp, test_scenario_wizard_user_template_clone_edit_delete, test_scenario_wizard_clone_to_custom_flow, test_flow_editor_seed_works_without_manual_required_inputs
+- `tests\test_scenario_wizard_user_templates.py`
+  - classes: -
+  - functions: _field_default, test_user_template_clone_edit_delete_flow, test_user_template_save_rejects_builtin_id
+- `tests\test_scheduler_core.py`
+  - classes: -
+  - functions: qapp, test_set_enabled_start_stop_emits_status_and_logs, test_set_target_time_updates_status_when_running, test_start_sequence_empty_queue_logs_without_request, test_run_next_emits_request_and_pops_queue_when_running, test_run_next_emits_finished_when_queue_is_empty, test_notify_macro_finished_advances_only_when_running, test_check_time_triggers_once_per_day
+- `tests\test_scheduler_preset.py`
+  - classes: -
+  - functions: qapp, window, test_scheduler_settings_save_load, test_scheduler_logic_check_schedule, test_preset_refresh, test_preset_load_selection
+- `tests\test_session_adapter_v2.py`
+  - classes: FakeRunner
+  - functions: _wait_until, test_adapter_success_path, test_adapter_exception_retry_until_cap, test_adapter_timeout_reason_prefix, test_adapter_stop_event_responsive, test_adapter_worker_death_safety_no_zombie_inflight
+- `tests\test_session_manager.py`
+  - classes: -
+  - functions: test_crud_operations, _make_runner, test_round_robin_rotation, test_pending_session_recovers_with_backoff, test_pending_session_escalates_to_error_after_max_attempts
+- `tests\test_signal_and_logic.py`
+  - classes: -
+  - functions: qapp, patched_runner, test_runner_mouse_actions, test_runner_screenshot, test_runner_ocr_stub, test_ui_signal_connections
+- `tests\test_simulation.py`
+  - classes: -
+  - functions: _dummy_mss, test_scenario_hunting_loop
+- `tests\test_smart_recorder_core.py`
+  - classes: _DummyListener
+  - functions: _patch_dummy_listeners, test_self_window_click_is_excluded, test_stop_hotkey_is_consumed_not_recorded, test_raw_event_emitted_and_callback_errors_swallowed
+- `tests\test_smart_recorder_transformer.py`
+  - classes: -
+  - functions: _key_event, _click_release, test_text_keystrokes_merge_into_single_type_text_step, test_text_flush_on_arrow_and_resume_for_next_printable, test_click_generates_dual_proposal_with_image_capture
+- `tests\test_smart_snap_logic.py`
+  - classes: -
+  - functions: qapp, _ids, test_collect_step_group_detects_wizard_reference_cluster, test_sync_order_smart_snap_moves_group_and_normalizes_legacy_indices, test_smart_snap_dangling_warning_sets_flow_warning_edges
+- `tests\test_stepdata_serialization.py`
+  - classes: -
+  - functions: test_legacy_jump_fields_map_to_target_ids, test_to_dict_is_json_serializable_and_excludes_cache, test_ensure_tpl_extracts_alpha_mask, test_ensure_tpl_loads_from_anchor_image_path
+- `tests\test_stress.py`
+  - classes: -
+  - functions: _dummy_mss, test_long_running_macro, test_chaos_undo_redo, test_call_stack_no_leak
+- `tests\test_subscript.py`
+  - classes: -
+  - functions: _write_macro, test_subscript_execution_order
+- `tests\test_subscript_system.py`
+  - classes: -
+  - functions: test_subscript_context_shared
+- `tests\test_task_finish.py`
+  - classes: -
+  - functions: test_build_template_text_includes_gate_summaries, test_build_template_text_non_risk_marks_not_required, test_parse_args_scope_and_targeted, test_parse_args_targeted_with_scope_after_it
+- `tests\test_task_start_guard.py`
+  - classes: -
+  - functions: test_count_cleanup_artifact_deletes, test_run_guard_blocks_when_staged_entries_exist, test_run_guard_passes_when_index_clean
+- `tests\test_template_processor.py`
+  - classes: -
+  - functions: test_template_processor_renders_single_and_double_brace_tokens, test_template_processor_keeps_unknown_tokens_and_reports_unresolved
+- `tests\test_test_selector.py`
+  - classes: -
+  - functions: test_select_tests_for_governance_files, test_select_tests_includes_changed_test_file_itself, test_build_pytest_command, test_select_tests_for_task_start_guard, test_select_tests_for_preflight_env
+- `tests\test_trigger_engine_core.py`
+  - classes: _DummySct
+  - functions: test_capture_frame_bgr_from_rgb_buffer_object, test_capture_frame_bgr_from_bgra_numpy_array, test_capture_frame_bgr_returns_none_for_invalid_shape, test_check_condition_uses_provided_frame_without_capture, test_check_condition_returns_false_when_capture_fails, test_pause_resume_sets_state_and_wakes_waiter, test_stop_sets_flags_when_not_running, test_stop_timeout_forces_terminate
+- `tests\test_ui_integration.py`
+  - classes: DummySignal
+  - functions: qapp, isolate_settings, test_run_button_triggers_runner_start, test_perf_level_recording_params, test_perf_level_playback_poll_interval, test_perf_settings_load_from_qsettings, test_perf_settings_invalid_level_fallback, test_general_settings_signal_connections_are_not_duplicated
+
+## Largest Files (By Size)
+- `app\ui\__pycache__\dialogs.cpython-314.pyc`: 265540 bytes
+- `app\ui\__pycache__\dialogs.cpython-313.pyc`: 254761 bytes
+- `app\ui\dialogs.py`: 161594 bytes
+- `app\core\__pycache__\runner.cpython-314.pyc`: 160198 bytes
+- `app\core\__pycache__\runner.cpython-313.pyc`: 142818 bytes
+- `app\ui\__pycache__\dialogs.cpython-311.pyc`: 127809 bytes
+- `app\ui\__pycache__\scenario_wizard.cpython-314.pyc`: 112667 bytes
+- `app\core\runner.py`: 105455 bytes
+- `app\ui\__pycache__\scenario_wizard.cpython-313.pyc`: 104587 bytes
+- `tests\__pycache__\test_action_dialog_flows.cpython-313-pytest-9.0.1.pyc`: 104271 bytes
+- `tests\__pycache__\test_ui_integration.cpython-313-pytest-9.0.1.pyc`: 94169 bytes
+- `tests\__pycache__\test_main_trigger_scheduler_integration.cpython-313-pytest-9.0.1.pyc`: 85468 bytes
+- `app\core\scenario_wizard_templates.json`: 82790 bytes
+- `app\core\__pycache__\scenario_wizard.cpython-314.pyc`: 74325 bytes
+- `tests\__pycache__\test_excel_toolbar_responsive.cpython-313-pytest-9.0.1.pyc`: 72404 bytes
+- `app\ui\scenario_wizard.py`: 71322 bytes
+- `tests\__pycache__\test_runner_logic.cpython-313-pytest-9.0.1.pyc`: 69307 bytes
+- `app\core\__pycache__\scenario_wizard.cpython-313.pyc`: 64958 bytes
+- `app\core\__pycache__\runner.cpython-311.pyc`: 55573 bytes
+- `app\core\scenario_wizard.py`: 46841 bytes
+- `tests\__pycache__\test_ui_orchestration_integration.cpython-313-pytest-9.0.1.pyc`: 45149 bytes
+- `app\core\__pycache__\recorder.cpython-314.pyc`: 43460 bytes
+- `app\ui\__pycache__\widgets.cpython-314.pyc`: 43379 bytes
+- `app\ui\__pycache__\widgets.cpython-313.pyc`: 40299 bytes
+- `app\ui\__pycache__\overlay.cpython-314.pyc`: 39641 bytes
