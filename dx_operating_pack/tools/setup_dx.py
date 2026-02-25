@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import stat
 from pathlib import Path
 
 
@@ -19,6 +20,8 @@ INSTALL_MAP: list[tuple[str, str]] = [
     (".cursor/prompts", ".cursor/prompts"),
     ("COMPLIANCE_GUIDE.md", "COMPLIANCE_GUIDE.md"),
 ]
+
+HOOK_FILENAMES = ("pre-commit", "commit-msg", "pre-push")
 
 
 def _safe_remove(path: Path) -> None:
@@ -45,6 +48,28 @@ def _copy_or_link(src: Path, dst: Path, mode: str) -> None:
         shutil.copy2(src, dst)
 
 
+def _ensure_hook_executable(target_root: Path, installed: list[str]) -> None:
+    """Best-effort chmod +x for git hooks on POSIX-like environments."""
+    hook_dir = target_root / ".githooks"
+    if not hook_dir.exists():
+        return
+
+    for name in HOOK_FILENAMES:
+        hook_path = hook_dir / name
+        if not hook_path.exists() or not hook_path.is_file():
+            continue
+        try:
+            current = hook_path.stat().st_mode
+            desired = current | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+            if desired != current:
+                hook_path.chmod(desired)
+                installed.append(f"[ok] chmod +x {hook_path.relative_to(target_root)}")
+            else:
+                installed.append(f"[ok] hook exec already set: {hook_path.relative_to(target_root)}")
+        except Exception as exc:
+            installed.append(f"[warn] hook chmod skipped: {hook_path.name} ({exc})")
+
+
 def install(pack_root: Path, target_root: Path, mode: str, overwrite: bool) -> list[str]:
     installed: list[str] = []
     for src_rel, dst_rel in INSTALL_MAP:
@@ -61,6 +86,7 @@ def install(pack_root: Path, target_root: Path, mode: str, overwrite: bool) -> l
 
         _copy_or_link(src=src, dst=dst, mode=mode)
         installed.append(f"[ok] {src_rel} -> {dst_rel}")
+    _ensure_hook_executable(target_root=target_root, installed=installed)
     return installed
 
 
@@ -105,4 +131,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

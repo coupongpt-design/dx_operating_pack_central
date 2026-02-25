@@ -2,6 +2,11 @@
 
 아래 순서를 그대로 실행하면 운영 시스템이 활성화됩니다.
 
+## 0) 대용량 변경/커밋 주의 (권장)
+- 리포 가드가 `staged changed lines <= 1400`를 강제합니다.
+- 대형 파일은 최초 이식 시에도 기능 단위로 쪼개서 원자 커밋하세요.
+- 예: Bone(rules/hooks/ci) -> Brain(manifest/docs) -> Tools -> Assets -> Tests.
+
 ## 1) 복사
 대상 프로젝트 루트 기준으로 다음 구조를 복사:
 - `AGENTS.md` (rules/AGENTS.md)
