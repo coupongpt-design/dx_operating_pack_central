@@ -25,6 +25,12 @@ jobs:
           python -m pip install -r requirements-dev.txt
           python -m pip install PyQt5 mss numpy opencv-python pyautogui pyperclip pillow pynput psutil
 
+      - name: Governance guard (commit policy + file policy)
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python tools/ci_governance_guard.py
+
       - name: Run pytest
         run: python -m pytest -q
 

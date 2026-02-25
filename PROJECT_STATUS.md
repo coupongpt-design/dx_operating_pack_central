@@ -35,6 +35,12 @@
     - 결과를 증적 파일로 저장
   - `pre-push`:
     - `tests/test_rule_docs_sync.py`, `tests/test_rule_guard_steps_mutation.py`, `tests/test_git_hook_guards.py` 자동 실행
+- Git 거버넌스 P0 백스톱(Session 94):
+  - `commit-msg`:
+    - `Tests` 라인의 `targeted/full suite` 요약이 `.git/post_task_gate.json` 증적과 일치해야 커밋 허용
+  - CI(server-side):
+    - `tools/ci_governance_guard.py`로 커밋 범위 전체의 메시지 스키마/파일 정책 검증
+    - 로컬 `--no-verify` 우회 시에도 서버에서 실패 처리
 - Smart Recorder 변환 엔진(Stage 3-3 PR-3-3-2):
   - `app/core/smart_recorder.py`의 `SmartTransformer`가 Raw Event를 분석해 `type_text`/`key_press`를 분리 생성.
   - 텍스트 병합 규칙:

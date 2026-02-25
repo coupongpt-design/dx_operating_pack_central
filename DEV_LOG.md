@@ -1812,3 +1812,14 @@
   - `pre-push` added:
     - runs rule guard tests (`docs sync`, `steps mutation`, `hook guards`)
 - Added unit tests for new guard logic in `tests/test_git_hook_guards.py`.
+
+## Session 94 - Governance P0 Backstop (Commit/Gate Match + CI Server Gate)
+- `commit-msg` hardening:
+  - Commit `Tests` lines must match summaries recorded in `.git/post_task_gate.json`.
+  - Prevents fabricated/stale test summaries in commit messages.
+- CI backstop for `--no-verify` bypass:
+  - Added `tools/ci_governance_guard.py`.
+  - CI now validates commit-message schema and commit-level file-policy across commit range.
+  - `.github/workflows/ci.yml` runs governance guard before pytest.
+- Extended guard tests:
+  - `tests/test_git_hook_guards.py` adds tests for tests-line extraction and gate-summary matching.

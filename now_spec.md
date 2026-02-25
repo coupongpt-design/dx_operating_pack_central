@@ -421,3 +421,17 @@
     - `tests/test_rule_docs_sync.py`
     - `tests/test_rule_guard_steps_mutation.py`
     - `tests/test_git_hook_guards.py`
+
+## Git Governance P0 Backstop (Session 94)
+- `commit-msg` + gate proof coupling:
+  - commit message `Tests` lines are parsed (`targeted`, `full suite`)
+  - values must include summaries from `.git/post_task_gate.json`
+  - mismatch => commit rejected
+- CI server-side governance:
+  - workflow runs `python tools/ci_governance_guard.py`
+  - commit range source:
+    - PR: `pull_request.base.sha .. pull_request.head.sha`
+    - Push: `event.before .. github.sha`
+  - checks per commit:
+    - commit message schema (`Summary/Changes/Tests/Risks`, test lines)
+    - commit-level file policy (`backups/`, constitutional file policy, artifact paths)

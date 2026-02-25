@@ -72,6 +72,18 @@ def validate_commit_message(text: str) -> list[str]:
     return errors
 
 
+def extract_tests_lines(text: str) -> dict[str, str]:
+    normalized = text.replace("\r\n", "\n")
+    out: dict[str, str] = {}
+    mt = re.search(r"(?mi)^\s*-\s*targeted:\s*(.+?)\s*$", normalized)
+    mf = re.search(r"(?mi)^\s*-\s*full suite:\s*(.+?)\s*$", normalized)
+    if mt:
+        out["targeted"] = mt.group(1).strip()
+    if mf:
+        out["full_suite"] = mf.group(1).strip()
+    return out
+
+
 def parse_name_status(text: str) -> list[StagedEntry]:
     entries: list[StagedEntry] = []
     for raw in text.splitlines():
@@ -179,9 +191,63 @@ def _load_gate_record() -> dict[str, Any] | None:
         return None
 
 
+def validate_message_against_gate_record(
+    message_text: str,
+    gate_record: dict[str, Any] | None,
+) -> list[str]:
+    errors: list[str] = []
+    if gate_record is None:
+        errors.append("post-task gate record missing for commit message validation")
+        return errors
+
+    msg_lines = extract_tests_lines(message_text)
+    if "targeted" not in msg_lines or "full_suite" not in msg_lines:
+        errors.append("cannot validate message vs gate: tests lines missing")
+        return errors
+
+    targeted_pass = bool(gate_record.get("targeted_pass", False))
+    targeted_summary = str(gate_record.get("targeted_summary", "")).strip()
+    expected_targeted_prefix = "PASS" if targeted_pass else "FAIL"
+    targeted_msg = msg_lines["targeted"]
+    if not targeted_msg.startswith(expected_targeted_prefix):
+        errors.append(
+            f"targeted line mismatch: expected prefix '{expected_targeted_prefix}', got '{targeted_msg}'"
+        )
+    if targeted_summary and targeted_summary not in targeted_msg:
+        errors.append(
+            "targeted line mismatch: must include gate targeted summary "
+            f"('{targeted_summary}')"
+        )
+
+    risk = bool(gate_record.get("risk", False))
+    full_suite_pass = bool(gate_record.get("full_suite_pass", False))
+    full_suite_summary = str(gate_record.get("full_suite_summary", "")).strip()
+    expected_full_prefix = "PASS" if full_suite_pass else "FAIL"
+    full_msg = msg_lines["full_suite"]
+
+    if risk:
+        if not full_msg.startswith(expected_full_prefix):
+            errors.append(
+                f"full suite line mismatch: expected prefix '{expected_full_prefix}', got '{full_msg}'"
+            )
+        if full_suite_summary and full_suite_summary not in full_msg:
+            errors.append(
+                "full suite line mismatch: must include gate full-suite summary "
+                f"('{full_suite_summary}')"
+            )
+    else:
+        lowered = full_msg.lower()
+        if "not required" not in lowered and "skip" not in lowered:
+            errors.append(
+                "full suite line mismatch: non-risk commit must state not required/skip"
+            )
+    return errors
+
+
 def run_commit_msg_guard(msg_file: str) -> int:
     text = Path(msg_file).read_text(encoding="utf-8")
     errors = validate_commit_message(text)
+    errors.extend(validate_message_against_gate_record(text, _load_gate_record()))
     if not errors:
         return 0
     print("[commit-msg] rejected:")

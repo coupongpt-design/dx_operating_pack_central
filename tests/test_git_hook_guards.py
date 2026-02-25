@@ -3,9 +3,11 @@ from __future__ import annotations
 import time
 
 from tools.git_hook_guards import compute_staged_hash
+from tools.git_hook_guards import extract_tests_lines
 from tools.git_hook_guards import parse_name_status
 from tools.git_hook_guards import validate_commit_message
 from tools.git_hook_guards import validate_gate_record
+from tools.git_hook_guards import validate_message_against_gate_record
 from tools.git_hook_guards import validate_staged_entries
 
 
@@ -42,6 +44,16 @@ Risks/Follow-up:
 """
     errors = validate_commit_message(message)
     assert any("targeted" in err for err in errors)
+
+
+def test_extract_tests_lines_returns_values() -> None:
+    message = """Tests:
+- targeted: PASS (12 passed in 0.13s)
+- full suite: 480 passed, 1 skipped in 22.06s
+"""
+    lines = extract_tests_lines(message)
+    assert lines["targeted"] == "PASS (12 passed in 0.13s)"
+    assert lines["full_suite"] == "480 passed, 1 skipped in 22.06s"
 
 
 def test_parse_name_status_handles_rename() -> None:
@@ -124,3 +136,35 @@ def test_validate_gate_record_rejects_mismatch_and_missing_full_suite() -> None:
     assert any("staged hash mismatch" in err for err in errors)
     assert any("full suite PASS missing" in err for err in errors)
     assert any("stale" in err for err in errors)
+
+
+def test_validate_message_against_gate_record_accepts_risk_record() -> None:
+    message = """Tests:
+- targeted: PASS (12 passed in 0.13s)
+- full suite: PASS (480 passed, 1 skipped in 22.06s)
+"""
+    record = {
+        "targeted_pass": True,
+        "targeted_summary": "12 passed in 0.13s",
+        "risk": True,
+        "full_suite_pass": True,
+        "full_suite_summary": "480 passed, 1 skipped in 22.06s",
+    }
+    assert validate_message_against_gate_record(message, record) == []
+
+
+def test_validate_message_against_gate_record_rejects_mismatch() -> None:
+    message = """Tests:
+- targeted: PASS (11 passed)
+- full suite: PASS (470 passed)
+"""
+    record = {
+        "targeted_pass": True,
+        "targeted_summary": "12 passed in 0.13s",
+        "risk": True,
+        "full_suite_pass": True,
+        "full_suite_summary": "480 passed, 1 skipped in 22.06s",
+    }
+    errors = validate_message_against_gate_record(message, record)
+    assert any("targeted line mismatch" in err for err in errors)
+    assert any("full suite line mismatch" in err for err in errors)
