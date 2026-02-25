@@ -22,38 +22,45 @@ def _run(cmd: list[str], cwd: Path | None = None) -> int:
 
 def _auth_help_lines() -> list[str]:
     return [
-        "[hint] Private repository may require authentication.",
-        "[hint] Configure SSH key or HTTPS PAT credentials.",
-        "[hint] Quick check: git ls-remote <repo-url>",
+        "[troubleshooting] Private repository authentication is required.",
+        "[troubleshooting] Check SSH key registration or HTTPS PAT credentials.",
+        "[troubleshooting] Quick check: git ls-remote <repo-url>",
     ]
 
 
 def _git_env_check(project_root: Path) -> bool:
     rc = _run(["git", "--version"])
     if rc != 0:
-        print("[fail] git not found. Install Git and retry.")
+        print("[fail] Git prerequisite not satisfied: git command not found.")
+        print("[guide] Install Git, reopen shell, then retry this command.")
+        print("[guide] Download: https://git-scm.com/downloads")
+        return False
+    if not project_root.exists():
+        print(f"[fail] project root does not exist: {project_root}")
         return False
     rc = _run(["git", "rev-parse", "--is-inside-work-tree"], cwd=project_root)
     if rc != 0:
-        print("[fail] target project is not git-initialized. Run `git init` first.")
+        print("[fail] Git repository not initialized in target project.")
+        print("[guide] Run the following first, then retry:")
+        print(f"        cd {project_root}")
+        print("        git init")
         return False
     return True
 
 
-def _backup_current_pack(project_root: Path) -> None:
+def _backup_current_pack(project_root: Path) -> Path | None:
     src = project_root / "dx_operating_pack"
     if not src.exists():
         print("[info] no local dx_operating_pack folder found; backup skipped")
-        return
+        return None
 
-    backup = project_root / "dx_operating_pack_bak"
-    if backup.exists():
-        if backup.is_dir():
-            shutil.rmtree(backup)
-        else:
-            backup.unlink()
-    shutil.copytree(src, backup)
-    print(f"[ok] backup created: {backup}")
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_root = (project_root / ".dx_cache" / "backups" / f"pack_{stamp}").resolve()
+    backup_target = backup_root / "dx_operating_pack"
+    backup_target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(src, backup_target)
+    print(f"[ok] backup created: {backup_target}")
+    return backup_target
 
 
 def _collect_protected_files(project_root: Path) -> list[Path]:
@@ -89,13 +96,26 @@ def _restore_protected_files(project_root: Path, backup_root: Path) -> None:
     print(f"[ok] protected local files restored from: {backup_root}")
 
 
+def _warn_protected_files(project_root: Path, files: list[Path]) -> None:
+    if not files:
+        return
+    print("[warn] safe-sync protection is active for local files:")
+    for file in files:
+        try:
+            rel = file.relative_to(project_root.resolve())
+        except ValueError:
+            rel = file
+        print(f"       - {rel}")
+    print("[warn] these files will be restored after sync even in --overwrite mode.")
+
+
 def _acquire_remote(remote_url: str, cache_dir: Path) -> Path | None:
     git_dir = cache_dir / ".git"
     if git_dir.exists():
         _run(["git", "-C", str(cache_dir), "remote", "set-url", "origin", remote_url])
         rc = _run(["git", "-C", str(cache_dir), "pull", "--ff-only"])
         if rc != 0:
-            print("[fail] remote pull failed")
+            print(f"[fail] remote pull failed (exit={rc})")
             for line in _auth_help_lines():
                 print(line)
             return None
@@ -104,7 +124,7 @@ def _acquire_remote(remote_url: str, cache_dir: Path) -> Path | None:
     cache_dir.parent.mkdir(parents=True, exist_ok=True)
     rc = _run(["git", "clone", remote_url, str(cache_dir)])
     if rc != 0:
-        print("[fail] remote clone failed")
+        print(f"[fail] remote clone failed (exit={rc})")
         for line in _auth_help_lines():
             print(line)
         return None
@@ -185,6 +205,7 @@ def main() -> int:
 
     _backup_current_pack(project_root=project_root)
     protected_files = _collect_protected_files(project_root=project_root)
+    _warn_protected_files(project_root=project_root, files=protected_files)
     protected_backup_root = _backup_protected_files(project_root=project_root, files=protected_files)
     if protected_files:
         print(f"[ok] protected files backup created: {len(protected_files)} files")

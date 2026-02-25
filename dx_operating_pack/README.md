@@ -23,6 +23,8 @@
 ## 부트스트랩(원라인)
 - `curl -fsSL <RAW_SETUP_DX_URL> -o setup_dx.py && python setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite`
 - `wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite`
+- 설명:
+  - 신규 프로젝트에 `setup_dx.py` 파일이 아직 없을 때, 중앙 Repo의 raw URL에서 설치 스크립트만 먼저 받아 즉시 실행하는 용도입니다.
 
 ## 핵심 명령
 - 시작 전 인덱스 점검: `python tools/task_start_guard.py`

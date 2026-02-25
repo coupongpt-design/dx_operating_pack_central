@@ -17,6 +17,15 @@
 - `.github/workflows/ci.yml` (필요 시 merge)
 - `docs/*`, `docs_for_ai/*`, `prompt_recipes/*`, `.cursor/prompts/*` (AI 최적화 사용 시)
 
+## 1-0) 부트스트랩(설치 스크립트가 없는 신규 프로젝트)
+```bat
+curl -fsSL <RAW_SETUP_DX_URL> -o setup_dx.py && python setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite
+```
+```bat
+wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite
+```
+- 용도: 아직 `dx_operating_pack/tools/setup_dx.py`가 없는 초기 프로젝트에서 최초 설치 진입점으로 사용.
+
 ## 1-1) 원클릭 설치(권장)
 ```bat
 python dx_operating_pack\tools\setup_dx.py --pack-root dx_operating_pack --target-root . --mode copy --overwrite

@@ -76,17 +76,19 @@ def _git_env_check(target_root: Path) -> tuple[bool, list[str]]:
 
     rc, out = _run(["git", "--version"])
     if rc != 0:
-        logs.append("[fail] git not found. Please install Git and ensure it is in PATH.")
+        logs.append("[fail] Git prerequisite not satisfied: git command not found.")
+        logs.append("[guide] Install Git, reopen shell, then retry.")
+        logs.append("[guide] Download: https://git-scm.com/downloads")
         logs.append(f"[detail] {out}")
         return False, logs
     logs.append(f"[ok] {out.splitlines()[0] if out else 'git available'}")
 
     rc, _ = _run(["git", "rev-parse", "--is-inside-work-tree"], cwd=target_root)
     if rc != 0:
-        logs.append(
-            "[fail] target project is not a git repository. "
-            "Run `git init` in target root, then rerun setup."
-        )
+        logs.append("[fail] target project is not a git repository.")
+        logs.append("[guide] Run the following first, then rerun setup:")
+        logs.append(f"        cd {target_root}")
+        logs.append("        git init")
         return False, logs
     logs.append("[ok] git repository detected in target root")
     return True, logs
@@ -94,8 +96,8 @@ def _git_env_check(target_root: Path) -> tuple[bool, list[str]]:
 
 def _auth_help_lines() -> list[str]:
     return [
-        "[hint] If this is a private repository, authentication is required.",
-        "[hint] Use one of the following:",
+        "[troubleshooting] Private repository authentication is required.",
+        "[troubleshooting] Use one of the following:",
         "       - SSH: add your public key to remote provider and use git@... URL",
         "       - HTTPS+PAT: create token and configure credential manager",
         "       - Verify access manually: git ls-remote <repo-url>",
@@ -112,7 +114,7 @@ def _acquire_remote_pack(remote: str, cache_dir: Path) -> tuple[Path | None, lis
         _run(["git", "-C", str(cache_dir), "remote", "set-url", "origin", remote])
         rc, out = _run(["git", "-C", str(cache_dir), "pull", "--ff-only"])
         if rc != 0:
-            logs.append(f"[fail] remote pull failed: {out}")
+            logs.append(f"[fail] remote pull failed (exit={rc}): {out}")
             logs.extend(_auth_help_lines())
             return None, logs
         logs.append("[ok] remote cache updated (pull --ff-only)")
@@ -123,7 +125,7 @@ def _acquire_remote_pack(remote: str, cache_dir: Path) -> tuple[Path | None, lis
     cache_dir.parent.mkdir(parents=True, exist_ok=True)
     rc, out = _run(["git", "clone", remote, str(cache_dir)])
     if rc != 0:
-        logs.append(f"[fail] remote clone failed: {out}")
+        logs.append(f"[fail] remote clone failed (exit={rc}): {out}")
         logs.extend(_auth_help_lines())
         return None, logs
     logs.append(f"[ok] remote cloned: {remote} -> {cache_dir}")
