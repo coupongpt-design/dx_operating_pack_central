@@ -1,0 +1,318 @@
+# 프로젝트 상태
+
+## 코어 모듈
+- **MacroRunner**: 스텝 실행(OCR, 분기, 서브스크립트, 휴먼 모드 입력), 콜 스택 및 타겟 창 활성화 관리.
+- **ImageProcessor**: OCR 전처리(확대/임계/반전) 및 숫자 추출.
+- **HumanMouse**: 베지에/이지ング 마우스 움직임, 클릭/드래그 래핑(failsafe 준수).
+- **UndoStack/Commands**: Add/Remove/Edit/Move에 대한 커맨드 패턴과 Undo/Redo.
+- **WindowManager**: 창 찾기/활성화/강제 리프레시(1px shake); pywin32 없으면 안전히 무시.
+- **SessionManager**: 다중 세션 라운드로빈/일일 리셋 코어(ManagerTab와 연동).
+- **MultiRoleAIOrchestrator**: 다중 역할(기획/구현/리뷰/테스트/문서) 순차 실행 파이프라인, auto 모드(Compact/Precision) 선택, 커스텀 역할 JSON 로딩 지원.
+
+## 완료된 주요 기능 [Completed]
+- OCR & 이미지 매칭 + 디버그 오버레이.
+- 조건 분기(`jump_if`) 스텝 ID 우선 점프; **고급 조건 빌더**: Jump If UI에 변수 자동완성(OCR_STORE 스캔 + `loop_index`/`loop_count`).
+- 서브스크립트(`run_macro`) 지원: 콜 스택, 공유 변수 컨텍스트, 재귀 가드(깊이 5).
+- Undo/Redo 완전 연결: `MainWindow` CRUD/이동/복제 모두 `_push_command` + UndoStack, Ctrl+Z/Ctrl+Y.
+- 녹화기 최적화: 거리+시간 필터, 드래그 경로 리샘플링, 메트릭 UI 표시.
+- Smart Recorder 코어 보강(Stage 3-3 PR-3-3-1):
+  - `InputRecorder` Raw Event 채널 추가(`raw_event_received`)
+  - HWND 기반 셀프 캡처 제외(`lock_hwnd` 루트 핸들 비교)
+  - ESC/F12 제어키 소비(`control_event_received: stop_hotkey`)로 스텝 변환 차단
+  - 세션 시작/종료 시 큐/버퍼/리스너 정리 강화
+- Git 거버넌스 하드게이트 보강(Session 92):
+  - Repo hooks(`.githooks`) 도입: `commit-msg`/`pre-commit` 강제 검증
+  - `commit-msg`: Summary/Changes/Tests/Risks 및 테스트 라인 누락 커밋 차단
+  - `pre-commit`: constitutional 파일 delete/rename/copy 및 산출물 스테이징 차단
+  - 설치 스크립트: `python tools/install_git_hooks.py` (`core.hooksPath=.githooks`)
+- Git 거버넌스 하드게이트 2차 강화(Session 93):
+  - `pre-commit`:
+    - `backups/` 변경 스테이징 차단
+    - constitutional + non-constitutional 혼합 커밋 차단
+    - `.git/post_task_gate.json` 증적(HEAD/staged-hash 일치) 없으면 커밋 차단
+  - `tools/post_task_gate.py`:
+    - targeted 테스트 실행 + 리스크 트리거 시 full `pytest -q` 자동 실행
+    - 결과를 증적 파일로 저장
+  - `pre-push`:
+    - `tests/test_rule_docs_sync.py`, `tests/test_rule_guard_steps_mutation.py`, `tests/test_git_hook_guards.py` 자동 실행
+- Git 거버넌스 P0 백스톱(Session 94):
+  - `commit-msg`:
+    - `Tests` 라인의 `targeted/full suite` 요약이 `.git/post_task_gate.json` 증적과 일치해야 커밋 허용
+  - CI(server-side):
+    - `tools/ci_governance_guard.py`로 커밋 범위 전체의 메시지 스키마/파일 정책 검증
+    - 로컬 `--no-verify` 우회 시에도 서버에서 실패 처리
+- DX 워크플로우 최적화(Session 95):
+  - `tools/test_selector.py`: 변경 파일 기반 targeted test 자동 선택
+  - `tools/post_task_gate.py --targeted auto` 지원
+  - `tools/task_finish.py`: gate 실행 + 커밋 템플릿 자동 생성
+  - `pre-commit` staged scope(파일/라인) 상한 차단으로 atomic commit 유도
+  - `tools/cleanup_repo_artifacts.py`: tracked 산출물 정리 자동화
+  - CI 구조 개선: `changes` + `rule-guard` + `pytest` 다중 job/path filter/cache
+- Smart Recorder 변환 엔진(Stage 3-3 PR-3-3-2):
+  - `app/core/smart_recorder.py`의 `SmartTransformer`가 Raw Event를 분석해 `type_text`/`key_press`를 분리 생성.
+  - 텍스트 병합 규칙:
+    - 연속 printable 키는 버퍼로 병합
+    - Flush 조건: 이동/수정 키(backspace/delete/arrows/home/end/tab/enter), modifier(ctrl/alt/win), typed gap 초과(기본 1.5s)
+  - 클릭 제안 규칙:
+    - 클릭 release 시 `click_point` + `image_click` 듀얼 제안(`SmartProposal`) 생성
+    - 주변 영역(기본 60x60) 캡처를 `images/record_prop_*.png`로 저장해 이미지 스텝에 연결
+- Smart Recorder UI 통합(Stage 3-3 PR-3-3-3):
+  - `_start_record`에서 `InputRecorder.raw_event_received`를 `SmartTransformer`에 연결.
+  - `_on_record_done`에서 `finalize()` 포함 smart 결과를 확정 스텝으로 변환하고 `AddStepsCommand`로 batch 삽입.
+  - 제안 선택 UI 제공:
+    - `모두 좌표`, `모두 이미지`, `개별 선택`, `취소`
+  - 임시 이미지 자동 정리:
+    - 선택되지 않은 `record_prop_*.png` 파일을 녹화 종료 시 정리.
+- Recording Overlay/HUD(Stage 3-3 PR-3-3-4):
+  - `RecordingStatusOverlay` 추가:
+    - 우측 상단 HUD(`Recording...` + `Count`) 실시간 표시
+    - 클릭 관통/항상 위/투명 배경
+  - Raw click 이벤트에 Ripple 애니메이션 연동
+  - MainWindow 연동:
+    - 녹화 시작: HUD show + count reset
+    - 변환 이벤트 발생 시 count 갱신
+    - 녹화 중지/완료/종료: HUD hide
+  - 공유 오버레이 stale 인스턴스(RuntimeError) 재생성 가드 적용
+- Stage 3-3 최종 정비(PR-3-3-5):
+  - `AddRecordedStepsCommand` 도입으로 녹화 배치 스텝의 Undo/Redo 시 이미지 임시 자산(`record_prop_*`) 롤백/복원 보장.
+  - 녹화 취소/예외 경로에서 임시 이미지 삭제를 가드 테스트로 고정.
+  - Stage 3-3 (Raw 이벤트 수집 -> Smart 변환 -> 제안 선택 -> HUD -> cleanup/rollback) 완료.
+- Stage 3-4 PR-3-4-1 UI 정리:
+  - 상단 툴바의 중복 `Run/Stop` 버튼 제거.
+  - `Smart Capture` 버튼을 좌측 시나리오 액션 패널로 이동(`스마트 캡처 (Ctrl+Alt+S)`).
+  - 좌측 주요 액션 버튼 높이를 32px로 슬림화하고, 인라인 버튼 스타일을 축소하여 전역 `DarkTheme` 기반 스타일 우선 적용.
+  - 툴바 가로 스크롤바 정책을 `AlwaysOff`로 조정.
+- Stage 3-4 PR-3-4-2 스타일 통합:
+  - 좌측 액션 패널 버튼 인라인 `setStyleSheet` 제거(클래스 기반 속성 적용).
+  - 전역 QSS(`app/ui/styles.py`)에서 버튼 역할별 톤다운 팔레트(`left-run`, `left-stop`, `left-record`, `left-wizard`, `left-sim` 등)로 일원화.
+  - 툴바 경계/패딩/간격을 미니멀 톤으로 축소(`border-bottom` 완화, spacing/padding 축소).
+- Stage 3-4 PR-3-4-3 3열 마이크로 그리드:
+  - 좌측 액션 패널 버튼 레이아웃을 3열 압축 그리드로 재배치.
+  - 버튼 최소 높이를 26px로 낮추고, 버튼 라벨을 축약(예: `마법사`, `조건`, `시뮬`, `캡처`).
+  - 전역 QSS에서 `QPushButton` 마이크로 스타일(9pt, 1x3 padding, radius 2) 적용.
+- Stage 3-5 PR-3-5-1 메뉴바 리팩토링:
+  - 상단 툴바의 저장/열기/Undo/Redo 아이콘 액션 제거.
+  - 메뉴바에 `File(Open/Save)` + `Edit(Undo/Redo)`를 추가하고 기존 슬롯에 연결.
+  - 메뉴 선택 하이라이트/메뉴바 스타일을 다크 테마 톤으로 정리.
+  - 회귀 테스트 추가: 메뉴 액션 호출 경로 및 툴바 아이콘 그룹 제거 검증.
+- Stage 3-5 PR-3-5-3 패널 최소 너비/스냅 접기:
+  - `QSplitter` 좌측 패널(index 0) `setCollapsible(True)` 및 자동 스냅 접기(임계값 기본 80px) 적용.
+  - `splitterMoved` 처리에서 좌측 패널이 임계값 이하로 줄어들면 `setSizes([0, ...])`로 즉시 접힘.
+  - `ManagerTab` 및 Trigger 탭 주요 위젯에 최소 너비 완화(`setMinimumWidth(0)` 또는 준하는 소형값) 적용.
+  - 버튼 텍스트 겹침 완화 목적의 전역 `QPushButton` 최소 너비 제약 완화(`min-width: 0`) 반영.
+- 창 관리: 대상 창 입력 + Find/Fix/Selector UI, 실행 전 자동 포커스/리프레시(창 미발견 시 경고 후 진행).
+- 시나리오 마법사: 기존 수동 편집과 분리된 별도 버튼/다이얼로그, `추천/전체/검색` 템플릿 선택 + 필수 입력 + 생성 미리보기/검증 + 삽입 위치 선택(선택 다음/끝) 지원. 템플릿 카탈로그 46종(채팅/키보드/마우스/파일/OCR 분기 + 리니지류 실전 템플릿) 운영.
+- 데이터 주도 자동화 V2:
+  - `load_data_file`가 CSV/XLSX(`openpyxl`)를 공통 로드
+  - 시나리오 마법사 입력 필드에 컬럼 매핑 버튼(`{column}` 토큰 삽입) 추가
+  - 템플릿 생성 전 데이터 검증(누락 컬럼 Error, 빈 행 Warning, 데이터 파일 파싱 상태 안내) 추가
+  - Step 2C(UI 통합) 완료:
+    - 옵션 툴바에 `Excel Data Mode`/파일 선택/병렬도/진행률/상태 표시 추가
+    - 옵션 툴바를 가로 스크롤 컨테이너로 변경해 창 축소 시 위젯 잘림을 방지
+    - `Excel Data Mode`/`P:`는 고정 크기 정책으로 우선 노출, 경로 필드는 elide 표시로 폭 축소 대응
+    - Run 버튼에서 Excel 모드 분기 실행(기존 단일 `run_macro` 경로와 공존)
+    - `JobQueueManager` + `SessionJobAdapter` + `ExcelDataLoader/ExcelResultExporter`를 메인 UI에 연결
+    - 작업 완료 시 결과 `.xlsx` 자동 저장, 중지 버튼으로 안전 정지
+- 데이터 바인딩 안정화:
+  - Excel 실행기 텍스트 경로를 `TemplateProcessor` 공통 치환으로 통일
+  - `{{var}}`/`{var}` 미치환 값은 fail-fast 처리(원문 타이핑 금지)
+  - Step 템플릿 fallback에서 `StepData.type`/`keyboard_mode` 필드를 기준으로 텍스트 템플릿 탐색
+  - Excel 실행기 우선순위를 `스텝 템플릿 > payload(text/message)`로 조정해 사용자 지정 `{{ }}`가 기본 message 열보다 우선 적용
+  - 헤더 매핑은 대소문자 무시 치환(`user_name`/`USER_NAME`)을 지원
+  - Excel 실행기 물리 입력(`typewrite`/클립보드 paste) 구간에 `Global Input Lock` 적용으로 멀티 워커 입력 간섭 방지
+  - Excel 실행 진행 로그에 워커/치환 결과를 표시(`job_dispatched` 이벤트 기준, 예: `[Worker 1] 처리 중: {{USER_NAME}} -> 김철수`)
+  - Hotkey Run도 Run 버튼과 동일 분기(`_on_run_button_clicked`)로 통일해 Excel 모드 실행 경로 일관화
+  - 메인 옵션 바에 `Auto Enter` 체크박스 추가: 활성 시 텍스트 입력 액션 뒤 `enter` 자동 입력(일반 Runner + Excel payload runner 동시 적용)
+  - Action Step 다이얼로그 `Key String` 옆 `[REC]` 버튼 추가: key/key_down/key_up/key_hold 모드에서 특수키를 눌러 키 이름 자동 입력
+- 조건부 액션 위저드(MVP) 추가:
+  - Scenario 탭에 `조건 위저드` 버튼 추가(질문형 QDialog 진입점)
+  - 질문 기반 입력(의도/찾을 텍스트/성공 동작/실패 동작)으로 `ocr_jump_if + jump_if(실패 라우팅) + click_point/comment` 스텝 조합 자동 생성
+  - 생성 스텝은 `AddStepsCommand`로 삽입되어 Undo/Redo 경로와 호환
+- 사용자 템플릿 관리(B안): 기본 템플릿 읽기 전용 + 팝업 `복제 저장`/`사용자 편집`/`사용자 삭제` 지원.
+- custom_flow 편집 UI 연동 완료:
+  - 사용자 템플릿 편집 팝업에서 `흐름 편집 열기` 제공
+  - 스텝 사이 `+ 스텝 추가`(샌드위치 삽입), 시스템/사용자 스텝 시각 분리
+  - 삭제 시 Lazy-Check 경고 + 자동 참조 보정
+  - 저장 전 상세 검증 모달(Error/Warning) 연동
+- Runtime Observability 연동:
+  - Runner 시그널 확장(`stepStarted`, `stepSucceeded`, `stepFailed`)
+  - custom_flow 스텝에 `source_step_id` 메타 주입
+  - 메인 UI에서 현재 실행 스텝/마지막 실패 스텝 상태바 표시 + 실패 스텝 붉은 하이라이트
+- 구조화 실행 로그(JSON Lines) 추가:
+  - `MacroRunner`가 `run_id`를 각 실행마다 부여
+  - `step_started`/`step_succeeded`/`step_failed` 이벤트를 `.jsonl`로 기록
+  - `duration_ms`(스텝/런 단위)와 실패 `error`를 함께 남겨 사후 분석 가능
+  - 구현 파일: `app/utils/structured_jsonl.py`, `app/core/runner.py`
+- 긴급 제어(Option A) 추가:
+  - 글로벌 핫키 `F10` 일시정지/재개, `F12` 긴급 종료(Kill)
+  - `MacroRunner`에 스레드 안전 pause/resume(`threading.Event`) 적용
+  - 구조화 로그에 `run_paused`/`run_resumed`/`run_killed` 이벤트 기록
+  - Hotkey Settings에 `Pause/Resume`, `Emergency Kill` 항목 노출 + 중복 단축키 충돌 검증
+  - Paused 상태에서 Run 버튼 주황 강조(`▶ 재개`) + 상태바 `PAUSED` 시각화
+- 범용성 강화(Option B) 추가:
+  - `wait_for_image` 런타임 스텝 추가(이미지가 나타날 때까지 폴링 대기, 성공/실패 분기 연계)
+  - `click_anchor` 실동작 반영(`center/top-left/top-right/bottom-left/bottom-right`)
+  - `StepData.anchor_image_path`/`image_path` 지원으로 파일 경로 기반 앵커 이미지 로드
+  - 시나리오 마법사 custom_flow 편집기에서 `image_click`/`wait_for_image` 스텝 삽입 지원
+  - `.macro` 입출력에서 `wait_for_image` 이미지 에셋 저장/복원 지원
+- 템플릿 생태계(Option C) 추가:
+  - `.macro` 저장 시 패키지 구조를 `template.json + assets/`로 표준화
+  - 기존 `scenario.json + images/` 포맷은 로드 단계에서 완전 역호환 유지
+  - 패키지 내부 이미지 경로 로드 시 `../`, 절대경로, 드라이브 경로를 차단해 unsafe 경로 참조를 방어
+  - `.macro` 저장/로드에서 `meta.target_window` 보존 및 복원 지원
+- 배포 파이프라인(MVP) 추가:
+  - PyInstaller 스펙 파일 `ImageMacro.spec` 추가(`template catalog`, `USER_GUIDE.md`, 샘플 `.macro` 데이터 번들)
+  - 빌드 스크립트 `tools/build_exe.ps1` 추가(정리 → 빌드 → 선택적 smoke launch)
+  - 수동 실행 GitHub Actions 워크플로우 `.github/workflows/build-exe.yml` 추가(artifact 업로드)
+  - 런타임 리소스 경로 유틸 `app/utils/runtime_paths.py` 도입(`sys._MEIPASS` 대응)
+  - OCR 경로 설정 코어 `app/core/ocr_runtime.py` 및 Settings 메뉴 `OCR (Tesseract) Path...` 추가
+- 실행 이력 뷰어(MVP) 추가:
+  - Help 메뉴 `Execution History`에서 실행 이력 다이얼로그 오픈
+  - 좌측: 실행 목록(run_id, 상태, 총소요, 실패 수, 병목 스텝)
+  - 우측: 선택 실행의 이벤트 타임라인(`step_name`, `duration_ms`, `error`)
+  - 코어 파서: `app/core/run_history.py`, UI: `app/ui/history_viewer.py`
+- 삭제 Lazy-Check 코어 추가: 참조 스텝 탐색(`find_references_in_blueprint`)과 삭제 시 자동 참조 보정(`delete_step_with_lazy_repair`) 제공.
+- QA/헬스 체크: `run_health_check.py`, `auto_inspect.py`, 광범위한 pytest 시나리오.
+- E2E 테스트 인프라: 풀 라이프사이클(편집→Undo/Redo→저장→불러오기→실행) 자동 검증 완료.
+- 이미지 스텝: `loop_until_hide` 옵션으로 템플릿이 사라질 때까지 반복 클릭 지원, 값 변환 안전성 개선.
+- 스케줄러 실패정책 UX 강화: `continue/stop/retry` 정책 + 재시도 옵션(`max_retries`, `retry_delay_ms`) + 실행/재시도/중단 상태 라벨 연동.
+- 드래그-드롭 재정렬 Undo/Redo: `sync_order` + `ReorderStepsCommand` 경로 통합 및 회귀 테스트 보강.
+- 액션 다이얼로그 안정화: `Cancel` 시 스텝이 저장되던 경로 차단, `NotImageDialog`의 중복 Run Macro UI 그룹 제거.
+- 이미지 매칭 확장 보강: `High Quality + Color Match` 조합에서 옵션(`hq_color_bg_robust`) 활성 시 gray/CLAHE/edge fallback 패스를 추가해 배경 변화 대응 강화.
+- 투명 PNG 전경 매칭: 알파 마스크 기반 템플릿 매칭/컬러게이트 적용(`alpha_mask_enable`)으로 배경 영향 완화.
+- 불투명 PNG 전경 매칭: 알파 없는 템플릿에서도 자동 전경 마스크(`auto_fg_mask_enable`)를 생성해 배경 영향 완화.
+- 자동 전경 마스크 튜닝: BG percentile/dynamic scale/min distance를 스텝별로 조절 가능.
+- 자동 전경 마스크 프리셋: `Stable/Accurate/Aggressive` 빠른 적용 + 수동 조정 시 `Custom` 자동 전환.
+- 자동 전경 프리셋 UX: 프리셋 설명 힌트 + 템플릿 기반 `Suggest` 추천 버튼 제공.
+- 자동 전경 추천 가시성: Suggest 결과에 confidence(%)와 근거 지표(std/edge density) 표시.
+- 자동 전경 추천 임계값 설정: Suggest 분류 기준(`std/edge low/high`)을 스텝별로 직접 조정하고 저장 가능.
+- 실사용 스모크 게이트: `run_smoke_suite.py`(quick/full) + `SMOKE_TEST_CHECKLIST.md`로 자동/수동 점검 절차 표준화.
+- 윈도우 셀렉터 회귀 복구: pywin32 미가용 환경에서도 창 목록 열거 폴백(`ctypes`) 지원, 빈 목록 안내/표시 가독성 개선(`[]` 제거).
+- 시작 타겟 정책 정리: 앱 시작 시 Target 입력은 항상 빈 값으로 시작(이전 세션 타겟 자동 로드 비활성), 매크로 파일 로드 시 `meta.target_window`는 그대로 UI에 반영.
+- 작업 규칙 토큰 최적화: `.cursorrules`를 경량화(중복 규칙 제거)하고 `Token Efficiency Protocol`을 기본 정책으로 반영. 외부 자문용 `CONSULT_TOKEN_TEMPLATE.md` 추가.
+- 규칙 적용 보강: `AGENTS.md` 동기화, Precision 기계식 트리거(파일 수/StepData/직렬화/스레드/러너 분기) 추가, Session Start 게이트(현재 포커스 2줄 요약 + 모드 선언) 강화.
+- 실행 가드 추가: `tests/test_rule_guard_steps_mutation.py`로 `MainWindow.steps` 직접 변이(`append/pop/insert/...`) 금지 자동 검증.
+- 규칙 체계 2단 구조 전환: `AGENTS.md`는 30~60줄 실행 규약(정본), `.cursorrules`는 상세본(미러/운영 노트)으로 분리.
+- 동기화 루프 방지: `AGENTS.md -> .cursorrules` 단방향 동기화 + `SYNC_BLOCK_START/END` 부분 미러 정책으로 고정.
+- 동기화 검증 자동화: `tests/test_rule_docs_sync.py`로 정본/미러 동기화 블록 일치 여부를 강제.
+- Multi-Agent 운영 프로토콜 도입:
+  - 기본: `Executor -> Guardian` (2-Agent)
+  - 승격: Precision 트리거 시 `Planner -> Executor -> Guardian` (3-Agent)
+  - 규칙 파일 변경(`AGENTS.md/.cursorrules/규칙 가드 테스트`)은 단독 변경 세트 원칙.
+- 복붙용 운영 문서: `MULTI_AGENT_PROTOCOL.md` 추가(Planner/Executor/Guardian 프롬프트 포함).
+- Git 운영 체계 도입:
+  - 로컬 Git 초기화 + 베이스라인 커밋 생성.
+  - `.gitignore` 추가.
+  - 헌법급 파일(`AGENTS.md`, `.cursorrules`, 규칙 가드 테스트 2종)에 대해 delete/recreate 금지, edit+diff 검토, 단독 변경 세트 원칙 명시.
+- Post-Task Commit Gate 추가(강제):
+  - 작업 후 targeted 테스트 필수
+  - 리스크 트리거 시 `python -m pytest -q` 필수
+  - `git diff` 의도치 않은 변경 점검 후에만 커밋
+  - 커밋 메시지에 테스트 결과 블록(`targeted`, `full suite`) 필수
+- Waste-Reduction Protocol 추가(강제):
+  - task당 `rg` 검색 4회/파일 open 2회 예산
+  - 중복 검색 금지 + write-first 검색 순서 강제
+  - full-file dump 금지 + delta-only 출력 계약
+- 멀티 역할 AI 실행 코어 추가:
+  - `app/core/multi_role_ai.py` (역할 오케스트레이션, auto 모드 전환, 결과 요약/렌더링)
+  - `tools/run_multi_role_ai.py` (CLI 실행 진입점)
+  - `app/core/multi_role_ai_roles.example.json` (커스텀 역할 정의 예시)
+  - `tests/test_multi_role_ai.py` (역할 체인/모드 전환/검증 단위 테스트)
+  - Guardian Hard Gate 강화:
+    - `run_multi_role_ai.py`에서 reviewer/guardian 응답이 `is_approved=false` 또는 `FAIL`이면 즉시 종료 코드 1로 차단
+    - 실패 시 baseline 대비 신규 tracked 변경 파일 자동 rollback 시도(`git checkout -- <file>`)
+    - 세션 아티팩트 저장: `logs/ai_sessions/{timestamp}/planner_plan.md`, `executor_diff.json`, `guardian_report.json`
+  - 모드 동기화 강화:
+    - `MultiRoleAIOrchestrator.select_mode()`가 `changed_files` 힌트를 받아 AGENTS 트리거와 동일하게 Precision 강제
+    - 트리거: 변경 파일 수 5개 이상 또는 `stepdata/serialization/runner/signal` 핵심 파일 경로 포함
+- Multi-Manager pending 자동 복구 강화:
+  - `SessionManager._switch_context()`에 세션별 recovery backoff 추가(매 tick 재시도 방지)
+  - UI에서 `runner_provider(sess)`를 주입받아 pending 세션 runner 지연 생성 허용
+  - pending이 최대 시도 횟수/최대 대기 시간 초과 시 `error`로 승격 및 원인 로그 기록
+- Global Input Lock 도입:
+  - `GlobalInputManager`(context manager, timeout)로 물리 입력(마우스/키보드) 구간 단일화
+  - `MacroRunner` 입력 스텝에서 lock wait/acquire/release/timeout 이벤트를 구조화 로그(JSONL)에 기록
+  - lock timeout 발생 시 스텝 실패 경로로 전파되어 stop_on_fail 정책과 일관 동작
+- Stage 2-1 시나리오 가시성 보강:
+  - 스텝 카드에 분기/루프 흐름 힌트(점프 대상/루프 복귀/반복 횟수)를 표시
+  - Excel 모드에서 텍스트 스텝 `{{변수}}`에 대해 첫 데이터 행 기준 미리보기 표시(헤더 대소문자 무시 매핑)
+  - 시나리오 리스트 좌측에 분기/루프 연결선(arrow lane) 렌더링으로 흐름 방향을 시각화
+- Stage 2-1 조건 위저드 의도 확장:
+  - 의도 3종 지원: `텍스트 보이면 클릭`, `텍스트 미검출 재시도 후 중단`, `이미지 확인 후 클릭/분기`
+  - 의도별 입력 UI를 동적 노출(텍스트/이미지 경로/재시도/타임아웃/성공·실패 라우팅)
+  - 생성 스텝은 기존 타입 조합만 사용(`ocr_jump_if`, `ocr_check_text`, `wait_for_image`, `start_loop/end_loop`, `jump_if`, `click_point`, `comment`)
+- Stage 2-2 PR-1 실시간 Flow Preview:
+  - StepList 드래그 중 임시 순서를 throttle emit(`flowPreviewRequested`)하여 화살표를 실시간 재계산.
+  - 프리뷰 edge 상태를 `ok/self_jump/dangling`으로 판정해 색상/점선으로 경고 표시.
+  - `(order_hash, edge_source_hash)` 캐시로 중복 계산을 줄이고 drop/leave 시 프리뷰를 해제.
+- Stage 2-2 PR-2 Logic Path Simulator:
+  - `LogicPathSimulator` 코어 추가: `jump_if`/`ocr_jump_if`/`image_branch`/loop 경로를 실행 없이 예측.
+  - Scenario 탭에 `경로 시뮬레이션` 버튼 + `센서 성공 가정` 체크박스 추가.
+  - 시뮬레이션 방문 스텝을 리스트에서 청록 하이라이트로 표시하고 전이 로그/경고를 로그창에 출력.
+- Stage 2-2 PR-3 Smart Snap:
+  - `collect_step_group(seed_index)` 추가: `WZ` 마커(name/comment) + 내부 참조 ID(`start_loop_id`, `target_true_id`, `target_false_id`, `jump_to_step_id`, `on_match_goto_id`, `branch_on_fail_goto_id`) 기반 그룹 추론.
+  - `sync_order()`에 Smart Snap 재배치 로직 적용: 세트 스텝 일부만 드래그해도 그룹 전체를 동반 이동하고 상대 순서를 유지.
+  - 재정렬 직후 legacy 인덱스 필드(`jump_to_index`, `target_true_index`, `target_false_index`)를 새 순서 기준으로 자동 재정규화.
+  - 그룹 분리/댕글링 감지 시 Flow Arrow Lane 경고 edge(`dangling`)와 토스트/상태바 경고를 즉시 표시.
+- Stage 3-1 Visual Image Capturer:
+  - 상단 옵션 툴바에 `스마트 캡처` 버튼 추가(실행 중에는 자동 비활성/경고).
+  - 반투명 오버레이에서 드래그 캡처 시 좌표/크기(`X,Y,W,H`)를 실시간 표시.
+  - 캡처 완료 즉시 `images/` 폴더에 PNG 저장 후 `image_click` 또는 `wait_for_image` 스텝을 자동 생성.
+  - 생성 스텝은 `AddStepsCommand`로 현재 선택 위치 다음에 삽입(Undo/Redo 호환).
+- Stage 3-2 PR-3-2-1 Coordinate Guide Overlay:
+  - `CoordinateGuideOverlay` 코어 추가: 십자선 + 레이저 포인트 + `#번호 타입` 라벨을 전체 화면 투명 오버레이에 표시.
+  - API 제공: `show_marker(x, y, step_idx, step_type, bbox=None)`, `clear_marker()`.
+  - 좌표 변환: `to_overlay_point(global_x, global_y)`로 DPI/가상 화면 환경에서 마커 위치 보정.
+  - 리소스 재사용: `get_shared()` 공유 인스턴스 경로로 오버레이 재생성 비용 방지.
+  - 검증: `tests/test_coordinate_overlay_mapping.py`로 마커 payload/클릭 관통 속성/공유 인스턴스 재사용 초안 검증.
+- Stage 3-2 PR-3-2-2 StepList Coordinate Preview Signals:
+  - `StepList` 신호 확장: `coordinatePreviewRequested(dict)`, `coordinatePreviewCleared()`.
+  - Hover/Selection 연동: `itemEntered`, `currentItemChanged`에서 좌표 스텝 payload emit.
+  - 이탈/무좌표 스텝 정리: `leaveEvent` 또는 좌표 없는 선택 시 `coordinatePreviewCleared` emit.
+  - payload 스키마: `{x, y, index, type, image_path(옵션)}`.
+  - 중복 emit 억제: 동일 payload signature 캐시로 불필요한 재발행 방지.
+- Stage 3-2 PR-3-2-3 MainWindow Coordinate Overlay Routing:
+  - `MainWindow`가 `StepList.coordinatePreviewRequested/coordinatePreviewCleared` 신호를 수신해 오버레이를 실제 표시/해제.
+  - `CoordinateGuideOverlay.get_shared()`를 통해 공유 오버레이 인스턴스를 재사용.
+  - `image_click` 프리뷰에서 템플릿 이미지 크기(`image_path`/`png_bytes`)를 읽어 bbox(`W,H`)를 오버레이에 전달.
+  - 실행 가드: 매크로/Excel 실행 중 좌표 프리뷰를 차단하고 시작 시 강제 clear, 종료 시 자동 복구.
+
+## 파일 포맷
+- JSON 저장: 메타데이터 포함 JSON(`meta`/`repeat`/`steps`), 레거시 리스트 JSON 역호환.
+- `.macro` 저장: ZIP 패키지(`template.json` + `assets/*.png`) 구조.
+- `.macro` 로드: 신규(`template.json`/`assets`) + 레거시(`scenario.json`/`images`) 동시 지원.
+- 메타(`target_window`) 저장/로드 시 UI 자동 반영.
+
+## 현재 단계
+- **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
+
+## 최신 검증 기준
+- 전체 테스트: `python -m pytest -q` => `465 passed, 1 skipped`
+- 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
+- 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
+
+## 알려진 이슈 / 낮은 우선순위
+- NotImageDialog UI 리팩터는 안정성 우려로 보류.
+- 패키징 고도화 과제:
+  - Tesseract 바이너리 동봉 전략(현재는 경로 설정형 MVP)
+  - 실제 사용자 환경(권한/백신/해상도) smoke 배포 검증
+- 복잡 배경에서의 자동 전경 분리 고도화(알파 없는 템플릿 대상)와 특징점 매칭 튜닝은 추가 개선 여지로 유지.
+- `Multi-Manager`는 `Start All`에서 runner 자동 생성/연결을 시도하지만, 스크립트 경로 미지정/로드 실패 세션은 `pending` 상태로 남을 수 있음.
+ 
+## DX Guard Phase  
+- task_start_guard blocks new work when index is not clean. 
+- pre-commit now blocks mixed commits when 10+ cleanup artifact deletions are combined with non-cleanup changes. 
+- post_task_gate auto mode fails if app code changed and selected tests are zero.
+ 
+## DX Guard Phase Two
+- Gate record now stores timestamp and uses 30-minute freshness TTL.
+- Commit message now requires Scope label with allowed values.
+- task_finish provides scope suggestion and Scope-bearing template output.
+- Risk trigger excludes artifact-only paths (__pycache__, pyc, logs jsonl) for efficiency.
+- Test baseline: 510 passed, 1 skipped.
+
+## DX Phase Three
+- CI workflow retains split rule-guard/pytest jobs and adds actions/cache-based pip cache reuse.
+- Pre-commit now emits scope-size warnings at 7 files / 500 changed lines (warning-level guidance).
+- task_finish runs preflight checks (git, python, pytest, memory) before gate execution.
+- Baseline verification: 518 passed, 1 skipped.

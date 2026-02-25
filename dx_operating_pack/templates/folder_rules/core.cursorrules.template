@@ -1,0 +1,9 @@
+# core folder local rules (template)
+
+- Scope: app/core/**
+- Priority: follow root AGENTS.md first, then this local rule.
+- Focus:
+  - data integrity and backward compatibility
+  - serialization/runner compatibility checks
+  - no direct UI access from worker context
+
