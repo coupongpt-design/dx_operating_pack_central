@@ -228,7 +228,7 @@
 - 스모크 실행 진입점:
   - `python run_smoke_suite.py --quick` (핵심 런타임/매칭 게이트)
   - `python run_smoke_suite.py` (핵심 게이트 + 전체 health check)
-- 최신 로컬 기준: `python -m pytest -q` = `524 passed, 1 skipped`.
+- 최신 로컬 기준: `python -m pytest -q` = `526 passed, 1 skipped`.
 
 ### Smart Recorder Raw Event Core (Stage 3-3 PR-3-3-1)
 - `InputRecorder`는 스텝 생성 경로와 별개로 Raw Event 스트림을 제공:
@@ -476,7 +476,7 @@
 - CI pipeline keeps `rule-guard` and `pytest` as parallel jobs, and pip download cache is handled via `actions/cache`.
 - Scope-size warning thresholds are defined as warning level: 7 files and 500 changed lines.
 - `tools/preflight_env.py` checks `git`, `python`, `pytest`, and available memory before `task_finish` runs gate logic.
-- Current verification baseline: 524 passed, 1 skipped.
+- Current verification baseline: 526 passed, 1 skipped.
 # now_spec (Current Behavior Snapshot)
 
 ## UI Modernization - Stage 3-5 PR-3-5-2
@@ -501,3 +501,16 @@
   - `finally` always performs safe cleanup and returns runner to `engine_state = IDLE`.
   - `_validate_step_resources` performs preflight checks for missing image resources before step handler execution.
   - Dynamic image path tokens (`{{...}}`, `#`, `@`, `?`) are skipped in precheck and resolved at runtime, while static paths keep fail-fast validation.
+
+## Stage 4 - PR-4-2 (Self-Healing Retry / Recovery)
+- Smart retry on resource failures:
+  - For image-resource step types (`image_click`, `wait_for_image`, `image_branch`, `compare_images`), `ResourceError` triggers bounded retry flow.
+  - Structured telemetry:
+    - `step_retry` (attempt/max/delay/exception metadata)
+    - `step_retry_success` (attempt count on eventual success)
+  - Defaults: `attempts=2`, `delay=250ms`; optional per-step override via `resource_retry_count` / `resource_retry_delay_ms`.
+- Safe-state recovery on action failures:
+  - On `ActionError`, runner executes self-heal routine and emits `step_recovery`.
+  - Recovery actions:
+    - release runtime controls (mouse/key up)
+    - non-dry-run only: ESC press + mouse move to home `(10,10)`

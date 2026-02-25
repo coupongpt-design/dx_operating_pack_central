@@ -11,6 +11,16 @@
     - 런타임 치환 토큰(`{{...}}`, `#`, `@`, `?`)이 포함된 이미지 경로는 사전 존재 검사에서 제외.
     - 정적 경로는 기존 fail-fast 검증을 유지해 누락 리소스를 조기에 탐지.
   - 검증: `tests/test_exceptions.py` 신규 + 전체 회귀 통과.
+- Stage 4 PR-4-2 반영:
+  - `app/core/runner.py` Self-Healing 보강:
+    - `ResourceError`(이미지 계열 스텝) 발생 시 재시도(`step_retry`) 후 성공 시 `step_retry_success` 기록.
+    - 재시도 횟수/지연은 러너 기본값 기반(`attempts=2`, `delay=250ms`)이며 스텝 속성(`resource_retry_count`, `resource_retry_delay_ms`)으로 override 가능.
+    - `ActionError` 발생 시 안전 복구(`step_recovery`) 실행:
+      - 런타임 입력 해제
+      - (non-dry-run) ESC 시도 + 마우스 홈 이동
+  - `tests/test_exceptions.py` 보강:
+    - 일시적 `ResourceError` 후 재시도 성공 시나리오 검증.
+    - `ActionError` 시 복구 이벤트(`step_recovery`) 발생 검증.
 - Stage 3-5 PR-3-5-2 반영:
   - 옵션 툴바를 `Targeting / Flags / Excel` 3그룹으로 정돈.
   - 그룹 사이 수직 구분선 추가, 체크박스 라벨 축약, 툴바 입력 높이 정렬.
@@ -304,7 +314,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `524 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `526 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 
@@ -332,4 +342,4 @@
 - CI workflow retains split rule-guard/pytest jobs and adds actions/cache-based pip cache reuse.
 - Pre-commit now emits scope-size warnings at 7 files / 500 changed lines (warning-level guidance).
 - task_finish runs preflight checks (git, python, pytest, memory) before gate execution.
-- Baseline verification: 524 passed, 1 skipped.
+- Baseline verification: 526 passed, 1 skipped.

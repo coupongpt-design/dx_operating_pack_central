@@ -166,6 +166,9 @@ class MacroRunner(QThread):
         self._input_lock_timeout_sec = max(0.05, float(input_lock_timeout_sec))
         self._input_lock_manager = input_lock_manager or get_global_input_manager()
         self._auto_enter_after_text = bool(auto_enter_after_text)
+        self._resource_retry_default_attempts = 2
+        self._resource_retry_default_delay_ms = 250
+        self._self_heal_mouse_home = (10, 10)
         self._step_started_at: dict[str, float] = {}
         self._run_finish_emitted = False
         self.engine_state = "IDLE"
@@ -294,6 +297,73 @@ class MacroRunner(QThread):
                 pyautogui.keyUp(key)
             except Exception:
                 pass
+
+    def _is_resource_retry_target_step(self, step: StepData) -> bool:
+        return str(getattr(step, "type", "") or "") in {
+            "image_click",
+            "wait_for_image",
+            "image_branch",
+            "compare_images",
+        }
+
+    def _resolve_resource_retry_attempts(self, step: StepData) -> int:
+        raw = getattr(step, "resource_retry_count", None)
+        if raw is None:
+            raw = getattr(step, "retry_count", None)
+        try:
+            value = int(raw)
+        except Exception:
+            value = int(self._resource_retry_default_attempts)
+        return max(0, min(value, 10))
+
+    def _resolve_resource_retry_delay_ms(self, step: StepData) -> int:
+        raw = getattr(step, "resource_retry_delay_ms", None)
+        if raw is None:
+            raw = getattr(step, "retry_delay_ms", None)
+        try:
+            value = int(raw)
+        except Exception:
+            value = int(self._resource_retry_default_delay_ms)
+        return max(0, value)
+
+    def _attempt_action_error_recovery(self, step: StepData, idx: int, error: ActionError) -> bool:
+        recovered = False
+        step_no = int(idx) + 1
+        try:
+            self._release_runtime_controls()
+            recovered = True
+        except Exception:
+            pass
+
+        if not self.dry_run:
+            try:
+                with self._acquire_input_lock("self_heal_escape"):
+                    pyautogui.press("esc")
+                recovered = True
+            except Exception as e:
+                self.logger.debug("self-heal escape failed at step %s: %s", step_no, e)
+            try:
+                home_x, home_y = self._self_heal_mouse_home
+                with self._acquire_input_lock("self_heal_mouse_home"):
+                    pyautogui.moveTo(int(home_x), int(home_y), duration=0)
+                recovered = True
+            except Exception as e:
+                self.logger.debug("self-heal mouse-home failed at step %s: %s", step_no, e)
+
+        self._write_structured_event(
+            "WARN",
+            "step_recovery",
+            step_uuid=self._runtime_step_uuid(step),
+            step_index=int(idx),
+            step_name=str(getattr(step, "name", "") or ""),
+            exception_type=error.__class__.__name__,
+            recovered=bool(recovered),
+        )
+        if recovered:
+            self.log.emit(f"  -> Self-heal recovery applied at step {step_no}.")
+        else:
+            self.log.emit(f"  !! Self-heal recovery unavailable at step {step_no}.")
+        return recovered
 
     def _to_macro_error(self, exc: Exception, step: StepData | None = None, idx: int | None = None) -> MacroBaseError:
         if isinstance(exc, MacroBaseError):
@@ -724,24 +794,75 @@ class MacroRunner(QThread):
                         step = self.steps[i]
                         self._emit_step_started(step)
                         emitted_failed = False
-                        
-                        try:
-                            ok, fail_goto_id, steps_consumed = self._exec_step(sct, mon, step, i)
-                        except Exception as e:
-                            macro_error = self._to_macro_error(e, step=step, idx=i)
-                            self.log.emit(
-                                f"!! Step {i+1} error [{macro_error.__class__.__name__}]: {macro_error}"
-                            )
-                            traceback.print_exc()
-                            self._emit_step_exception_telemetry(step, i, macro_error)
-                            self._emit_step_failed(
-                                step,
-                                f"[{macro_error.__class__.__name__}] {macro_error}",
-                            )
-                            emitted_failed = True
-                            ok = False
-                            fail_goto_id = None
-                            steps_consumed = 0
+                        retry_attempts = 0
+                        max_retry_attempts = self._resolve_resource_retry_attempts(step)
+                        retry_delay_ms = self._resolve_resource_retry_delay_ms(step)
+                        ok = False
+                        fail_goto_id = None
+                        steps_consumed = 0
+                        while True:
+                            try:
+                                ok, fail_goto_id, steps_consumed = self._exec_step(sct, mon, step, i)
+                                if retry_attempts > 0:
+                                    self.log.emit(
+                                        f"  -> Retry success at step {i+1} after {retry_attempts} attempt(s)."
+                                    )
+                                    self._write_structured_event(
+                                        "INFO",
+                                        "step_retry_success",
+                                        step_uuid=self._runtime_step_uuid(step),
+                                        step_index=int(i),
+                                        step_name=str(getattr(step, "name", "") or ""),
+                                        retry_attempts=int(retry_attempts),
+                                    )
+                                break
+                            except Exception as e:
+                                macro_error = self._to_macro_error(e, step=step, idx=i)
+                                can_retry = (
+                                    isinstance(macro_error, ResourceError)
+                                    and self._is_resource_retry_target_step(step)
+                                    and retry_attempts < max_retry_attempts
+                                    and not self._stop
+                                )
+                                if can_retry:
+                                    retry_attempts += 1
+                                    self.log.emit(
+                                        f"  -> Retry {retry_attempts}/{max_retry_attempts} for step {i+1}: {macro_error}"
+                                    )
+                                    self._write_structured_event(
+                                        "WARN",
+                                        "step_retry",
+                                        step_uuid=self._runtime_step_uuid(step),
+                                        step_index=int(i),
+                                        step_name=str(getattr(step, "name", "") or ""),
+                                        retry_attempt=int(retry_attempts),
+                                        retry_max=int(max_retry_attempts),
+                                        retry_delay_ms=int(retry_delay_ms),
+                                        exception_type=macro_error.__class__.__name__,
+                                        error=str(macro_error),
+                                    )
+                                    if retry_delay_ms > 0:
+                                        self.msleep(int(retry_delay_ms))
+                                    if self._stop:
+                                        break
+                                    continue
+
+                                self.log.emit(
+                                    f"!! Step {i+1} error [{macro_error.__class__.__name__}]: {macro_error}"
+                                )
+                                traceback.print_exc()
+                                if isinstance(macro_error, ActionError):
+                                    self._attempt_action_error_recovery(step, i, macro_error)
+                                self._emit_step_exception_telemetry(step, i, macro_error)
+                                self._emit_step_failed(
+                                    step,
+                                    f"[{macro_error.__class__.__name__}] {macro_error}",
+                                )
+                                emitted_failed = True
+                                ok = False
+                                fail_goto_id = None
+                                steps_consumed = 0
+                                break
                         # Handle sub-script switch
                         if self._switch_steps is not None:
                             self.steps = self._switch_steps

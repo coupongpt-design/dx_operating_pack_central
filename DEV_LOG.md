@@ -1916,3 +1916,22 @@
 - Validation:
   - `python -m pytest -q tests/test_exceptions.py` -> `6 passed in 2.18s`
   - `python -m pytest -q` -> `524 passed, 1 skipped in 37.01s`
+
+## Session 101 - Stage 4 PR-4-2 (Self-Healing Retry / Recovery)
+- Date: 2026-02-26
+- Summary:
+  - `app/core/runner.py`
+    - 이미지 계열 스텝(`image_click`, `wait_for_image`, `image_branch`, `compare_images`)의 `ResourceError`에 대해 bounded retry 추가.
+    - 재시도 텔레메트리 추가:
+      - `step_retry` (attempt/max/delay/exception)
+      - `step_retry_success` (최종 성공 시 재시도 횟수)
+    - `ActionError` 발생 시 self-heal 복구 루틴 추가:
+      - 런타임 입력 해제
+      - non-dry-run에서 ESC 입력 + 마우스 홈 이동(10,10)
+      - 복구 결과 `step_recovery` 이벤트 기록
+  - `tests/test_exceptions.py`
+    - 일시적 `ResourceError` 이후 재시도 성공 시나리오 검증
+    - `ActionError` 시 `step_recovery` 이벤트 검증
+- Validation:
+  - `python -m pytest -q tests/test_exceptions.py` -> `8 passed in 4.04s`
+  - `python -m pytest -q` -> `526 passed, 1 skipped in 40.94s`

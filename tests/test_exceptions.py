@@ -126,3 +126,55 @@ def test_runner_step_exception_telemetry_includes_step_index_and_type(monkeypatc
     assert step_events[0][2]["step_index"] == 0
     assert step_events[0][2]["exception_type"] == "ActionError"
     assert runner.engine_state == "IDLE"
+
+
+def test_runner_retries_resource_error_and_recovers_success(monkeypatch):
+    step = StepData(id="img_r1", name="RetryImage", type="image_click")
+    runner = MacroRunner([step], repeat=RepeatConfig(repeat_count=1, stop_on_fail=True), dry_run=True)
+    runner._resource_retry_default_attempts = 2
+    runner._resource_retry_default_delay_ms = 0
+    events = []
+    calls = {"count": 0}
+
+    def _capture(level, event, **payload):
+        events.append((level, event, payload))
+
+    def _fake_exec_step(sct, mon, st, idx):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise ResourceError("temporary image miss")
+        return (True, None, 0)
+
+    runner._write_structured_event = _capture  # type: ignore[assignment]
+    runner._exec_step = _fake_exec_step  # type: ignore[assignment]
+    monkeypatch.setattr("app.core.runner.mss", SimpleNamespace(mss=lambda: _DummyMSS()))
+
+    runner.run()
+
+    assert calls["count"] == 2
+    assert any(evt[1] == "step_retry" for evt in events)
+    assert any(evt[1] == "step_retry_success" for evt in events)
+    assert runner.engine_state == "IDLE"
+
+
+def test_runner_emits_step_recovery_for_action_error(monkeypatch):
+    step = StepData(id="act_r1", name="RecoverAction", type="click_point")
+    runner = MacroRunner([step], repeat=RepeatConfig(repeat_count=1, stop_on_fail=False), dry_run=True)
+    events = []
+
+    def _capture(level, event, **payload):
+        events.append((level, event, payload))
+
+    def _fake_exec_step(sct, mon, st, idx):
+        raise ActionError("click failed")
+
+    runner._write_structured_event = _capture  # type: ignore[assignment]
+    runner._exec_step = _fake_exec_step  # type: ignore[assignment]
+    runner._release_runtime_controls = lambda: None  # type: ignore[assignment]
+    monkeypatch.setattr("app.core.runner.mss", SimpleNamespace(mss=lambda: _DummyMSS()))
+
+    runner.run()
+
+    recovery_events = [evt for evt in events if evt[1] == "step_recovery"]
+    assert recovery_events
+    assert recovery_events[0][2]["recovered"] is True
