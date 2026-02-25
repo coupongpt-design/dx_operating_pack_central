@@ -98,9 +98,12 @@ For meaningful behavior changes, sync:
    - Commit only when tests pass and diff is clean.
    - If any condition fails, do not commit.
    - Commit message must include:
+     - `Summary:` (what/why in 1-3 lines)
+     - `Changes:` (key files or behavior delta)
      - `Tests:`
      - `- targeted: PASS / FAIL`
      - `- full suite: <exact pytest -q summary line if executed>`
+     - `Risks/Follow-up:` (or `none`)
 
 ## 11) Waste-Reduction Protocol (Mandatory)
 1. Search Budget:
@@ -139,6 +142,7 @@ Risk snapshot: create pre-refactor commit for runner/signal/StepData
 Session close: status clean + intended diff + required tests green
 Post-task gate: targeted tests first; run full pytest on risk trigger; commit only if tests pass and diff is clean
 Commit message tests block: include targeted PASS/FAIL and full-suite exact pytest summary line when executed
+Commit message detail block: include Summary + Changes + Tests + Risks/Follow-up (or none)
 Waste budget: max 4 rg queries/task; max 2 file opens; if exceeded stop with top2 hypotheses + 1 missing info + next minimal query
 No duplicate queries: no repeated keyword+file search; plan queries once; refine only with new evidence
 Search order: WRITES -> STATE TRANSITIONS -> CALLERS -> UI labels last
