@@ -22,6 +22,12 @@
 python dx_operating_pack\tools\setup_dx.py --pack-root dx_operating_pack --target-root . --mode copy --overwrite
 ```
 
+## 1-2) 중앙 Repo 원격 온보딩(권장)
+```bat
+python dx_operating_pack\tools\setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite
+```
+- 동작: 원격 팩을 `.dx_cache/dx_operating_pack_remote`에 clone/pull 후 즉시 설치.
+
 ## 2) 훅 설치
 ```bat
 python tools/install_git_hooks.py
@@ -62,5 +68,5 @@ python tools/export_external_profiles.py
 
 ## 8) 공용 팩 동기화(선택)
 ```bat
-python tools/sync_dx_pack.py --pack-repo <shared_dx_pack_repo_path> --project-root . --mode copy --overwrite
+python tools/sync_dx_pack.py --remote-url <CENTRAL_REPO_URL_OR_PATH> --project-root . --mode copy --overwrite
 ```

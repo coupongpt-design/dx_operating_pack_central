@@ -25,7 +25,8 @@
 - 작업 종료 표준: `python tools/task_finish.py --subject "<msg>" --scope <feature|rule|cleanup|docs|test>`
 - 산출물 인덱스 정리: `python tools/cleanup_repo_artifacts.py --apply`
 - 새 프로젝트 설치: `python tools/setup_dx.py --pack-root dx_operating_pack --target-root <project> --mode copy --overwrite`
-- 공용 팩 동기화: `python tools/sync_dx_pack.py --pack-repo <shared_repo_path> --project-root <project> --mode copy --overwrite`
+- 원격 온보딩: `python tools/setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root <project> --mode copy --overwrite`
+- 공용 팩 동기화: `python tools/sync_dx_pack.py --remote-url <CENTRAL_REPO_URL_OR_PATH> --project-root <project> --mode copy --overwrite`
 - 컨텍스트 스냅샷: `python tools/generate_context_snapshot.py`
 - 스코프 스냅샷: `python tools/generate_context_snapshot.py --scope core|ui|dx`
 - 의존성 그래프: `python tools/dependency_graph_gen.py`

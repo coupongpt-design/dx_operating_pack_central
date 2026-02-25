@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import shutil
 import stat
+import subprocess
 from pathlib import Path
 
 
@@ -46,6 +47,51 @@ def _copy_or_link(src: Path, dst: Path, mode: str) -> None:
         shutil.copytree(src, dst)
     else:
         shutil.copy2(src, dst)
+
+
+def _run(cmd: list[str], cwd: Path | None = None) -> tuple[int, str]:
+    completed = subprocess.run(
+        cmd,
+        cwd=str(cwd) if cwd else None,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="ignore",
+    )
+    output = (completed.stdout or "") + (completed.stderr or "")
+    return completed.returncode, output.strip()
+
+
+def _resolve_remote_cache_dir(target_root: Path, raw: str) -> Path:
+    cache = Path(raw)
+    return cache if cache.is_absolute() else (target_root / cache)
+
+
+def _acquire_remote_pack(remote: str, cache_dir: Path) -> tuple[Path | None, list[str]]:
+    logs: list[str] = []
+    cache_dir = cache_dir.resolve()
+    git_dir = cache_dir / ".git"
+
+    if git_dir.exists():
+        logs.append(f"[info] remote cache exists: {cache_dir}")
+        _run(["git", "-C", str(cache_dir), "remote", "set-url", "origin", remote])
+        rc, out = _run(["git", "-C", str(cache_dir), "pull", "--ff-only"])
+        if rc != 0:
+            logs.append(f"[fail] remote pull failed: {out}")
+            return None, logs
+        logs.append("[ok] remote cache updated (pull --ff-only)")
+        return cache_dir, logs
+
+    if cache_dir.exists():
+        shutil.rmtree(cache_dir)
+    cache_dir.parent.mkdir(parents=True, exist_ok=True)
+    rc, out = _run(["git", "clone", remote, str(cache_dir)])
+    if rc != 0:
+        logs.append(f"[fail] remote clone failed: {out}")
+        return None, logs
+    logs.append(f"[ok] remote cloned: {remote} -> {cache_dir}")
+    return cache_dir, logs
 
 
 def _ensure_hook_executable(target_root: Path, installed: list[str]) -> None:
@@ -98,6 +144,16 @@ def main() -> int:
         help="Path to dx_operating_pack root.",
     )
     parser.add_argument(
+        "--remote",
+        default="",
+        help="Remote git URL/path for central dx pack. If set, clone/pull from remote first.",
+    )
+    parser.add_argument(
+        "--remote-cache-dir",
+        default=".dx_cache/dx_operating_pack_remote",
+        help="Local cache directory for remote dx pack clone/pull.",
+    )
+    parser.add_argument(
         "--target-root",
         default=".",
         help="Path to destination project root.",
@@ -115,13 +171,26 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    pack_root = Path(args.pack_root).resolve()
     target_root = Path(args.target_root).resolve()
-    if not pack_root.exists():
-        print(f"[fail] pack root not found: {pack_root}")
-        return 1
+    pack_root: Path
+    logs: list[str] = []
 
-    logs = install(pack_root=pack_root, target_root=target_root, mode=args.mode, overwrite=args.overwrite)
+    if args.remote.strip():
+        cache_dir = _resolve_remote_cache_dir(target_root=target_root, raw=args.remote_cache_dir)
+        remote_root, remote_logs = _acquire_remote_pack(remote=args.remote.strip(), cache_dir=cache_dir)
+        logs.extend(remote_logs)
+        if not remote_root:
+            for line in logs:
+                print(line)
+            return 1
+        pack_root = remote_root
+    else:
+        pack_root = Path(args.pack_root).resolve()
+        if not pack_root.exists():
+            print(f"[fail] pack root not found: {pack_root}")
+            return 1
+
+    logs.extend(install(pack_root=pack_root, target_root=target_root, mode=args.mode, overwrite=args.overwrite))
     print(f"[done] mode={args.mode}, overwrite={args.overwrite}, target={target_root}")
     for line in logs:
         print(line)
