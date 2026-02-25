@@ -27,14 +27,18 @@ CONSTITUTIONAL_FILES = {
 BLOCKED_STAGE_PATTERNS = (
     re.compile(r"(^|/)__pycache__/"),
     re.compile(r"\.pyc$"),
-    re.compile(r"^logs/run_events_.*\.jsonl$"),
+    re.compile(r"^logs/.*\.jsonl$"),
 )
 
-RISKY_PATH_PATTERNS = (
+HIGH_RISK_PATH_PATTERNS = (
+    re.compile(r"thread", re.IGNORECASE),
+    re.compile(r"signal", re.IGNORECASE),
+    re.compile(r"runner", re.IGNORECASE),
     re.compile(r"stepdata", re.IGNORECASE),
     re.compile(r"serialization", re.IGNORECASE),
-    re.compile(r"runner", re.IGNORECASE),
-    re.compile(r"signal", re.IGNORECASE),
+    re.compile(r"basecommand", re.IGNORECASE),
+    re.compile(r"undostack", re.IGNORECASE),
+    re.compile(r"app/core/commands\.py$", re.IGNORECASE),
 )
 
 BLOCKED_USER_PATH_PATTERNS = (
@@ -43,6 +47,8 @@ BLOCKED_USER_PATH_PATTERNS = (
 
 GATE_FILE = Path(".git") / "post_task_gate.json"
 GATE_MAX_AGE_SEC = 3 * 60 * 60
+MAX_STAGE_FILES = 18
+MAX_STAGE_LINES = 1400
 
 
 @dataclass(frozen=True)
@@ -104,16 +110,65 @@ def compute_staged_hash(entries: list[StagedEntry]) -> str:
 
 def is_risk_triggered(entries: list[StagedEntry]) -> bool:
     file_set = {path for entry in entries for path in entry.paths}
-    if len(file_set) >= 5:
-        return True
     for path in file_set:
-        if any(pattern.search(path) for pattern in RISKY_PATH_PATTERNS):
+        if any(pattern.search(path) for pattern in HIGH_RISK_PATH_PATTERNS):
             return True
     return False
 
 
+def parse_numstat(text: str) -> tuple[int, int]:
+    files = 0
+    changed_lines = 0
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        files += 1
+        a, d = parts[0], parts[1]
+        try:
+            added = int(a) if a.isdigit() else 0
+            deleted = int(d) if d.isdigit() else 0
+        except ValueError:
+            added, deleted = 0, 0
+        changed_lines += added + deleted
+    return files, changed_lines
+
+
+def validate_scope_limits(file_count: int, line_count: int) -> list[str]:
+    errors: list[str] = []
+    if file_count > MAX_STAGE_FILES:
+        errors.append(
+            f"staged files too large ({file_count}>{MAX_STAGE_FILES}); split into atomic commits"
+        )
+    if line_count > MAX_STAGE_LINES:
+        errors.append(
+            f"staged changed lines too large ({line_count}>{MAX_STAGE_LINES}); split into atomic commits"
+        )
+    return errors
+
+
 def _is_constitutional(path: str) -> bool:
     return path in CONSTITUTIONAL_FILES
+
+
+def _is_blocked_artifact(path: str) -> bool:
+    return any(pattern.search(path) for pattern in BLOCKED_STAGE_PATTERNS)
+
+
+def is_artifact_cleanup_only(entries: list[StagedEntry]) -> bool:
+    if not entries:
+        return False
+    for entry in entries:
+        code = entry.status[:1]
+        for path in entry.paths:
+            if code != "D":
+                return False
+            if not _is_blocked_artifact(path):
+                return False
+    return True
 
 
 def validate_staged_entries(entries: list[StagedEntry]) -> list[str]:
@@ -134,7 +189,7 @@ def validate_staged_entries(entries: list[StagedEntry]) -> list[str]:
                     f"constitutional file may not be {entry.status}: {path} "
                     "(edit-in-place only)"
                 )
-            if any(pattern.search(path) for pattern in BLOCKED_STAGE_PATTERNS):
+            if _is_blocked_artifact(path) and code != "D":
                 errors.append(f"blocked staged artifact path: {path}")
             if any(pattern.search(path) for pattern in BLOCKED_USER_PATH_PATTERNS):
                 errors.append(f"blocked protected path change: {path}")
@@ -260,6 +315,10 @@ def run_pre_commit_guard() -> int:
     staged_text = _git("diff", "--cached", "--name-status")
     entries = parse_name_status(staged_text)
     errors = validate_staged_entries(entries)
+    numstat_text = _git("diff", "--cached", "--numstat")
+    file_count, line_count = parse_numstat(numstat_text)
+    if not is_artifact_cleanup_only(entries):
+        errors.extend(validate_scope_limits(file_count, line_count))
 
     if not entries:
         errors.append("no staged changes detected")

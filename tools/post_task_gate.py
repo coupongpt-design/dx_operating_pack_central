@@ -11,10 +11,16 @@ try:
     from tools.git_hook_guards import compute_staged_hash
     from tools.git_hook_guards import is_risk_triggered
     from tools.git_hook_guards import parse_name_status
+    from tools.test_selector import build_pytest_command
+    from tools.test_selector import filter_existing_tests
+    from tools.test_selector import select_tests
 except ModuleNotFoundError:  # pragma: no cover - direct script execution fallback
     from git_hook_guards import compute_staged_hash
     from git_hook_guards import is_risk_triggered
     from git_hook_guards import parse_name_status
+    from test_selector import build_pytest_command
+    from test_selector import filter_existing_tests
+    from test_selector import select_tests
 
 GATE_FILE = Path(".git") / "post_task_gate.json"
 
@@ -55,7 +61,17 @@ def run_gate(targeted_cmd: str) -> int:
     staged_hash = compute_staged_hash(entries)
     risk = is_risk_triggered(entries)
 
-    targeted_rc, targeted_output = _run_shell(targeted_cmd)
+    effective_targeted_cmd = targeted_cmd
+    selected_tests: list[str] = []
+    if targeted_cmd.strip().lower() == "auto":
+        staged_paths = [p for e in entries for p in e.paths]
+        selected_tests = filter_existing_tests(select_tests(staged_paths))
+        if not selected_tests:
+            print("post-task gate: auto targeted selection returned no tests")
+            return 1
+        effective_targeted_cmd = build_pytest_command(selected_tests)
+
+    targeted_rc, targeted_output = _run_shell(effective_targeted_cmd)
     targeted_summary = _extract_pytest_summary(targeted_output)
     targeted_pass = targeted_rc == 0
 
@@ -75,7 +91,9 @@ def run_gate(targeted_cmd: str) -> int:
         "head": head,
         "staged_hash": staged_hash,
         "risk": risk,
-        "targeted_command": targeted_cmd,
+        "targeted_mode": "auto" if targeted_cmd.strip().lower() == "auto" else "manual",
+        "targeted_command": effective_targeted_cmd,
+        "targeted_selected_tests": selected_tests,
         "targeted_pass": targeted_pass,
         "targeted_summary": targeted_summary,
         "full_suite_required": risk,
@@ -87,6 +105,8 @@ def run_gate(targeted_cmd: str) -> int:
 
     print(f"post-task gate written: {GATE_FILE}")
     print(f"targeted: {'PASS' if targeted_pass else 'FAIL'} | {targeted_summary}")
+    if selected_tests:
+        print(f"targeted auto tests: {', '.join(selected_tests)}")
     if risk:
         print(f"full suite: {'PASS' if full_suite_pass else 'FAIL'} | {full_summary}")
     else:
@@ -112,6 +132,8 @@ def parse_targeted(argv: Sequence[str] | None = None) -> str:
     tokens = items[idx + 1 :]
     if not tokens:
         raise ValueError("empty targeted command after --targeted")
+    if len(tokens) == 1 and tokens[0].lower() == "auto":
+        return "auto"
     return " ".join(tokens)
 
 

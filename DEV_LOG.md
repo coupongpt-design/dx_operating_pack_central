@@ -1823,3 +1823,26 @@
   - `.github/workflows/ci.yml` runs governance guard before pytest.
 - Extended guard tests:
   - `tests/test_git_hook_guards.py` adds tests for tests-line extraction and gate-summary matching.
+
+## Session 95 - DX Workflow Optimization (Auto Targeted + Atomic Scope + CI Parallel)
+- Added auto targeted test selector:
+  - `tools/test_selector.py` maps changed paths -> related pytest targets.
+  - `tools/post_task_gate.py` now supports `--targeted auto`.
+- Refined risk-based full suite trigger:
+  - high-risk paths only: `thread/signal/runner/StepData/serialization/BaseCommand/UndoStack`.
+- Added staged scope hard guard:
+  - `pre-commit` now blocks oversized staged scope (file/line threshold) to enforce atomic commits.
+- Added standardized finish flow:
+  - `tools/task_finish.py` runs post-task gate and writes `.git/TASK_COMMIT_TEMPLATE.md`.
+- Added repo cleanup utility and applied tracked artifact cleanup:
+  - `tools/cleanup_repo_artifacts.py` (`--apply` removes tracked artifacts from index only).
+  - cleaned tracked `__pycache__`, `*.pyc`, `logs/*.jsonl` from Git index.
+- CI optimization:
+  - `.github/workflows/ci.yml` split into `changes`/`rule-guard`/`pytest` jobs.
+  - path filtering + pip cache + parallelizable guard/pytest paths.
+- Added tests:
+  - `tests/test_test_selector.py`
+  - `tests/test_task_finish.py`
+  - `tests/test_post_task_gate.py`
+  - `tests/test_ci_governance_guard.py`
+  - expanded `tests/test_git_hook_guards.py`

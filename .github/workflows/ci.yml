@@ -5,7 +5,82 @@ on:
   pull_request:
 
 jobs:
-  test:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      run_rule_guard: ${{ steps.filter.outputs.rule_guard }}
+      run_pytest: ${{ steps.filter.outputs.pytest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            rule_guard:
+              - 'AGENTS.md'
+              - '.cursorrules'
+              - '.githooks/**'
+              - 'tools/git_hook_guards.py'
+              - 'tools/post_task_gate.py'
+              - 'tools/ci_governance_guard.py'
+              - 'tools/task_finish.py'
+              - 'tools/test_selector.py'
+              - 'tests/test_rule_docs_sync.py'
+              - 'tests/test_rule_guard_steps_mutation.py'
+              - 'tests/test_git_hook_guards.py'
+              - 'tests/test_test_selector.py'
+              - 'tests/test_task_finish.py'
+              - 'tests/test_post_task_gate.py'
+              - 'tests/test_ci_governance_guard.py'
+              - '.github/workflows/ci.yml'
+            pytest:
+              - 'app/**'
+              - 'tests/**'
+              - 'tools/**'
+              - 'run.py'
+              - 'run_health_check.py'
+              - 'requirements*.txt'
+              - '.github/workflows/ci.yml'
+
+  rule-guard:
+    needs: changes
+    if: needs.changes.outputs.run_rule_guard == 'true' || needs.changes.outputs.run_pytest == 'true'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Governance guard (commit policy + file policy)
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python tools/ci_governance_guard.py
+
+      - name: Rule guard tests
+        run: |
+          python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py tests/test_git_hook_guards.py tests/test_test_selector.py tests/test_task_finish.py tests/test_post_task_gate.py tests/test_ci_governance_guard.py
+
+  pytest:
+    needs: changes
+    if: needs.changes.outputs.run_pytest == 'true'
     runs-on: windows-latest
     env:
       QT_QPA_PLATFORM: offscreen
@@ -13,23 +88,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+          cache: "pip"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
           python -m pip install PyQt5 mss numpy opencv-python pyautogui pyperclip pillow pynput psutil
-
-      - name: Governance guard (commit policy + file policy)
-        env:
-          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: python tools/ci_governance_guard.py
 
       - name: Run pytest
         run: python -m pytest -q

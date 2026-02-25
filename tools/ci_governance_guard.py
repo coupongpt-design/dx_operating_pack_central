@@ -6,10 +6,14 @@ import sys
 from typing import Iterable
 
 try:
+    from tools.git_hook_guards import extract_tests_lines
+    from tools.git_hook_guards import is_risk_triggered
     from tools.git_hook_guards import parse_name_status
     from tools.git_hook_guards import validate_commit_message
     from tools.git_hook_guards import validate_staged_entries
 except ModuleNotFoundError:  # pragma: no cover - direct script execution fallback
+    from git_hook_guards import extract_tests_lines
+    from git_hook_guards import is_risk_triggered
     from git_hook_guards import parse_name_status
     from git_hook_guards import validate_commit_message
     from git_hook_guards import validate_staged_entries
@@ -45,6 +49,32 @@ def _commit_entries(commit: str):
     return parse_name_status(text)
 
 
+def _validate_commit_tests_semantics(message: str, risk: bool) -> list[str]:
+    errors: list[str] = []
+    lines = extract_tests_lines(message)
+    targeted = lines.get("targeted", "")
+    full_suite = lines.get("full_suite", "")
+
+    if targeted and not (targeted.startswith("PASS") or targeted.startswith("FAIL")):
+        errors.append("targeted tests line must start with PASS/FAIL")
+    if not full_suite:
+        errors.append("full suite tests line missing")
+        return errors
+
+    low = full_suite.lower()
+    if risk:
+        if not (full_suite.startswith("PASS") or full_suite.startswith("FAIL")):
+            errors.append("risk commit must provide full suite PASS/FAIL line")
+    else:
+        if (
+            "not required" not in low
+            and "skip" not in low
+            and not (full_suite.startswith("PASS") or full_suite.startswith("FAIL"))
+        ):
+            errors.append("non-risk commit full suite line must be PASS/FAIL or not required/skip")
+    return errors
+
+
 def main() -> int:
     base, head = _commit_range()
     commits = list(_iter_commits(base, head))
@@ -54,11 +84,19 @@ def main() -> int:
 
     all_errors: list[str] = []
     for commit in commits:
-        msg_errors = validate_commit_message(_commit_message(commit))
+        message = _commit_message(commit)
+        entries = _commit_entries(commit)
+        risk = is_risk_triggered(entries)
+
+        msg_errors = validate_commit_message(message)
         for err in msg_errors:
             all_errors.append(f"{commit}: commit message -> {err}")
 
-        entry_errors = validate_staged_entries(_commit_entries(commit))
+        semantic_errors = _validate_commit_tests_semantics(message, risk=risk)
+        for err in semantic_errors:
+            all_errors.append(f"{commit}: commit tests semantics -> {err}")
+
+        entry_errors = validate_staged_entries(entries)
         for err in entry_errors:
             all_errors.append(f"{commit}: file policy -> {err}")
 

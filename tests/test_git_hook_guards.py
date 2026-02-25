@@ -4,10 +4,14 @@ import time
 
 from tools.git_hook_guards import compute_staged_hash
 from tools.git_hook_guards import extract_tests_lines
+from tools.git_hook_guards import is_artifact_cleanup_only
+from tools.git_hook_guards import is_risk_triggered
+from tools.git_hook_guards import parse_numstat
 from tools.git_hook_guards import parse_name_status
 from tools.git_hook_guards import validate_commit_message
 from tools.git_hook_guards import validate_gate_record
 from tools.git_hook_guards import validate_message_against_gate_record
+from tools.git_hook_guards import validate_scope_limits
 from tools.git_hook_guards import validate_staged_entries
 
 
@@ -71,14 +75,46 @@ def test_validate_staged_entries_blocks_constitutional_rename() -> None:
 
 
 def test_validate_staged_entries_blocks_runtime_log_artifact() -> None:
-    entries = parse_name_status("A\tlogs/run_events_20260224_123000_x.jsonl\n")
+    entries = parse_name_status("A\tlogs/any_runtime_log.jsonl\n")
     errors = validate_staged_entries(entries)
     assert any("blocked staged artifact" in err for err in errors)
+
+
+def test_validate_staged_entries_allows_artifact_deletion() -> None:
+    entries = parse_name_status("D\tlogs/old_run.jsonl\n")
+    assert validate_staged_entries(entries) == []
 
 
 def test_validate_staged_entries_allows_normal_code_change() -> None:
     entries = parse_name_status("M\tapp/main.py\nA\ttests/test_new_feature.py\n")
     assert validate_staged_entries(entries) == []
+
+
+def test_is_risk_triggered_only_on_high_risk_paths() -> None:
+    low = parse_name_status("M\tapp/ui/widgets.py\n")
+    high = parse_name_status("M\tapp/core/runner.py\n")
+    assert is_risk_triggered(low) is False
+    assert is_risk_triggered(high) is True
+
+
+def test_parse_numstat_and_scope_limits() -> None:
+    files, changed = parse_numstat("10\t2\tapp/main.py\n3\t1\tapp/ui/widgets.py\n")
+    assert files == 2
+    assert changed == 16
+
+    errors = validate_scope_limits(file_count=25, line_count=2000)
+    assert any("staged files too large" in err for err in errors)
+    assert any("staged changed lines too large" in err for err in errors)
+
+
+def test_is_artifact_cleanup_only_true_for_deletes() -> None:
+    entries = parse_name_status("D\tlogs/run_1.jsonl\nD\tapp/__pycache__/x.pyc\n")
+    assert is_artifact_cleanup_only(entries) is True
+
+
+def test_is_artifact_cleanup_only_false_for_non_delete() -> None:
+    entries = parse_name_status("A\tlogs/run_1.jsonl\n")
+    assert is_artifact_cleanup_only(entries) is False
 
 
 def test_validate_staged_entries_blocks_backups_path() -> None:

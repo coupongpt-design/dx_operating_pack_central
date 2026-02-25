@@ -10,3 +10,4 @@ captures/
 *.7z
 .env
 logs/run_events_*.jsonl
+logs/*.jsonl

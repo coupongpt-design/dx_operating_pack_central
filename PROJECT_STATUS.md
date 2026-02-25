@@ -41,6 +41,13 @@
   - CI(server-side):
     - `tools/ci_governance_guard.py`로 커밋 범위 전체의 메시지 스키마/파일 정책 검증
     - 로컬 `--no-verify` 우회 시에도 서버에서 실패 처리
+- DX 워크플로우 최적화(Session 95):
+  - `tools/test_selector.py`: 변경 파일 기반 targeted test 자동 선택
+  - `tools/post_task_gate.py --targeted auto` 지원
+  - `tools/task_finish.py`: gate 실행 + 커밋 템플릿 자동 생성
+  - `pre-commit` staged scope(파일/라인) 상한 차단으로 atomic commit 유도
+  - `tools/cleanup_repo_artifacts.py`: tracked 산출물 정리 자동화
+  - CI 구조 개선: `changes` + `rule-guard` + `pytest` 다중 job/path filter/cache
 - Smart Recorder 변환 엔진(Stage 3-3 PR-3-3-2):
   - `app/core/smart_recorder.py`의 `SmartTransformer`가 Raw Event를 분석해 `type_text`/`key_press`를 분리 생성.
   - 텍스트 병합 규칙:

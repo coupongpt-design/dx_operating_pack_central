@@ -435,3 +435,27 @@
   - checks per commit:
     - commit message schema (`Summary/Changes/Tests/Risks`, test lines)
     - commit-level file policy (`backups/`, constitutional file policy, artifact paths)
+
+## DX Workflow Optimization (Session 95)
+- Auto targeted test selection:
+  - module: `tools/test_selector.py`
+  - source: staged paths (`git diff --cached --name-only`) or explicit `--paths`
+  - output: pytest target list/command for related tests
+- Post-task gate:
+  - `tools/post_task_gate.py --targeted auto`
+  - records selected tests + summaries in `.git/post_task_gate.json`
+  - full suite requirement only on high-risk paths:
+    - `thread`, `signal`, `runner`, `StepData`, `serialization`, `BaseCommand`, `UndoStack`
+- Standard task finish:
+  - `tools/task_finish.py --subject "<commit subject>"`
+  - runs post-task gate and writes `.git/TASK_COMMIT_TEMPLATE.md`
+- Atomic scope enforcement:
+  - `pre-commit` blocks over-threshold staged scope (files/changed-lines) to force split commits
+- Repo artifact cleanup:
+  - `tools/cleanup_repo_artifacts.py --apply`
+  - removes tracked runtime/build artifacts from index (keeps local files)
+- CI pipeline:
+  - `changes` job (path filter)
+  - `rule-guard` job (governance + rule tests)
+  - `pytest` job (full test + health check)
+  - pip cache enabled via `actions/setup-python`
