@@ -3,8 +3,8 @@
 ## 0) Auto-Synced Normative Block (Read-Only, Source: `AGENTS.md`)
 <!-- SYNC_BLOCK_START -->
 Priority: system/dev/runtime > user > AGENTS.md > .cursorrules
-Agent rules: read dx_operating_pack/AGENT_ONBOARDING.md before task start; follow Task Cycle (Start -> Snapshot -> Implementation -> Gate)
-Session Gate: read AGENT_ONBOARDING.md -> read PROJECT_STATUS.md -> 2-line current-focus summary -> declare mode
+Agent rules: read PROJECT_STATUS.md first; read dx_operating_pack/AGENT_ONBOARDING.md only for DX Pack governance/install/sync tasks; follow Task Cycle when DX scope is active
+Session Gate: read PROJECT_STATUS.md -> (DX Pack scope only) read AGENT_ONBOARDING.md -> 2-line current-focus summary -> declare mode
 Mode: compact by default; precision on high-risk triggers; keep precision through validation
 Precision triggers: files>=5, StepData change, serialization change, thread/signal change, runner flow change, unclear repro/scope
 Multi-Agent flow: default Executor->Guardian; precision trigger -> Planner->Executor->Guardian

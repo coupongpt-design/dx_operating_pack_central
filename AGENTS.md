@@ -7,12 +7,13 @@
 4. `.cursorrules` (detailed mirror/notes).
 
 ## 🤖 Agent Rules
-- Before starting any task, read `dx_operating_pack/AGENT_ONBOARDING.md` to align with the operational protocol.
-- Follow the `Task Cycle` defined in the manual (`Start -> Snapshot -> Implementation -> Gate`).
+- Before starting any task, read `PROJECT_STATUS.md` first.
+- Read `dx_operating_pack/AGENT_ONBOARDING.md` only for DX Pack governance/install/sync tasks.
+- Follow the `Task Cycle` defined in the manual (`Start -> Snapshot -> Implementation -> Gate`) when that DX scope is active.
 
 ## 1) Session Gate (Required)
-1. Read `dx_operating_pack/AGENT_ONBOARDING.md` first.
-2. Read `PROJECT_STATUS.md`.
+1. Read `PROJECT_STATUS.md` first.
+2. If task scope includes DX Pack governance/install/sync (`dx_operating_pack/**`, `tools/setup_dx.py`, `tools/sync_dx_pack.py`, hooks/CI/rules), then read `dx_operating_pack/AGENT_ONBOARDING.md`.
 3. Summarize current focus in 2 lines.
 4. Declare mode (`Compact` or `Precision`) before edits.
 
@@ -164,8 +165,8 @@ For meaningful behavior changes, sync:
 ## 12) Synced Normative Block (for `.cursorrules`)
 <!-- SYNC_BLOCK_START -->
 Priority: system/dev/runtime > user > AGENTS.md > .cursorrules
-Agent rules: read dx_operating_pack/AGENT_ONBOARDING.md before task start; follow Task Cycle (Start -> Snapshot -> Implementation -> Gate)
-Session Gate: read AGENT_ONBOARDING.md -> read PROJECT_STATUS.md -> 2-line current-focus summary -> declare mode
+Agent rules: read PROJECT_STATUS.md first; read dx_operating_pack/AGENT_ONBOARDING.md only for DX Pack governance/install/sync tasks; follow Task Cycle when DX scope is active
+Session Gate: read PROJECT_STATUS.md -> (DX Pack scope only) read AGENT_ONBOARDING.md -> 2-line current-focus summary -> declare mode
 Mode: compact by default; precision on high-risk triggers; keep precision through validation
 Precision triggers: files>=5, StepData change, serialization change, thread/signal change, runner flow change, unclear repro/scope
 Multi-Agent flow: default Executor->Guardian; precision trigger -> Planner->Executor->Guardian
