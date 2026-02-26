@@ -89,3 +89,37 @@
 ### Human Review Notes
 - [ ] 실제 실패 원인 요약
 - [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-02-26T13:52:20
+- changed_files: 6
+  - `DEV_LOG.md`
+  - `PROJECT_STATUS.md`
+  - `app/core/runner.py`
+  - `dx_operating_pack/tools/post_task_gate.py`
+  - `now_spec.md`
+  - `tests/test_self_healing.py`
+
+### Suggested Lessons
+- 실행 경로 회귀 위험: full pytest 권장
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-02-26T14:18:14
+- changed_files: 6
+  - `DEV_LOG.md`
+  - `PROJECT_STATUS.md`
+  - `app/core/runner.py`
+  - `dx_operating_pack/tools/post_task_gate.py`
+  - `now_spec.md`
+  - `tests/test_self_healing.py`
+
+### Suggested Lessons
+- 실행 경로 회귀 위험: full pytest 권장
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부

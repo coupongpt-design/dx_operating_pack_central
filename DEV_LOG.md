@@ -5,6 +5,23 @@
 - 작업 종료는 `python tools/task_finish.py --subject "..." --scope ...` 경로를 표준으로 사용
 - 게이트 통과 후 운영 감사 권장: `python tools/project_audit.py`
 
+## Session 106 - Stage 4 PR-4-2 Self-Healing 강화(기본값/승격/게이트 텔레메트리)
+- Date: 2026-02-26
+- Summary:
+  - `app/core/runner.py`
+    - `ResourceError` 재시도 기본값을 `attempts=3`, `delay=500ms`로 상향.
+    - 재시도 최종 실패 시 안전 복구 후 `ExecutionError`로 승격해 중단.
+    - `ActionError`/최종 재시도 실패 경로에서 공통 긴급 복구 루틴(`_perform_emergency_cleanup`) 실행.
+    - `run_finished` 이벤트에 `retry_count`, `recovery_status` 포함.
+  - `dx_operating_pack/tools/post_task_gate.py`
+    - 최신 `run_events_*.jsonl`를 파싱해 `post_task_gate.json`에 `retry_count`, `recovery_status`, `recovery_log` 기록.
+  - `tests/test_self_healing.py` 신규:
+    - 2회 실패 후 3회차 복구 성공 시나리오
+    - 최종 실패 시 입력 해제/복구 이벤트/실패 텔레메트리 시나리오
+- Validation:
+  - Targeted: `python -m pytest -q tests/test_self_healing.py tests/test_exceptions.py tests/test_post_task_gate.py` -> `16 passed in 4.93s`
+  - Full: `python -m pytest -q` -> `547 passed, 1 skipped in 22.43s`
+
 ## Session 105 - DX Ecosystem Integrity Patch(86 -> 93+)
 - Date: 2026-02-26
 - Summary:

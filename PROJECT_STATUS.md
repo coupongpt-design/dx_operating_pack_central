@@ -64,10 +64,14 @@
 - Stage 4 PR-4-2 반영:
   - `app/core/runner.py` Self-Healing 보강:
     - `ResourceError`(이미지 계열 스텝) 발생 시 재시도(`step_retry`) 후 성공 시 `step_retry_success` 기록.
-    - 재시도 횟수/지연은 러너 기본값 기반(`attempts=2`, `delay=250ms`)이며 스텝 속성(`resource_retry_count`, `resource_retry_delay_ms`)으로 override 가능.
-    - `ActionError` 발생 시 안전 복구(`step_recovery`) 실행:
+    - 재시도 횟수/지연은 러너 기본값 기반(`attempts=3`, `delay=500ms`)이며 스텝 속성(`resource_retry_count`, `resource_retry_delay_ms`)으로 override 가능.
+    - `ResourceError` 최종 소진 시 안전 복구 후 `ExecutionError`로 승격해 중단.
+    - `ActionError` 또는 최종 재시도 실패 시 안전 복구(`step_recovery`) 실행:
       - 런타임 입력 해제
       - (non-dry-run) ESC 시도 + 마우스 홈 이동
+    - 실행 종료 이벤트(`run_finished`)에 `retry_count`, `recovery_status` 포함.
+  - `dx_operating_pack/tools/post_task_gate.py`:
+    - 최신 `run_events_*.jsonl`를 스캔해 `post_task_gate.json`에 `retry_count`, `recovery_status`, `recovery_log` 기록.
   - `tests/test_exceptions.py` 보강:
     - 일시적 `ResourceError` 후 재시도 성공 시나리오 검증.
     - `ActionError` 시 복구 이벤트(`step_recovery`) 발생 검증.
@@ -364,7 +368,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `541 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `547 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 

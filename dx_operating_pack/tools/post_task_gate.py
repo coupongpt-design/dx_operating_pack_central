@@ -24,6 +24,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution fallba
 
 GATE_FILE = Path(".git") / "post_task_gate.json"
 GATE_TTL_SEC = 30 * 60
+RUNTIME_LOG_DIRS = (Path("logs"), Path("dx_operating_pack/logs"))
 
 
 def _git(*args: str) -> str:
@@ -59,6 +60,57 @@ def _extract_pytest_summary(output: str) -> str:
         if " passed" in line or " failed" in line or " skipped" in line:
             return line
     return "summary unavailable"
+
+
+def _latest_runtime_events_file() -> Path | None:
+    newest: tuple[float, Path] | None = None
+    for root in RUNTIME_LOG_DIRS:
+        if not root.exists():
+            continue
+        for path in root.glob("run_events_*.jsonl"):
+            if not path.is_file():
+                continue
+            ts = path.stat().st_mtime
+            if newest is None or ts > newest[0]:
+                newest = (ts, path)
+    return newest[1] if newest else None
+
+
+def _collect_runtime_self_healing_telemetry() -> dict[str, object]:
+    latest = _latest_runtime_events_file()
+    if latest is None:
+        return {"retry_count": 0, "recovery_status": True, "recovery_log": ""}
+
+    retry_count = 0
+    recovery_status = True
+    recovery_signal_seen = False
+    try:
+        with latest.open("r", encoding="utf-8", errors="ignore") as fp:
+            for raw in fp:
+                line = raw.strip()
+                if not line:
+                    continue
+                row = json.loads(line)
+                event = str(row.get("event", "")).strip()
+                if event == "step_retry":
+                    retry_count += 1
+                elif event == "step_retry_success":
+                    recovery_signal_seen = True
+                elif event == "step_recovery":
+                    recovery_signal_seen = True
+                    if not bool(row.get("recovered", False)):
+                        recovery_status = False
+    except Exception:
+        return {"retry_count": 0, "recovery_status": False, "recovery_log": str(latest)}
+
+    if retry_count > 0 and not recovery_signal_seen:
+        recovery_status = False
+
+    return {
+        "retry_count": int(retry_count),
+        "recovery_status": bool(recovery_status),
+        "recovery_log": str(latest).replace("\\", "/"),
+    }
 
 
 def _harvest_knowledge_from_staged() -> None:
@@ -138,6 +190,8 @@ def run_gate(targeted_cmd: str, *, harvest_feedback: bool = True) -> int:
         full_summary = _extract_pytest_summary(full_output)
         full_suite_pass = full_rc == 0
 
+    runtime_telemetry = _collect_runtime_self_healing_telemetry()
+
     gate_ts = time.time()
     record = {
         "timestamp": gate_ts,
@@ -155,6 +209,9 @@ def run_gate(targeted_cmd: str, *, harvest_feedback: bool = True) -> int:
         "full_suite_command": full_cmd if risk else "",
         "full_suite_pass": full_suite_pass,
         "full_suite_summary": full_summary,
+        "retry_count": int(runtime_telemetry.get("retry_count", 0)),
+        "recovery_status": bool(runtime_telemetry.get("recovery_status", True)),
+        "recovery_log": str(runtime_telemetry.get("recovery_log", "")),
     }
     GATE_FILE.write_text(json.dumps(record, ensure_ascii=True, indent=2), encoding="utf-8")
 
@@ -167,6 +224,10 @@ def run_gate(targeted_cmd: str, *, harvest_feedback: bool = True) -> int:
         print(f"full suite: {'PASS' if full_suite_pass else 'FAIL'} | {full_summary}")
     else:
         print("full suite: SKIP (no risk trigger)")
+    print(
+        "runtime recovery: "
+        f"retry_count={record['retry_count']}, recovery_status={record['recovery_status']}"
+    )
 
     if targeted_pass and full_suite_pass and harvest_feedback:
         _harvest_knowledge_from_staged()

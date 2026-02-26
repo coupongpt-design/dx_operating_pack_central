@@ -166,9 +166,13 @@ class MacroRunner(QThread):
         self._input_lock_timeout_sec = max(0.05, float(input_lock_timeout_sec))
         self._input_lock_manager = input_lock_manager or get_global_input_manager()
         self._auto_enter_after_text = bool(auto_enter_after_text)
-        self._resource_retry_default_attempts = 2
-        self._resource_retry_default_delay_ms = 250
+        self._resource_retry_default_attempts = 3
+        self._resource_retry_default_delay_ms = 500
+        self._self_heal_press_escape_on_fail = True
+        self._self_heal_move_mouse_on_fail = True
         self._self_heal_mouse_home = (10, 10)
+        self._retry_count_total = 0
+        self._recovery_status = True
         self._step_started_at: dict[str, float] = {}
         self._run_finish_emitted = False
         self.engine_state = "IDLE"
@@ -326,7 +330,7 @@ class MacroRunner(QThread):
             value = int(self._resource_retry_default_delay_ms)
         return max(0, value)
 
-    def _attempt_action_error_recovery(self, step: StepData, idx: int, error: ActionError) -> bool:
+    def _perform_emergency_cleanup(self, step: StepData, idx: int, trigger_error: MacroBaseError) -> bool:
         recovered = False
         step_no = int(idx) + 1
         try:
@@ -336,17 +340,26 @@ class MacroRunner(QThread):
             pass
 
         if not self.dry_run:
+            use_escape = bool(
+                getattr(step, "self_heal_press_escape", self._self_heal_press_escape_on_fail)
+            )
+            use_mouse_home = bool(
+                getattr(step, "self_heal_move_mouse", self._self_heal_move_mouse_on_fail)
+            )
             try:
-                with self._acquire_input_lock("self_heal_escape"):
-                    pyautogui.press("esc")
-                recovered = True
+                if use_escape:
+                    with self._acquire_input_lock("self_heal_escape"):
+                        pyautogui.press("esc")
+                    recovered = True
             except Exception as e:
                 self.logger.debug("self-heal escape failed at step %s: %s", step_no, e)
             try:
-                home_x, home_y = self._self_heal_mouse_home
-                with self._acquire_input_lock("self_heal_mouse_home"):
-                    pyautogui.moveTo(int(home_x), int(home_y), duration=0)
-                recovered = True
+                if use_mouse_home:
+                    home_x = int(getattr(step, "self_heal_mouse_x", self._self_heal_mouse_home[0]))
+                    home_y = int(getattr(step, "self_heal_mouse_y", self._self_heal_mouse_home[1]))
+                    with self._acquire_input_lock("self_heal_mouse_home"):
+                        pyautogui.moveTo(home_x, home_y, duration=0)
+                    recovered = True
             except Exception as e:
                 self.logger.debug("self-heal mouse-home failed at step %s: %s", step_no, e)
 
@@ -356,14 +369,20 @@ class MacroRunner(QThread):
             step_uuid=self._runtime_step_uuid(step),
             step_index=int(idx),
             step_name=str(getattr(step, "name", "") or ""),
-            exception_type=error.__class__.__name__,
+            exception_type=trigger_error.__class__.__name__,
             recovered=bool(recovered),
+            trigger_error=str(trigger_error),
         )
         if recovered:
             self.log.emit(f"  -> Self-heal recovery applied at step {step_no}.")
         else:
             self.log.emit(f"  !! Self-heal recovery unavailable at step {step_no}.")
+        self._recovery_status = bool(self._recovery_status and recovered)
         return recovered
+
+    def _attempt_action_error_recovery(self, step: StepData, idx: int, error: ActionError) -> bool:
+        # Backward compatible alias.
+        return self._perform_emergency_cleanup(step, idx, error)
 
     def _to_macro_error(self, exc: Exception, step: StepData | None = None, idx: int | None = None) -> MacroBaseError:
         if isinstance(exc, MacroBaseError):
@@ -523,6 +542,8 @@ class MacroRunner(QThread):
             success=bool(success),
             reason=str(reason or ""),
             duration_ms=duration_ms,
+            retry_count=int(self._retry_count_total),
+            recovery_status=bool(self._recovery_status),
         )
         self.finished.emit(bool(success))
 
@@ -665,6 +686,8 @@ class MacroRunner(QThread):
         self._killed = False
         self._paused = False
         self._pause_event.set()
+        self._retry_count_total = 0
+        self._recovery_status = True
         self._apply_perf_settings()
         resume_state = self._resume_state
         self._resume_state = None
@@ -805,7 +828,7 @@ class MacroRunner(QThread):
                                 ok, fail_goto_id, steps_consumed = self._exec_step(sct, mon, step, i)
                                 if retry_attempts > 0:
                                     self.log.emit(
-                                        f"  -> Retry success at step {i+1} after {retry_attempts} attempt(s)."
+                                        f"[RETRY SUCCESS] Step {i+1} recovered (attempts={retry_attempts})."
                                     )
                                     self._write_structured_event(
                                         "INFO",
@@ -814,6 +837,8 @@ class MacroRunner(QThread):
                                         step_index=int(i),
                                         step_name=str(getattr(step, "name", "") or ""),
                                         retry_attempts=int(retry_attempts),
+                                        retry_count_total=int(self._retry_count_total),
+                                        recovery_status=True,
                                     )
                                 break
                             except Exception as e:
@@ -826,6 +851,7 @@ class MacroRunner(QThread):
                                 )
                                 if can_retry:
                                     retry_attempts += 1
+                                    self._retry_count_total += 1
                                     self.log.emit(
                                         f"  -> Retry {retry_attempts}/{max_retry_attempts} for step {i+1}: {macro_error}"
                                     )
@@ -840,6 +866,7 @@ class MacroRunner(QThread):
                                         retry_delay_ms=int(retry_delay_ms),
                                         exception_type=macro_error.__class__.__name__,
                                         error=str(macro_error),
+                                        retry_count_total=int(self._retry_count_total),
                                     )
                                     if retry_delay_ms > 0:
                                         self.msleep(int(retry_delay_ms))
@@ -847,12 +874,18 @@ class MacroRunner(QThread):
                                         break
                                     continue
 
+                                if isinstance(macro_error, ResourceError):
+                                    self._perform_emergency_cleanup(step, i, macro_error)
+                                    macro_error = ExecutionError(
+                                        f"resource retry exhausted at step {i+1} after {retry_attempts} retries: {macro_error}"
+                                    )
+
                                 self.log.emit(
                                     f"!! Step {i+1} error [{macro_error.__class__.__name__}]: {macro_error}"
                                 )
                                 traceback.print_exc()
                                 if isinstance(macro_error, ActionError):
-                                    self._attempt_action_error_recovery(step, i, macro_error)
+                                    self._perform_emergency_cleanup(step, i, macro_error)
                                 self._emit_step_exception_telemetry(step, i, macro_error)
                                 self._emit_step_failed(
                                     step,

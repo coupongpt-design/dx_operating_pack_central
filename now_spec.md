@@ -234,7 +234,7 @@
 - 스모크 실행 진입점:
   - `python run_smoke_suite.py --quick` (핵심 런타임/매칭 게이트)
   - `python run_smoke_suite.py` (핵심 게이트 + 전체 health check)
-- 최신 로컬 기준: `python -m pytest -q` = `541 passed, 1 skipped`.
+- 최신 로컬 기준: `python -m pytest -q` = `547 passed, 1 skipped`.
 
 ### Smart Recorder Raw Event Core (Stage 3-3 PR-3-3-1)
 - `InputRecorder`는 스텝 생성 경로와 별개로 Raw Event 스트림을 제공:
@@ -528,12 +528,15 @@
   - Structured telemetry:
     - `step_retry` (attempt/max/delay/exception metadata)
     - `step_retry_success` (attempt count on eventual success)
-  - Defaults: `attempts=2`, `delay=250ms`; optional per-step override via `resource_retry_count` / `resource_retry_delay_ms`.
+  - Defaults: `attempts=3`, `delay=500ms`; optional per-step override via `resource_retry_count` / `resource_retry_delay_ms`.
+  - Retry exhausted on `ResourceError` is escalated as `ExecutionError` after emergency cleanup.
 - Safe-state recovery on action failures:
-  - On `ActionError`, runner executes self-heal routine and emits `step_recovery`.
+  - On `ActionError` and final retry failure, runner executes self-heal routine and emits `step_recovery`.
   - Recovery actions:
     - release runtime controls (mouse/key up)
     - non-dry-run only: ESC press + mouse move to home `(10,10)`
+  - `run_finished` telemetry includes `retry_count` and `recovery_status`.
+  - `post_task_gate.json` includes runtime self-healing summary (`retry_count`, `recovery_status`, `recovery_log`).
 
 ## Governance Master Audit (Ultimate Executor 반영)
 - `ASSET_MAP.md`는 6대 영역( Product / Rule Guard / DX Tools / Verification / Resources / Infrastructure ) 기준의 마스터 자산 지도로 운영.
