@@ -94,3 +94,16 @@ python tools/check_ai_security.py
 - 도구 목적/사용 시점/실행 위치를 즉시 파악
 - 잘못된 도구 선택과 불필요한 탐색 감소
 - 협업 응답 품질 및 속도 향상
+
+## 7) 지식 환류 운영 (선택 권장)
+게이트 통과 후 아래 루프로 인사이트를 중앙 DX Repo에 상신할 수 있습니다.
+
+```bat
+python tools\post_task_gate.py --targeted auto
+python tools\push_dx_feedback.py --base HEAD~1 --head HEAD --remote-url <CENTRAL_REPO_URL> --push
+```
+
+설명:
+- `post_task_gate` 성공 시 `feedback/LATEST_INSIGHT.yaml`와 `LESSONS_LEARNED_DRAFT`가 자동 갱신됩니다.
+- `push_dx_feedback.py`는 `feedback/outbox/`에 번들을 만들고, 원격 URL이 주어지면 `inbox/<project>/`로 반영합니다.
+- 중앙 DX Repo에서는 `python tools/promote_dx_feedback.py --apply`로 inbox 번들을 승격/처리할 수 있습니다.

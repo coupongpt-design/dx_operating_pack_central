@@ -40,6 +40,10 @@ git init && wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remo
    - `python tools/check_ai_security.py`
 5. 커밋 전:
    - 테스트/게이트/문서 동기화 상태 확인 후 커밋
+6. 지식 환류:
+   - `python tools/push_dx_feedback.py --base HEAD~1 --head HEAD`
+   - 중앙 반영 시: `--remote-url <CENTRAL_REPO_URL> --push`
+   - 중앙 운영자라면: `python tools/promote_dx_feedback.py --apply`
 
 ## 3) 동기화/업데이트 운영
 권장 명령:
@@ -85,6 +89,7 @@ git init && wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remo
 - setup 실행 여부 확인
 - 가드/훅 정상 동작 확인
 - 규칙/도구 맵 로드 완료 확인
+- Feedback Loop 동작 확인(`feedback/LATEST_INSIGHT.yaml` 생성 확인)
 
 ## 9) Sandbox Policy (파괴적 검증 정책)
 - `--overwrite`, 강제 동기화, 대량 삭제가 동반되는 검증은 메인 저장소에서 직접 수행하지 않습니다.

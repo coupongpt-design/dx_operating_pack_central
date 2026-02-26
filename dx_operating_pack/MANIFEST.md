@@ -34,6 +34,8 @@
 - `tools/setup_dx.py`
 - `tools/sync_dx_pack.py`
 - `tools/capture_lesson_draft.py`
+- `tools/push_dx_feedback.py`
+- `tools/promote_dx_feedback.py`
 
 ## 5) CI
 - `ci/ci.yml`
@@ -129,6 +131,12 @@
 - `optional/external/continue_config.example.yaml`
 - `optional/external/README.md`
 - `PACK_COVERAGE.md`
+
+## 13) Feedback Loop Assets
+- `feedback/README.md`
+- `feedback/LATEST_INSIGHT.yaml` (runtime-generated)
+- `feedback/inbox/.gitkeep`
+- `feedback/outbox/.gitkeep`
 
 ## Excluded on Purpose
 - `backups/**`

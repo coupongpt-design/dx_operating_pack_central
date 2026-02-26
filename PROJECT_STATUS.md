@@ -1,6 +1,22 @@
 # 프로젝트 상태
 
 ## 최근 업데이트
+- DX Feedback Loop(지식 환류) 자동화 추가:
+  - `dx_operating_pack/tools/capture_lesson_draft.py` 확장:
+    - staged/range 기반 변경 분석
+    - `LESSONS_LEARNED_DRAFT` 갱신 + `feedback/LATEST_INSIGHT.yaml` 동시 생성
+  - `dx_operating_pack/tools/push_dx_feedback.py` 신규:
+    - outbox 번들 생성(`feedback_manifest.json`, insight, lessons, reusable 변경본)
+    - 선택적으로 중앙 DX Repo `inbox/<project>/...` 커밋/푸시
+  - `dx_operating_pack/tools/promote_dx_feedback.py` 신규:
+    - 중앙 `inbox` 번들을 dry-run 리포트 또는 `--apply`로 승격(재사용 코드 반영/lessons draft 누적/processed 이동)
+  - gate 연동:
+    - `tools/post_task_gate.py`, `dx_operating_pack/tools/post_task_gate.py` 성공 시 지식 수확 자동 실행(옵션 `--skip-harvest`)
+  - 운영 흐름 안내:
+    - `tools/task_finish.py`, `dx_operating_pack/tools/task_finish.py`에서 feedback push 힌트 출력
+  - 관련 문서/매니페스트/피드백 디렉터리 추가:
+    - `dx_operating_pack/feedback/README.md`, `dx_operating_pack/feedback/inbox/.gitkeep`, `dx_operating_pack/feedback/outbox/.gitkeep`
+    - `dx_operating_pack/README.md`, `dx_operating_pack/INSTALL_IN_NEW_PROJECT.md`, `dx_operating_pack/AGENT_ONBOARDING.md`, `dx_operating_pack/MANIFEST*.md` 갱신
 - 거버넌스 전수(6대 영역) 확장:
   - `ASSET_MAP.md`를 Product/Rule Guard/DX Tools/Verification/Resources/Infrastructure 기준으로 재정리.
   - `tools/project_audit.py`가 테스트 자산 수량/리소스 스냅샷/자산 매트릭스를 포함한 전수 감사 리포트를 생성하도록 확장.
@@ -330,7 +346,7 @@
 - **v1.2 - Stable Core + Packaging MVP**: 코어/E2E 안정화 + `.exe` 빌드 파이프라인 초안 안착.
 
 ## 최신 검증 기준
-- 전체 테스트: `python -m pytest -q` => `534 passed, 1 skipped`
+- 전체 테스트: `python -m pytest -q` => `541 passed, 1 skipped`
 - 스모크(quick): `python run_smoke_suite.py --quick` => `PASS`
 - 스모크(full): `python run_smoke_suite.py` => `PASS` + `SYSTEM HEALTHY`
 

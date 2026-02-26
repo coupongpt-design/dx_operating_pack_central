@@ -67,3 +67,31 @@ Pre-flight/Troubleshooting:
 ## 6) 문서 인덱스
 - 상세 설치 절차: `INSTALL_IN_NEW_PROJECT.md`
 - 에이전트 온보딩 규칙: `AGENT_ONBOARDING.md`
+
+## 7) 지식 환류(Feedback Loop)
+작업 지식을 일회성으로 버리지 않고 DX Pack으로 상신하려면 아래 루프를 사용합니다.
+
+1. 게이트 실행 시 인사이트 자동 추출
+   - `python tools/post_task_gate.py --targeted auto`
+   - 성공 시 `tools/capture_lesson_draft.py --from-staged`가 호출되어:
+     - `docs/LESSONS_LEARNED_DRAFT.md` 업데이트
+     - `feedback/LATEST_INSIGHT.yaml` 생성/갱신
+
+2. 피드백 번들 생성/상신
+   - 로컬 번들 생성:
+     - `python tools/push_dx_feedback.py --base HEAD~1 --head HEAD`
+   - 중앙 레포 inbox 반영(+push):
+     - `python tools/push_dx_feedback.py --base HEAD~1 --head HEAD --remote-url <CENTRAL_REPO_URL> --push`
+
+3. 중앙 승격/확산(central repo)
+   - dry-run:
+     - `python tools/promote_dx_feedback.py`
+   - apply:
+     - `python tools/promote_dx_feedback.py --apply`
+   - 적용 시 `feedback/inbox/*` 번들의 reusable 변경이 반영되고 `feedback/processed/`로 이동됩니다.
+
+4. 산출물 위치
+   - `feedback/outbox/<timestamp>_<head>/feedback_manifest.json`
+   - `feedback/outbox/.../LATEST_INSIGHT.yaml`
+   - `feedback/outbox/.../LESSONS_LEARNED.md`
+   - `feedback/outbox/.../reusable_changes/*`

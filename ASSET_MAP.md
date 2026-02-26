@@ -30,6 +30,14 @@
   - `tools/preflight_env.py` (환경 선점검)
   - `tools/post_task_gate.py` (게이트 레코드 생성)
   - `tools/project_audit.py` (전수 자산 감사)
+- DX Pack Governance/Sync
+  - `dx_operating_pack/tools/setup_dx.py` (신규 프로젝트 설치/적용)
+  - `dx_operating_pack/tools/sync_dx_pack.py` (중앙 DX 레포 동기화 + 로컬 보호/백업)
+  - `dx_operating_pack/tools/post_task_gate.py` (DX Pack 로컬 게이트)
+- Knowledge Feedback Loop
+  - `dx_operating_pack/tools/capture_lesson_draft.py` (작업 인사이트 추출 + `LATEST_INSIGHT.yaml` 생성)
+  - `dx_operating_pack/tools/push_dx_feedback.py` (Satellite -> Central inbox 상신)
+  - `dx_operating_pack/tools/promote_dx_feedback.py` (Central inbox -> reusable/lessons 승격)
 
 ## 4) Verification (검증 자산)
 - Test Suites
@@ -43,6 +51,10 @@
 - Resource Stores
   - `images/` (캡처/매칭 이미지)
   - `logs/` (실행 로그 및 JSONL 기록)
+- DX Feedback Stores
+  - `dx_operating_pack/feedback/LATEST_INSIGHT.yaml` (최신 인사이트 스냅샷)
+  - `dx_operating_pack/feedback/inbox/` (중앙 레포 수신함)
+  - `dx_operating_pack/feedback/outbox/` (위성 프로젝트 송신함)
 - Resource Mapping Logic
   - `app/core/scenario_wizard_templates.json`
   - `app/core/scenario_wizard_user_templates.json`
@@ -55,6 +67,8 @@
   - `DEV_LOG.md`
   - `DOC_INDEX.md`
   - `USER_GUIDE.md`
+  - `dx_operating_pack/AGENT_ONBOARDING.md`
+  - `dx_operating_pack/INSTALL_IN_NEW_PROJECT.md`
 - CI
   - `.github/workflows/ci.yml`
 - Git Hooks

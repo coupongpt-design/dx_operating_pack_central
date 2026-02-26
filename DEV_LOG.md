@@ -5,6 +5,19 @@
 - 작업 종료는 `python tools/task_finish.py --subject "..." --scope ...` 경로를 표준으로 사용
 - 게이트 통과 후 운영 감사 권장: `python tools/project_audit.py`
 
+## Session 104 - DX Feedback Loop 자동화(지식 환류)
+- Date: 2026-02-26
+- Summary:
+  - `dx_operating_pack/tools/capture_lesson_draft.py`를 강화해 draft+insight(`LATEST_INSIGHT.yaml`)를 동시 생성.
+  - `dx_operating_pack/tools/push_dx_feedback.py`를 신설해 outbox 번들 생성 및 중앙 inbox 상신(옵션) 경로 추가.
+  - `dx_operating_pack/tools/promote_dx_feedback.py`를 신설해 중앙 inbox 번들의 승격/처리(dry-run/apply)를 자동화.
+  - `tools/post_task_gate.py`와 `dx_operating_pack/tools/post_task_gate.py`에 게이트 성공 후 지식 수확 자동 단계 추가(`--skip-harvest` 지원).
+  - 루트 래퍼(`tools/capture_lesson_draft.py`, `tools/push_dx_feedback.py`)를 추가해 현재 프로젝트에서도 동일 명령으로 feedback loop 실행 가능.
+  - DX 문서/매니페스트/온보딩에 feedback 루프 운영 절차 반영.
+- Validation:
+  - `python -m pytest -q tests/test_dx_capture_lesson_draft.py tests/test_dx_push_feedback.py tests/test_dx_promote_feedback.py tests/test_post_task_gate.py tests/test_task_finish.py` -> `22 passed in 0.17s`
+  - `python -m pytest -q` -> `541 passed, 1 skipped in 40.94s`
+
 ## Session 103 - Governance Master Asset Map / Audit 확장
 - Date: 2026-02-26
 - Summary:

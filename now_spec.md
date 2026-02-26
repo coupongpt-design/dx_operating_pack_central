@@ -228,7 +228,7 @@
 - 스모크 실행 진입점:
   - `python run_smoke_suite.py --quick` (핵심 런타임/매칭 게이트)
   - `python run_smoke_suite.py` (핵심 게이트 + 전체 health check)
-- 최신 로컬 기준: `python -m pytest -q` = `534 passed, 1 skipped`.
+- 최신 로컬 기준: `python -m pytest -q` = `541 passed, 1 skipped`.
 
 ### Smart Recorder Raw Event Core (Stage 3-3 PR-3-3-1)
 - `InputRecorder`는 스텝 생성 경로와 별개로 Raw Event 스트림을 제공:
@@ -540,3 +540,27 @@
 - `tools/task_finish.py`는 문서 3종(`PROJECT_STATUS.md`, `now_spec.md`, `DEV_LOG.md`) 수정시간 격차가 5분을 초과하면 경고를 출력.
 - `tools/task_finish.py` 성공 메시지에는 감사 실행 안내가 고정됨:
   - `현재 프로젝트 자산 상태를 확인하려면 python tools/project_audit.py를 실행하세요`
+
+## DX Feedback Loop (Knowledge Harvesting / Upstream Sync)
+- `dx_operating_pack/tools/capture_lesson_draft.py`
+  - 변경 범위(`base..head`) 또는 staged diff(`--from-staged`)를 분석.
+  - `LESSONS_LEARNED_DRAFT` 초안을 append하고, `feedback/LATEST_INSIGHT.yaml`을 함께 생성.
+  - insight payload에는 변경 파일 수, reusable 변경 목록, lessons 추가 라인을 포함.
+- `tools/post_task_gate.py` / `dx_operating_pack/tools/post_task_gate.py`
+  - 게이트 성공 시 지식 수확 단계를 자동 실행.
+  - 필요 시 `--skip-harvest`로 생략 가능.
+- `dx_operating_pack/tools/push_dx_feedback.py`
+  - 로컬 outbox 번들을 생성(`feedback/outbox/<timestamp>_<head>/...`).
+  - 포함 자산:
+    - `feedback_manifest.json`
+    - `LATEST_INSIGHT.yaml`
+    - `LESSONS_LEARNED.md`
+    - `reusable_changes/*`(변경분만)
+  - `--remote-url` + `--push` 지정 시 중앙 DX Repo inbox로 반영.
+- `dx_operating_pack/tools/promote_dx_feedback.py`
+  - 중앙 DX Repo의 `feedback/inbox` 번들을 스캔해 승격 리포트 생성.
+  - `--apply` 시 reusable 변경 반영 + lessons draft append + `feedback/processed` 이동까지 수행.
+- 루트 래퍼 제공:
+  - `tools/capture_lesson_draft.py`
+  - `tools/push_dx_feedback.py`
+  - 현재 프로젝트에서도 동일 명령으로 DX feedback 루프 사용 가능.

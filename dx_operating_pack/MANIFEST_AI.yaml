@@ -29,6 +29,21 @@ entries:
     when_to_use: Before push/release
     must_follow: No hardcoded secrets committed
 
+  - path: tools/capture_lesson_draft.py
+    purpose: Harvest task insight and append lesson draft
+    when_to_use: After gate pass (or standalone review)
+    must_follow: Generate `feedback/LATEST_INSIGHT.yaml` for reusable/pattern feedback handoff
+
+  - path: tools/push_dx_feedback.py
+    purpose: Package and publish feedback bundle to central DX repo inbox
+    when_to_use: After meaningful task completion
+    must_follow: Keep local outbox bundle first; push only with explicit `--push`
+
+  - path: tools/promote_dx_feedback.py
+    purpose: Promote inbox feedback bundles into reusable/docs and archive processed bundles
+    when_to_use: In central DX repository maintenance cycle
+    must_follow: Run dry-run first, then `--apply` after review
+
   - path: reusable/core/template_processor.py
     purpose: Placeholder replacement core
     when_to_use: Any text/data binding feature
