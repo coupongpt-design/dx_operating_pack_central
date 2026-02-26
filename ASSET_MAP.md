@@ -38,6 +38,10 @@
   - `dx_operating_pack/tools/capture_lesson_draft.py` (작업 인사이트 추출 + `LATEST_INSIGHT.yaml` 생성)
   - `dx_operating_pack/tools/push_dx_feedback.py` (Satellite -> Central inbox 상신)
   - `dx_operating_pack/tools/promote_dx_feedback.py` (Central inbox -> reusable/lessons 승격)
+- Multi-Agent Orchestration
+  - `app/core/multi_role_ai.py` (Planner/Executor/Guardian 실행 오케스트레이션)
+  - `tools/run_multi_role_ai.py` (멀티 역할 AI 실행 CLI)
+  - `MULTI_AGENT_PROTOCOL.md` (역할 분리 운영 프로토콜)
 
 ## 4) Verification (검증 자산)
 - Test Suites
@@ -81,3 +85,17 @@
 3. 종료: `python tools/task_finish.py --subject \"...\" --scope ...`
 4. 감사: `python tools/project_audit.py`
 5. 커밋: `git commit -F .git/TASK_COMMIT_TEMPLATE.md`
+
+## 지속 개선 항목 (Continuous Improvement)
+아래 항목은 한 번 구현하고 끝나는 자산이 아니라, 운영 중 계속 튜닝/보강해야 하는 핵심 영역입니다.
+
+1. Global Input Lock
+   - 멀티 세션 입력 경합, timeout, 대기 정책 지속 점검
+2. Pending 세션 자동 복구
+   - backoff/재시도/임계치 초과 시 error 승격 정책 보정
+3. 데이터 바인딩 Fail-Fast
+   - 미치환 플레이스홀더 타이핑 차단 경로 회귀 점검
+4. 구조화 로그/실행 이력 분석
+   - JSONL 이벤트 품질, 병목 분석, 히스토리 뷰어 가독성 개선
+5. `.macro` 로딩 보안
+   - 경로 검증(Path Traversal 방지) 및 포맷 확장 시 방어 규칙 점검

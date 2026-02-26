@@ -35,3 +35,6 @@
 - 문서 업데이트 시 위 7개 기준 문서 간 내용 불일치가 없도록 동기화한다.
 - 백업 폴더(`backups/`) 문서는 수정/정리 대상에서 제외한다.
 - 운영 감사 리포트는 `python tools/project_audit.py`로 생성한다.
+
+## Start Here (New Contributors)
+- `NEWBIE_GUIDE.md` : first-day quick guide for new members.
