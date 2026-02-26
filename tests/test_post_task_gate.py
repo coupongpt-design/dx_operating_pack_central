@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from tools.post_task_gate import parse_harvest_feedback
 from tools.post_task_gate import parse_targeted
 from tools.post_task_gate import run_gate
 from tools.post_task_gate import _has_app_code_changes
@@ -14,6 +15,11 @@ def test_parse_targeted_auto() -> None:
 def test_parse_targeted_manual_command() -> None:
     cmd = parse_targeted(["--targeted", "python", "-m", "pytest", "-q", "tests/test_x.py"])
     assert cmd == "python -m pytest -q tests/test_x.py"
+
+
+def test_parse_harvest_feedback_default_true() -> None:
+    assert parse_harvest_feedback(["--targeted", "auto"]) is True
+    assert parse_harvest_feedback(["--targeted", "auto", "--skip-harvest"]) is False
 
 
 def test_has_app_code_changes_detects_python_paths() -> None:
@@ -42,7 +48,7 @@ def test_run_gate_auto_fails_when_app_changed_but_no_tests(monkeypatch, tmp_path
     monkeypatch.setattr(gate, "filter_existing_tests", lambda tests: [])
     monkeypatch.setattr(gate, "_run_shell", lambda command: (0, "1 passed in 0.01s"))
 
-    rc = run_gate("auto")
+    rc = run_gate("auto", harvest_feedback=False)
     assert rc == 1
     assert not gate.GATE_FILE.exists()
 
@@ -66,7 +72,7 @@ def test_run_gate_writes_timestamp_and_ttl(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(gate, "build_pytest_command", lambda tests: "python -m pytest -q tests/test_task_finish.py")
     monkeypatch.setattr(gate, "_run_shell", lambda command: (0, "3 passed in 0.02s"))
 
-    rc = run_gate("auto")
+    rc = run_gate("auto", harvest_feedback=False)
     assert rc == 0
     record = json.loads(gate.GATE_FILE.read_text(encoding="utf-8"))
     assert "timestamp" in record

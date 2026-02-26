@@ -162,6 +162,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     TEMPLATE_PATH.write_text(template, encoding="utf-8")
     print(f"commit template written: {TEMPLATE_PATH}")
     print(f"scope suggestion: {suggested_scope} (allowed: {'|'.join(ALLOWED_SCOPES)})")
+    print("feedback hint: python tools/push_dx_feedback.py --base HEAD~1 --head HEAD")
     print(f"next: git commit -F {TEMPLATE_PATH}")
     return 0
 

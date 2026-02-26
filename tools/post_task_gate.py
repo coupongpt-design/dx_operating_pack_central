@@ -61,7 +61,42 @@ def _extract_pytest_summary(output: str) -> str:
     return "summary unavailable"
 
 
-def run_gate(targeted_cmd: str) -> int:
+def _harvest_knowledge_from_staged() -> None:
+    script_candidates = (
+        Path("tools/capture_lesson_draft.py"),
+        Path("dx_operating_pack/tools/capture_lesson_draft.py"),
+    )
+    script = next((p for p in script_candidates if p.exists()), None)
+    if script is None:
+        print("[harvest] skip: capture_lesson_draft.py not found")
+        return
+    cmd = [
+        sys.executable,
+        str(script),
+        "--from-staged",
+        "--title",
+        "Post Task Gate Harvest",
+    ]
+    completed = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    out = ((completed.stdout or "") + (completed.stderr or "")).strip()
+    if completed.returncode == 0:
+        print("[harvest] PASS")
+        if out:
+            print(out)
+    else:
+        print("[harvest] WARN: capture failed")
+        if out:
+            print(out)
+
+
+def run_gate(targeted_cmd: str, *, harvest_feedback: bool = True) -> int:
     staged_text = _git("diff", "--cached", "--name-status")
     entries = parse_name_status(staged_text)
     if not entries:
@@ -133,6 +168,9 @@ def run_gate(targeted_cmd: str) -> int:
     else:
         print("full suite: SKIP (no risk trigger)")
 
+    if targeted_pass and full_suite_pass and harvest_feedback:
+        _harvest_knowledge_from_staged()
+
     if targeted_pass and full_suite_pass:
         return 0
     return 1
@@ -158,13 +196,19 @@ def parse_targeted(argv: Sequence[str] | None = None) -> str:
     return " ".join(tokens)
 
 
+def parse_harvest_feedback(argv: Sequence[str] | None = None) -> bool:
+    items = list(argv) if argv is not None else []
+    return "--skip-harvest" not in items
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     try:
         targeted_cmd = parse_targeted(argv)
     except ValueError as exc:
         print(str(exc))
         return 2
-    return run_gate(targeted_cmd)
+    harvest_feedback = parse_harvest_feedback(argv)
+    return run_gate(targeted_cmd, harvest_feedback=harvest_feedback)
 
 
 if __name__ == "__main__":

@@ -245,6 +245,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"commit template written: {TEMPLATE_PATH}")
     print(f"scope suggestion: {suggested_scope} (allowed: {'|'.join(ALLOWED_SCOPES)})")
     print("현재 프로젝트 자산 상태를 확인하려면 `python tools/project_audit.py`를 실행하세요")
+    print("feedback hint: python tools/push_dx_feedback.py --base HEAD~1 --head HEAD")
     if run_audit:
         audit_rc = subprocess.call([sys.executable, "tools/project_audit.py"])
         if audit_rc != 0:
