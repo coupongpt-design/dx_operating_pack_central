@@ -18,6 +18,7 @@ git init && wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remo
    - `git rev-parse --is-inside-work-tree`
 2. DX Pack 설치/적용:
    - `python dx_operating_pack/tools/setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite`
+   - 설치 직후 `tools/check_tool_integrity.py`가 자동 실행되어 루트 `tools/` 위임 상태를 점검합니다.
 3. 훅 설치:
    - `python tools/install_git_hooks.py`
 4. 규칙/도구 맵 로드:
@@ -38,12 +39,14 @@ git init && wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remo
 4. 종료 게이트:
    - `python tools/post_task_gate.py`
    - `python tools/check_ai_security.py`
+   - 자동 상신이 필요하면 `python tools/task_finish.py --subject "<msg>" --scope <scope> --auto-push` 사용
 5. 커밋 전:
    - 테스트/게이트/문서 동기화 상태 확인 후 커밋
 6. 지식 환류:
    - `python tools/push_dx_feedback.py --base HEAD~1 --head HEAD`
    - 중앙 반영 시: `--remote-url <CENTRAL_REPO_URL> --push`
    - 중앙 운영자라면: `python tools/promote_dx_feedback.py --apply`
+   - 참고: `capture_lesson_draft.py`는 `logs/ai_sessions/` 최신 JSON/Markdown 로그에서 Decision/Reason/Warning 신호를 추출해 `feedback/LATEST_INSIGHT.yaml`에 반영합니다.
 
 ## 3) 동기화/업데이트 운영
 권장 명령:

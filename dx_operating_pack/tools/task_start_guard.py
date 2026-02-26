@@ -36,6 +36,7 @@ def run_guard() -> int:
     entries = parse_name_status(staged_text)
     if not entries:
         print("task-start guard: clean index (no staged changes)")
+        print("task-start guard policy: this is the mandatory first gate for every task")
         return 0
 
     cleanup_deletes = _count_cleanup_artifact_deletes(staged_text)

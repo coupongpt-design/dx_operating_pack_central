@@ -1,7 +1,7 @@
-# 🔍 Project Governance Audit Report (2026-02-26 11:18:16)
+# 🔍 Project Governance Audit Report (2026-02-26 12:37:56)
 
 ## 1) Verification Health
-- 총 테스트 파일 수: 96개
+- 총 테스트 파일 수: 97개
 - Gate 상태: PASS
 
 ## 2) Asset Integrity Matrix
@@ -42,8 +42,8 @@
 
 ## 3) Gate Freshness
 - Gate file: ✅ `.git\post_task_gate.json`
-- Last gate: `2026-02-26 11:17:59`
-- TTL check (30m): ✅ fresh (age=17s)
+- Last gate: `2026-02-26 12:12:22`
+- TTL check (30m): ✅ fresh (age=1533s)
 
 ## 4) Resource Snapshot
 - images 파일 수(대표 확장자): 0
@@ -52,11 +52,11 @@
 ## 5) Docs Sync Health
 | Path | Exists | Last Modified |
 | :--- | :--- | :--- |
-| `now_spec.md` | ✅ exists | 2026-02-26 04:44:40 |
-| `PROJECT_STATUS.md` | ✅ exists | 2026-02-26 04:44:31 |
-| `DEV_LOG.md` | ✅ exists | 2026-02-26 04:44:48 |
-| `DOC_INDEX.md` | ✅ exists | 2026-02-26 04:12:56 |
-| `ASSET_MAP.md` | ✅ exists | 2026-02-26 11:06:49 |
+| `now_spec.md` | ✅ exists | 2026-02-26 12:37:31 |
+| `PROJECT_STATUS.md` | ✅ exists | 2026-02-26 12:37:14 |
+| `DEV_LOG.md` | ✅ exists | 2026-02-26 12:37:42 |
+| `DOC_INDEX.md` | ✅ exists | 2026-02-26 11:33:43 |
+| `ASSET_MAP.md` | ✅ exists | 2026-02-26 12:37:52 |
 
 ## 6) Maintenance Guide
 - [ ] `task_finish.py`를 통한 문서 동기화 여부 확인

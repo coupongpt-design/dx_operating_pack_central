@@ -4,6 +4,7 @@ import argparse
 import shutil
 import stat
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -174,6 +175,17 @@ def install(pack_root: Path, target_root: Path, mode: str, overwrite: bool) -> l
     return installed
 
 
+def _integrity_check_logs(target_root: Path) -> list[str]:
+    tool = target_root / "tools" / "check_tool_integrity.py"
+    if not tool.exists():
+        return [f"[warn] integrity check skipped (missing tool): {tool}"]
+    rc, out = _run([sys.executable, str(tool), "--project-root", str(target_root), "--quiet-ok"], cwd=target_root)
+    logs = [line for line in out.splitlines() if line.strip()]
+    if rc != 0:
+        logs.append(f"[warn] integrity check returned non-zero: {rc}")
+    return logs
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Install DX operating pack into another project.")
     parser.add_argument(
@@ -236,6 +248,7 @@ def main() -> int:
             return 1
 
     logs.extend(install(pack_root=pack_root, target_root=target_root, mode=args.mode, overwrite=args.overwrite))
+    logs.extend(_integrity_check_logs(target_root=target_root))
     print(f"[done] mode={args.mode}, overwrite={args.overwrite}, target={target_root}")
     for line in logs:
         print(line)

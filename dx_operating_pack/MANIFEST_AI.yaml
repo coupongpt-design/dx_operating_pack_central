@@ -12,7 +12,7 @@ entries:
   - path: tools/task_finish.py
     purpose: Single-command finish pipeline
     when_to_use: After implementation, before commit
-    must_follow: Run targeted tests first; full suite on risk
+    must_follow: Run targeted tests first; full suite on risk; use `--auto-push` when feedback should be shipped immediately
     related_tests:
       - tests/test_task_finish.py
       - tests/test_post_task_gate.py
@@ -43,6 +43,13 @@ entries:
     purpose: Promote inbox feedback bundles into reusable/docs and archive processed bundles
     when_to_use: In central DX repository maintenance cycle
     must_follow: Run dry-run first, then `--apply` after review
+
+  - path: tools/check_tool_integrity.py
+    purpose: Validate root tools delegation/sync against dx_operating_pack/tools
+    when_to_use: After setup/sync and before governance debugging
+    must_follow: Wrapper delegation or exact copy must be preserved; mismatch without delegation is a governance warning
+    related_tests:
+      - tests/test_check_tool_integrity.py
 
   - path: reusable/core/template_processor.py
     purpose: Placeholder replacement core

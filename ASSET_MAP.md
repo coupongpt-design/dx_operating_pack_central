@@ -25,17 +25,18 @@
 ## 3) DX Tools (자동화 도구)
 - Workflow
   - `tools/task_start_guard.py` (작업 시작 게이트)
-  - `tools/task_finish.py` (테스트/게이트/템플릿)
+  - `tools/task_finish.py` (테스트/게이트/템플릿, `--auto-push` 자동 상신)
   - `tools/test_selector.py` (targeted 테스트 자동 선택)
   - `tools/preflight_env.py` (환경 선점검)
   - `tools/post_task_gate.py` (게이트 레코드 생성)
   - `tools/project_audit.py` (전수 자산 감사)
+  - `tools/check_tool_integrity.py` (루트 tools <-> dx tools 정합성 검사)
 - DX Pack Governance/Sync
   - `dx_operating_pack/tools/setup_dx.py` (신규 프로젝트 설치/적용)
   - `dx_operating_pack/tools/sync_dx_pack.py` (중앙 DX 레포 동기화 + 로컬 보호/백업)
   - `dx_operating_pack/tools/post_task_gate.py` (DX Pack 로컬 게이트)
 - Knowledge Feedback Loop
-  - `dx_operating_pack/tools/capture_lesson_draft.py` (작업 인사이트 추출 + `LATEST_INSIGHT.yaml` 생성)
+  - `dx_operating_pack/tools/capture_lesson_draft.py` (작업 인사이트 추출 + 최신 AI 세션 JSON/Markdown 신호 반영)
   - `dx_operating_pack/tools/push_dx_feedback.py` (Satellite -> Central inbox 상신)
   - `dx_operating_pack/tools/promote_dx_feedback.py` (Central inbox -> reusable/lessons 승격)
 - Multi-Agent Orchestration

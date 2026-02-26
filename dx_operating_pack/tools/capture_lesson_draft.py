@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -30,6 +32,13 @@ DEFAULT_INSIGHT_PATHS = (
     Path("feedback/LATEST_INSIGHT.yaml"),
     Path("dx_operating_pack/feedback/LATEST_INSIGHT.yaml"),
 )
+AI_SESSION_ROOTS = (
+    Path("logs/ai_sessions"),
+    Path("dx_operating_pack/logs/ai_sessions"),
+)
+AI_SESSION_TEXT_EXTS = {".md", ".markdown"}
+AI_SESSION_JSON_EXTS = {".json"}
+AI_SESSION_SKIP_NAMES = {"planner_plan.md", "guardian_report.json", "executor_diff.json"}
 
 
 def _changed_files(base: str, head: str, *, from_staged: bool = False) -> list[str]:
@@ -83,7 +92,156 @@ def _detect_reusable_changes(files: list[str]) -> list[str]:
     return sorted(dict.fromkeys(out))
 
 
-def build_draft(files: list[str], title: str, *, added_lessons: list[str], reusable_changes: list[str]) -> str:
+def _extract_signal_lines(text: str, *, tag: str) -> list[str]:
+    out: list[str] = []
+    pattern = re.compile(rf"^\s*(?:[-*]\s*)?(?:{re.escape(tag)}|{re.escape(tag.lower())}|{re.escape(tag.upper())})\s*[:\-]\s*(.+)$")
+    for raw in (text or "").splitlines():
+        m = pattern.search(raw.strip())
+        if not m:
+            continue
+        val = m.group(1).strip()
+        if val:
+            out.append(val)
+    return out
+
+
+def _read_text(path: Path) -> str:
+    return path.read_text(encoding="utf-8", errors="ignore")
+
+
+def _latest_session_log_file(session_dir: Path, *, exts: set[str]) -> Path | None:
+    newest: tuple[float, Path] | None = None
+    for child in session_dir.iterdir():
+        if not child.is_file():
+            continue
+        if child.name.lower() in AI_SESSION_SKIP_NAMES:
+            continue
+        if child.suffix.lower() not in exts:
+            continue
+        ts = child.stat().st_mtime
+        if newest is None or ts > newest[0]:
+            newest = (ts, child)
+    return newest[1] if newest else None
+
+
+def _extract_json_signals(path: Path) -> tuple[list[str], list[str], list[str]]:
+    decisions: list[str] = []
+    reasons: list[str] = []
+    warnings: list[str] = []
+    try:
+        payload = json.loads(_read_text(path))
+    except Exception:
+        return decisions, reasons, warnings
+
+    def walk(node: Any, parent_key: str = "") -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                key_l = str(key).strip().lower()
+                if key_l.startswith("decision") and isinstance(value, (str, int, float)):
+                    decisions.append(str(value).strip())
+                elif key_l.startswith("reason") and isinstance(value, (str, int, float)):
+                    reasons.append(str(value).strip())
+                elif key_l.startswith("warning") and isinstance(value, (str, int, float)):
+                    warnings.append(str(value).strip())
+                walk(value, parent_key=key_l)
+            return
+        if isinstance(node, list):
+            for value in node:
+                walk(value, parent_key=parent_key)
+            return
+        if isinstance(node, str):
+            text = node.strip()
+            if not text:
+                return
+            decisions.extend(_extract_signal_lines(text, tag="Decision"))
+            reasons.extend(_extract_signal_lines(text, tag="Reason"))
+            warnings.extend(_extract_signal_lines(text, tag="Warning"))
+
+    walk(payload)
+    return decisions, reasons, warnings
+
+
+def _latest_ai_session_dir() -> Path | None:
+    newest: tuple[float, Path] | None = None
+    for root in AI_SESSION_ROOTS:
+        if not root.exists():
+            continue
+        for child in root.iterdir():
+            if not child.is_dir():
+                continue
+            ts = child.stat().st_mtime
+            if newest is None or ts > newest[0]:
+                newest = (ts, child)
+    return newest[1] if newest else None
+
+
+def _extract_ai_session_context(session_dir: Path | None) -> dict[str, Any]:
+    result: dict[str, Any] = {"session_dir": "", "decisions": [], "reasons": [], "warnings": [], "sources": []}
+    if session_dir is None or not session_dir.exists():
+        return result
+
+    decisions: list[str] = []
+    reasons: list[str] = []
+    warnings: list[str] = []
+    sources: list[str] = []
+
+    planner = session_dir / "planner_plan.md"
+    if planner.exists():
+        text = _read_text(planner)
+        decisions.extend(_extract_signal_lines(text, tag="Decision"))
+        reasons.extend(_extract_signal_lines(text, tag="Reason"))
+        warnings.extend(_extract_signal_lines(text, tag="Warning"))
+        sources.append(planner.name)
+
+    guardian = session_dir / "guardian_report.json"
+    if guardian.exists():
+        try:
+            payload = json.loads(_read_text(guardian))
+            response = str(payload.get("guardian_response", "")).strip()
+            decisions.extend(_extract_signal_lines(response, tag="Decision"))
+            reasons.extend(_extract_signal_lines(response, tag="Reason"))
+            warnings.extend(_extract_signal_lines(response, tag="Warning"))
+            if payload.get("hard_gate_triggered", False):
+                warnings.append("guardian hard gate triggered")
+            sources.append(guardian.name)
+        except Exception:
+            warnings.append("guardian report parse failed")
+
+    latest_json = _latest_session_log_file(session_dir, exts=AI_SESSION_JSON_EXTS)
+    if latest_json:
+        d, r, w = _extract_json_signals(latest_json)
+        decisions.extend(d)
+        reasons.extend(r)
+        warnings.extend(w)
+        sources.append(latest_json.name)
+
+    latest_md = _latest_session_log_file(session_dir, exts=AI_SESSION_TEXT_EXTS)
+    if latest_md:
+        text = _read_text(latest_md)
+        decisions.extend(_extract_signal_lines(text, tag="Decision"))
+        reasons.extend(_extract_signal_lines(text, tag="Reason"))
+        warnings.extend(_extract_signal_lines(text, tag="Warning"))
+        sources.append(latest_md.name)
+
+    def _uniq(rows: list[str]) -> list[str]:
+        return list(dict.fromkeys([row.strip() for row in rows if row.strip()]))
+
+    result["session_dir"] = str(session_dir).replace("\\", "/")
+    result["decisions"] = _uniq(decisions)
+    result["reasons"] = _uniq(reasons)
+    result["warnings"] = _uniq(warnings)
+    result["sources"] = _uniq(sources)
+    return result
+
+
+def build_draft(
+    files: list[str],
+    title: str,
+    *,
+    added_lessons: list[str],
+    reusable_changes: list[str],
+    ai_session_context: dict[str, Any] | None = None,
+) -> str:
     lines: list[str] = []
     lines.append(f"## {title}")
     lines.append(f"- generated_at: {datetime.now().isoformat(timespec='seconds')}")
@@ -107,6 +265,19 @@ def build_draft(files: list[str], title: str, *, added_lessons: list[str], reusa
         lines.append("### New Lessons (from diff)")
         for item in added_lessons[:10]:
             lines.append(f"- {item}")
+    if ai_session_context:
+        decisions = list(ai_session_context.get("decisions", []))
+        reasons = list(ai_session_context.get("reasons", []))
+        warnings = list(ai_session_context.get("warnings", []))
+        if decisions or reasons or warnings:
+            lines.append("")
+            lines.append("### AI Session Signals")
+            for item in decisions[:5]:
+                lines.append(f"- Decision: {item}")
+            for item in reasons[:5]:
+                lines.append(f"- Reason: {item}")
+            for item in warnings[:5]:
+                lines.append(f"- Warning: {item}")
     lines.append("")
     lines.append("### Human Review Notes")
     lines.append("- [ ] 실제 실패 원인 요약")
@@ -124,7 +295,13 @@ def build_insight_payload(
     files: list[str],
     added_lessons: list[str],
     reusable_changes: list[str],
+    ai_session_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    ai_ctx = ai_session_context or {"session_dir": "", "decisions": [], "reasons": [], "warnings": []}
+    decisions = list(ai_ctx.get("decisions", []))
+    reasons = list(ai_ctx.get("reasons", []))
+    warnings = list(ai_ctx.get("warnings", []))
+    sources = list(ai_ctx.get("sources", []))
     return {
         "schema_version": 1,
         "generated_at": datetime.now().isoformat(timespec="seconds"),
@@ -138,10 +315,21 @@ def build_insight_payload(
             "changed_files_count": len(files),
             "reusable_changes_count": len(reusable_changes),
             "added_lessons_count": len(added_lessons),
+            "ai_decisions_count": len(decisions),
+            "ai_reasons_count": len(reasons),
+            "ai_warnings_count": len(warnings),
+            "ai_sources_count": len(sources),
         },
         "changed_files": files,
         "reusable_changes": reusable_changes,
         "added_lessons": added_lessons,
+        "ai_session_context": {
+            "session_dir": str(ai_ctx.get("session_dir", "")),
+            "decisions": decisions,
+            "reasons": reasons,
+            "warnings": warnings,
+            "sources": sources,
+        },
     }
 
 
@@ -227,6 +415,11 @@ def main() -> int:
         action="store_true",
         help="Do not write LATEST_INSIGHT.yaml.",
     )
+    parser.add_argument(
+        "--ai-session-dir",
+        default="",
+        help="Optional explicit ai session dir. Defaults to latest under logs/ai_sessions.",
+    )
     args = parser.parse_args()
 
     files = _changed_files(base=args.base, head=args.head, from_staged=args.from_staged)
@@ -241,6 +434,8 @@ def main() -> int:
         from_staged=args.from_staged,
     )
     reusable_changes = _detect_reusable_changes(files)
+    ai_session_dir = Path(args.ai_session_dir) if args.ai_session_dir else _latest_ai_session_dir()
+    ai_session_context = _extract_ai_session_context(ai_session_dir)
 
     if not args.skip_draft:
         draft = build_draft(
@@ -248,6 +443,7 @@ def main() -> int:
             title=args.title,
             added_lessons=added_lessons,
             reusable_changes=reusable_changes,
+            ai_session_context=ai_session_context,
         )
         draft_out = Path(args.out) if args.out else _resolve_first_existing(
             DEFAULT_DRAFT_PATHS,
@@ -265,6 +461,7 @@ def main() -> int:
             files=files,
             added_lessons=added_lessons,
             reusable_changes=reusable_changes,
+            ai_session_context=ai_session_context,
         )
         insight_out = Path(args.insight_out) if args.insight_out else _resolve_first_existing(
             DEFAULT_INSIGHT_PATHS,

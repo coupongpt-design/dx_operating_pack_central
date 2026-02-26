@@ -183,6 +183,7 @@ def test_multi_role_ai_rejects_empty_roles():
 
 def test_run_multi_role_ai_hard_gate_blocks_on_guardian_fail(monkeypatch, tmp_path):
     import tools.run_multi_role_ai as cli
+    ctx = cli.main.__globals__
 
     class FakeOrchestrator:
         def __init__(self, roles=None):
@@ -208,9 +209,9 @@ def test_run_multi_role_ai_hard_gate_blocks_on_guardian_fail(monkeypatch, tmp_pa
         rollback_called["called"] = True
         return {"attempted": True, "targets": ["x.py"], "rolled_back": ["x.py"], "failed": []}
 
-    monkeypatch.setattr(cli, "ROOT", str(tmp_path))
-    monkeypatch.setattr(cli, "MultiRoleAIOrchestrator", FakeOrchestrator)
-    monkeypatch.setattr(cli, "parse_args", lambda: Namespace(
+    monkeypatch.setitem(ctx, "ROOT", str(tmp_path))
+    monkeypatch.setitem(ctx, "MultiRoleAIOrchestrator", FakeOrchestrator)
+    monkeypatch.setitem(ctx, "parse_args", lambda: Namespace(
         task="task",
         context="ctx",
         mode="auto",
@@ -219,9 +220,9 @@ def test_run_multi_role_ai_hard_gate_blocks_on_guardian_fail(monkeypatch, tmp_pa
         format="json",
         changed_file=[],
     ))
-    monkeypatch.setattr(cli, "_collect_git_state", lambda: {"tracked": set(), "untracked": set()})
-    monkeypatch.setattr(cli, "_safe_git_diff", lambda: "")
-    monkeypatch.setattr(cli, "_auto_rollback_changes", fake_rollback)
+    monkeypatch.setitem(ctx, "_collect_git_state", lambda: {"tracked": set(), "untracked": set()})
+    monkeypatch.setitem(ctx, "_safe_git_diff", lambda: "")
+    monkeypatch.setitem(ctx, "_auto_rollback_changes", fake_rollback)
 
     rc = cli.main()
     assert rc == 1

@@ -185,6 +185,7 @@ def test_validate_staged_entries_blocks_constitutional_mixed_changes() -> None:
 
 def test_run_pre_commit_guard_emits_scope_warning(monkeypatch, capsys) -> None:
     import tools.git_hook_guards as guards
+    ctx = run_pre_commit_guard.__globals__
 
     staged_text = "".join([f"M\tapp/ui/file_{i}.py\n" for i in range(8)])
     entries = parse_name_status(staged_text)
@@ -199,9 +200,9 @@ def test_run_pre_commit_guard_emits_scope_warning(monkeypatch, capsys) -> None:
             return "abc123\n"
         raise AssertionError(f"unexpected git args: {args}")
 
-    monkeypatch.setattr(guards, "_git", fake_git)
-    monkeypatch.setattr(
-        guards,
+    monkeypatch.setitem(ctx, "_git", fake_git)
+    monkeypatch.setitem(
+        ctx,
         "_load_gate_record",
         lambda: {
             "timestamp": time.time(),

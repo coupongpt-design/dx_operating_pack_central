@@ -7,8 +7,8 @@ from pathlib import Path
 
 
 def _load_dx_module():
-    target = Path(__file__).resolve().parents[1] / "dx_operating_pack" / "tools" / "ci_governance_guard.py"
-    spec = importlib.util.spec_from_file_location("dx_ci_governance_guard", target)
+    target = Path(__file__).resolve().parents[1] / "dx_operating_pack" / "tools" / "check_tool_integrity.py"
+    spec = importlib.util.spec_from_file_location("dx_check_tool_integrity", target)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"failed to load dx tool: {target}")
     module = importlib.util.module_from_spec(spec)

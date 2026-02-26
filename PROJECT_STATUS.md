@@ -1,6 +1,24 @@
 # 프로젝트 상태
 
 ## 최근 업데이트
+- DX Ecosystem Integrity Patch(86 -> 93+) 반영:
+  - `dx_operating_pack/tools/capture_lesson_draft.py`:
+    - `logs/ai_sessions/` 최신 JSON/Markdown 로그 자동 파싱 추가
+    - `Decision/Reason/Warning` 신호를 `LATEST_INSIGHT.yaml`에 반영(`ai_session_context.sources` 포함)
+  - 도구 정합성 단일화:
+    - `dx_operating_pack/tools/check_tool_integrity.py` 신규
+    - 루트 `tools/check_tool_integrity.py` 래퍼 신규
+    - `dx_operating_pack/tools/setup_dx.py` 설치 후 정합성 점검 자동 실행 통합
+  - 자동 상신 옵션:
+    - `dx_operating_pack/tools/task_finish.py`에 `--auto-push` 추가
+    - 게이트 통과 직후 `tools/push_dx_feedback.py --base HEAD~1 --head HEAD` 자동 호출
+  - 문서/매니페스트 갱신:
+    - `dx_operating_pack/AGENT_ONBOARDING.md`, `dx_operating_pack/MANIFEST_AI.yaml` 동기화
+  - 검증:
+    - `python -m pytest -q tests/test_dx_capture_lesson_draft.py tests/test_task_finish.py tests/test_check_tool_integrity.py tests/test_post_task_gate.py` -> `22 passed in 0.17s`
+    - `python tools/check_tool_integrity.py --project-root .` -> `tool integrity clean`
+- 래퍼 안정화 보강:
+  - 루트 래퍼 로더에서 `sys.modules[spec.name]` 등록 누락을 보완해 dataclass/monkeypatch 호환성 회복.
 - DX Feedback Loop(지식 환류) 자동화 추가:
   - `dx_operating_pack/tools/capture_lesson_draft.py` 확장:
     - staged/range 기반 변경 분석

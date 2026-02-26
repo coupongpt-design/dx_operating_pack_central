@@ -1,43 +1,32 @@
 from __future__ import annotations
 
-import os
-import stat
-import subprocess
+import importlib.util
+import inspect
 import sys
 from pathlib import Path
 
-REQUIRED_HOOKS = ("commit-msg", "pre-commit", "pre-push")
+
+def _load_dx_module():
+    target = Path(__file__).resolve().parents[1] / "dx_operating_pack" / "tools" / "install_git_hooks.py"
+    spec = importlib.util.spec_from_file_location("dx_install_git_hooks", target)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"failed to load dx tool: {target}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
-def _git(*args: str) -> str:
-    return subprocess.check_output(["git", *args], text=True, encoding="utf-8", errors="replace").strip()
-
-
-def _ensure_executable(path: Path) -> None:
-    current = path.stat().st_mode
-    path.chmod(current | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-
-
-def main() -> int:
-    root = Path(_git("rev-parse", "--show-toplevel"))
-    hooks_dir = root / ".githooks"
-
-    missing = [name for name in REQUIRED_HOOKS if not (hooks_dir / name).exists()]
-    if missing:
-        print(f"missing hook files: {', '.join(missing)}")
-        return 1
-
-    subprocess.check_call(["git", "config", "core.hooksPath", ".githooks"], cwd=root)
-
-    for name in REQUIRED_HOOKS:
-        _ensure_executable(hooks_dir / name)
-
-    configured = _git("config", "--get", "core.hooksPath")
-    print(f"installed hooksPath={configured}")
-    print("active hooks:", ", ".join(REQUIRED_HOOKS))
-    return 0
+_dx = _load_dx_module()
+for _k, _v in _dx.__dict__.items():
+    if _k in {"__name__", "__file__", "__package__", "__spec__"}:
+        continue
+    globals()[_k] = _v
 
 
 if __name__ == "__main__":
-    os.environ.setdefault("PYTHONUTF8", "1")
-    raise SystemExit(main())
+    _main = getattr(_dx, "main")
+    _params = inspect.signature(_main).parameters
+    if len(_params) == 0:
+        raise SystemExit(_main())
+    raise SystemExit(_main(sys.argv[1:]))

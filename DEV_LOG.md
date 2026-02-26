@@ -5,6 +5,20 @@
 - 작업 종료는 `python tools/task_finish.py --subject "..." --scope ...` 경로를 표준으로 사용
 - 게이트 통과 후 운영 감사 권장: `python tools/project_audit.py`
 
+## Session 105 - DX Ecosystem Integrity Patch(86 -> 93+)
+- Date: 2026-02-26
+- Summary:
+  - `capture_lesson_draft.py`에 최신 AI 세션 로그(JSON/Markdown) 어댑터를 추가해 Decision/Reason/Warning 신호 수집 강화.
+  - `dx_operating_pack/tools/check_tool_integrity.py` 신규 추가, 루트 래퍼 `tools/check_tool_integrity.py` 신규 추가.
+  - `setup_dx.py`에 설치 후 도구 정합성 자동 점검 통합.
+  - `task_finish.py`에 `--auto-push` 옵션 추가(게이트 성공 후 `push_dx_feedback.py` 자동 호출).
+  - `AGENT_ONBOARDING.md`, `MANIFEST_AI.yaml`에 자동 환류/정합성 경로 반영.
+  - 루트 래퍼 로더의 `sys.modules` 등록을 보완해 dataclass/테스트 monkeypatch 호환성 복구.
+- Validation:
+  - `python -m pytest -q tests/test_dx_capture_lesson_draft.py tests/test_task_finish.py tests/test_check_tool_integrity.py tests/test_post_task_gate.py` -> `22 passed in 0.17s`
+  - `python tools/check_tool_integrity.py --project-root .` -> `[summary] tool integrity clean`
+  - `python tools/project_audit.py` -> `project_audit_latest.md` 최신 리포트 생성
+
 ## Session 104 - DX Feedback Loop 자동화(지식 환류)
 - Date: 2026-02-26
 - Summary:
