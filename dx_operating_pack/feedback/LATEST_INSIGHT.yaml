@@ -1,0 +1,24 @@
+schema_version: 1
+generated_at: "2026-02-26T11:20:37"
+title: "Post Task Gate Harvest"
+source:
+  mode: "staged"
+  base: "HEAD~1"
+  head: "HEAD"
+stats:
+  changed_files_count: 9
+  reusable_changes_count: 0
+  added_lessons_count: 0
+changed_files:
+  - "ASSET_MAP.md"
+  - "DEV_LOG.md"
+  - "PROJECT_STATUS.md"
+  - "dx_operating_pack/AGENT_ONBOARDING.md"
+  - "dx_operating_pack/INSTALL_IN_NEW_PROJECT.md"
+  - "dx_operating_pack/MANIFEST.md"
+  - "dx_operating_pack/MANIFEST_AI.yaml"
+  - "dx_operating_pack/README.md"
+  - "now_spec.md"
+reusable_changes:
+
+added_lessons:
