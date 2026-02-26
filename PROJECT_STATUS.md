@@ -375,3 +375,7 @@
 - Pre-commit now emits scope-size warnings at 7 files / 500 changed lines (warning-level guidance).
 - task_finish runs preflight checks (git, python, pytest, memory) before gate execution.
 - Baseline verification: 532 passed, 1 skipped.
+ 
+## DX Feedback Loop Path Policy 
+- `capture_lesson_draft` default draft/lessons paths now prefer `dx_operating_pack/docs/*` before root `docs/*`. 
+- Root `docs/LESSONS_LEARNED_DRAFT.md` is treated as legacy fallback path only.

@@ -1992,3 +1992,7 @@
 - Validation:
   - `python -m pytest -q tests/test_task_finish.py tests/test_task_start_guard.py tests/test_project_audit.py tests/test_rule_docs_sync.py` -> `14 passed in 0.14s`
   - `python -m pytest -q` -> `532 passed, 1 skipped in 41.43s`
+ 
+## Session Note - DX Feedback Path Normalization 
+- Normalized `capture_lesson_draft` defaults to write drafts under `dx_operating_pack/docs/*` first. 
+- Added regression test for default-path preference (`tests/test_dx_capture_lesson_draft.py`).

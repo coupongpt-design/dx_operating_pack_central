@@ -13,6 +13,12 @@ def _load_module():
     return module
 
 
+def test_default_paths_prefer_dx_pack_docs() -> None:
+    mod = _load_module()
+    assert str(mod.DEFAULT_DRAFT_PATHS[0]).replace("\\", "/") == "dx_operating_pack/docs/LESSONS_LEARNED_DRAFT.md"
+    assert str(mod.DEFAULT_LESSONS_PATHS[0]).replace("\\", "/") == "dx_operating_pack/docs/LESSONS_LEARNED.md"
+
+
 def test_extract_added_lines_filters_noise() -> None:
     mod = _load_module()
     diff = "\n".join(

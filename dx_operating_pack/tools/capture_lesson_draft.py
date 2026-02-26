@@ -17,10 +17,12 @@ HINTS = [
 ]
 
 DEFAULT_DRAFT_PATHS = (
+    Path("dx_operating_pack/docs/LESSONS_LEARNED_DRAFT.md"),
     Path("docs/LESSONS_LEARNED_DRAFT.md"),
     Path("docs/dx_pack/LESSONS_LEARNED_DRAFT.md"),
 )
 DEFAULT_LESSONS_PATHS = (
+    Path("dx_operating_pack/docs/LESSONS_LEARNED.md"),
     Path("docs/LESSONS_LEARNED.md"),
     Path("docs/dx_pack/LESSONS_LEARNED.md"),
 )

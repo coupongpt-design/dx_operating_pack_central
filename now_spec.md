@@ -564,3 +564,7 @@
   - `tools/capture_lesson_draft.py`
   - `tools/push_dx_feedback.py`
   - 현재 프로젝트에서도 동일 명령으로 DX feedback 루프 사용 가능.
+ 
+## DX Feedback Loop Path Policy 
+- Default lesson draft output path: `dx_operating_pack/docs/LESSONS_LEARNED_DRAFT.md` (primary). 
+- Root `docs/*` path remains as compatibility fallback, not as primary output target.
