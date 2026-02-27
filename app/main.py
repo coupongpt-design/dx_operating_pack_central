@@ -118,7 +118,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Macro Editor")
-        self.resize(1200, 760)
+        self.resize(760, 520)
+        self.setMinimumSize(640, 420)
         
         # Apply Dark Theme
         self.setStyleSheet(DarkTheme.get_stylesheet())
@@ -283,7 +284,7 @@ class MainWindow(QMainWindow):
 
         def _slim_left_btn(btn: QPushButton, cls_name: str | None = None) -> None:
             btn.setMinimumHeight(26)
-            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            btn.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
             if cls_name:
                 btn.setProperty("class", cls_name)
         
@@ -398,6 +399,17 @@ class MainWindow(QMainWindow):
         grp_preview = QGroupBox("Preview")
         preview_layout = QVBoxLayout(grp_preview)
         preview_layout.setContentsMargins(0,10,0,0)
+        
+        # Add a pop-out button for Preview
+        self.btnPopOutPreview = QPushButton("팝아웃(Pop-Out)")
+        self.btnPopOutPreview.setToolTip("미리보기 화면을 별도의 창으로 분리합니다.")
+        self.btnPopOutPreview.clicked.connect(self._popout_preview)
+        
+        preview_header_layout = QHBoxLayout()
+        preview_header_layout.addStretch()
+        preview_header_layout.addWidget(self.btnPopOutPreview)
+        preview_layout.addLayout(preview_header_layout)
+
         self.lblPreview = QLabel("No Preview")
         self.lblPreview.setAlignment(Qt.AlignCenter)
         self.lblPreview.setStyleSheet("background:#222;color:#aaa;")
@@ -422,8 +434,11 @@ class MainWindow(QMainWindow):
         self.splitter.addWidget(right_panel)
         self.right_panel = right_panel
         
-        # Set Splitter Sizes (approx 25%, 50%, 25%)
-        self.splitter.setSizes([300, 600, 300])
+        # Set Splitter Sizes (Compact: Left 320, Center flexible, Right Hide(0))
+        self.splitter.setStretchFactor(0, 0)
+        self.splitter.setStretchFactor(1, 1)
+        self.splitter.setStretchFactor(2, 0)
+        self.splitter.setSizes([320, 600, 0])
         self.splitter.setCollapsible(0, True)
         
         self.setCentralWidget(self.splitter)
@@ -443,6 +458,10 @@ class MainWindow(QMainWindow):
         # We already connected actions above.
         
         # Toolbar options grouped by role: Targeting / Flags / Excel.
+        self.chkAlwaysOnTop = QCheckBox("Pin(항상위)")
+        self.chkAlwaysOnTop.setToolTip("창을 항상 위로 고정합니다.")
+        self.chkAlwaysOnTop.toggled.connect(self._toggle_always_on_top)
+        
         self.chkDry = QCheckBox("Dry")
         self.chkAutoMin = QCheckBox("Mini")
         self.chkCaptureFail = QCheckBox("CapFail")
@@ -538,6 +557,7 @@ class MainWindow(QMainWindow):
         self.chkSmartSnap.setChecked(True)
         self.chkSmartSnap.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         for cb in (
+            self.chkAlwaysOnTop,
             self.chkAutoEnterAfterText,
             self.chkSmartSnap,
             self.chkDry,
@@ -622,6 +642,8 @@ class MainWindow(QMainWindow):
         self.edExcelDataPath.textChanged.connect(self._on_excel_preview_source_changed)
         self._apply_excel_mode_visual_state(self.chkExcelDataMode.isChecked(), announce=False)
         self._sync_toolbar_run_stop_buttons()
+        # Always On Top Default On
+        self.chkAlwaysOnTop.setChecked(True)
         
         # Menu Bar
         menubar = self.menuBar()
@@ -674,6 +696,14 @@ class MainWindow(QMainWindow):
         self.splitter.splitterMoved.connect(self._on_splitter_moved)
         self.excelOrchEvent.connect(self._on_excel_orch_event)
         self.excelOrchFinished.connect(self._on_excel_orch_finished)
+
+    def _toggle_always_on_top(self, checked: bool):
+        flags = self.windowFlags()
+        if checked:
+            self.setWindowFlags(flags | Qt.WindowStaysOnTopHint)
+        else:
+            self.setWindowFlags(flags & ~Qt.WindowStaysOnTopHint)
+        self.show() # Windows require show() after flag changes
 
     def _update_undo_buttons(self):
         """Enable/disable undo/redo actions based on stack state."""
@@ -1515,27 +1545,33 @@ class MainWindow(QMainWindow):
             pix = QPixmap()
             pix.loadFromData(step.png_bytes)
             if not pix.isNull():
-                scaled = pix.scaled(self.lblPreview.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                self.lblPreview.setPixmap(scaled)
-                self.lblPreview.setText("")
+                target_lbl = getattr(self, "popout_lblPreview", None) if hasattr(self, "preview_dialog") and self.preview_dialog.isVisible() else self.lblPreview
+                scaled = pix.scaled(target_lbl.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                target_lbl.setPixmap(scaled)
+                target_lbl.setText("")
             else:
-                self.lblPreview.setText("Invalid Image")
+                target_lbl = getattr(self, "popout_lblPreview", None) if hasattr(self, "preview_dialog") and self.preview_dialog.isVisible() else self.lblPreview
+                target_lbl.setText("Invalid Image")
         elif step.type == 'image_branch':
              # Show first target image or something
              if step.conditional_targets and step.conditional_targets[0].get('png_bytes'):
                 pix = QPixmap()
                 pix.loadFromData(step.conditional_targets[0]['png_bytes'])
                 if not pix.isNull():
-                    scaled = pix.scaled(self.lblPreview.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                    self.lblPreview.setPixmap(scaled)
-                    self.lblPreview.setText("")
+                    target_lbl = getattr(self, "popout_lblPreview", None) if hasattr(self, "preview_dialog") and self.preview_dialog.isVisible() else self.lblPreview
+                    scaled = pix.scaled(target_lbl.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    target_lbl.setPixmap(scaled)
+                    target_lbl.setText("")
                 else:
-                    self.lblPreview.setText("Invalid Image")
+                    target_lbl = getattr(self, "popout_lblPreview", None) if hasattr(self, "preview_dialog") and self.preview_dialog.isVisible() else self.lblPreview
+                    target_lbl.setText("Invalid Image")
              else:
-                self.lblPreview.setText("Branch Step (No Image)")
+                target_lbl = getattr(self, "popout_lblPreview", None) if hasattr(self, "preview_dialog") and self.preview_dialog.isVisible() else self.lblPreview
+                target_lbl.setText("Branch Step (No Image)")
         else:
-            self.lblPreview.clear()
-            self.lblPreview.setText(f"Step: {step.name}\nType: {step.type}")
+            target_lbl = getattr(self, "popout_lblPreview", None) if hasattr(self, "preview_dialog") and self.preview_dialog.isVisible() else self.lblPreview
+            target_lbl.clear()
+            target_lbl.setText(f"Step: {step.name}\nType: {step.type}")
 
     def _update_mouse_pos(self):
         try:
@@ -1543,6 +1579,47 @@ class MainWindow(QMainWindow):
             self.lblMousePos.setText(f"Mouse: {pos.x}, {pos.y}")
         except Exception as e:
             self._warn_once("mouse_pos_update", f"Mouse position update failed: {e}")
+
+    def _popout_preview(self):
+        # Create a new dialog to host the preview image
+        if not hasattr(self, "preview_dialog"):
+            self.preview_dialog = QDialog(self)
+            self.preview_dialog.setWindowTitle("Preview (Pop-Out)")
+            self.preview_dialog.resize(600, 400)
+            layout = QVBoxLayout(self.preview_dialog)
+            
+            self.popout_lblPreview = QLabel("No Preview")
+            self.popout_lblPreview.setAlignment(Qt.AlignCenter)
+            self.popout_lblPreview.setStyleSheet("background:#222;color:#aaa;")
+            layout.addWidget(self.popout_lblPreview)
+            
+            # Sync when original preview updates
+            # We will handle it in update_preview()
+            
+            # Restore state on close
+            self.preview_dialog.finished.connect(self._on_popout_closed)
+
+        # Move the pixmap from main to popout
+        if self.lblPreview.pixmap() and not self.lblPreview.pixmap().isNull():
+            self.popout_lblPreview.setPixmap(self.lblPreview.pixmap())
+            self.popout_lblPreview.setText("")
+        else:
+            self.popout_lblPreview.setText(self.lblPreview.text())
+            self.popout_lblPreview.setPixmap(QPixmap())
+
+        # Collapse main window preview
+        self.lblPreview.setVisible(False)
+        self.btnPopOutPreview.setVisible(False)
+        self.preview_dialog.show()
+        # Bring it to front
+        self.preview_dialog.raise_()
+        self.preview_dialog.activateWindow()
+
+    def _on_popout_closed(self):
+        # Restore preview back to main window
+        self.lblPreview.setVisible(True)
+        self.btnPopOutPreview.setVisible(True)
+        self.update_preview() # refresh content
 
     # --- Hotkey Management ---
     def _load_hotkeys(self):
