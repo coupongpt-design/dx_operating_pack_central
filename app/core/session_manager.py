@@ -216,7 +216,12 @@ class SessionManager(QObject):
                 self.logger.exception("Failed to activate window for session %s", sess.name)
 
         # Start runner
-        if sess.runner is None and sess.script_path:
+        if sess.runner is None:
+            if not sess.script_path:
+                sess.status = "error"
+                self.logger.warning("Session '%s' has no script path.", sess.name)
+                return
+
             recovered = self._attempt_runner_recovery(sess)
             if not recovered:
                 reason = self._pending_escalation_reason(sess)

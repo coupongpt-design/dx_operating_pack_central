@@ -82,7 +82,7 @@
   - PyInstaller 스펙(`ImageMacro.spec`)과 빌드 스크립트(`tools/build_exe.ps1`) 제공.
   - GitHub Actions 수동 빌드 워크플로우(`.github/workflows/build-exe.yml`) 제공.
   - 앱 시작 시 OCR 경로가 미설정이면 1회 안내 후 경로 선택 가능(Settings 메뉴에서 재설정 가능).
-- Multi-Manager: 세션 편집/라운드로빈 코어 제공(타겟/스크립트/리셋 설정 포함). `Start All` 경로에서 세션 script_path를 기준으로 runner 자동 생성/연결을 시도하며, 스크립트 미지정/로드 실패 세션만 `pending` 상태.
+- Multi-Manager: 세션 편집/라운드로빈 코어 제공(타겟/스크립트/리셋 설정 포함). `Start All` 경로에서 세션 script_path를 기준으로 runner 자동 생성/연결을 시도하며, 스크립트 미지정 세션은 즉각 `error` 처리하고 로드에 실패한 세션만 `pending` 상태로 백오프 복구를 시도함.
 - Stability/QA: run_health_check.py, auto_inspect.py, run_smoke_suite.py, 광범위한 pytest(시뮬레이션/스트레스/브랜칭/OCR/입출력/메타/윈도우).
 
 ## 5. Data Models & File Format

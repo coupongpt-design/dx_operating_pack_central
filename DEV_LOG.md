@@ -3,7 +3,16 @@
 ## 운영 지침 (필수)
 - 모든 작업 시작 전 첫 명령: `python tools/task_start_guard.py`
 - 작업 종료는 `python tools/task_finish.py --subject "..." --scope ...` 경로를 표준으로 사용
-- 게이트 통과 후 운영 감사 권장: `python tools/project_audit.py`
+- गे이트 통과 후 운영 감사 권장: `python tools/project_audit.py`
+
+## Session 108 - Multi-Manager 무한 Pending 버그 수정
+- Date: 2026-02-27
+- Summary:
+  - `app/core/session_manager.py`: 빈 스크립트 경로 처리로 회피하던 로직을 수정하여 경로 미지정 시 즉각 `error` 상태로 변경.
+  - `app/ui/tabs/manager_tab.py`: `Start All` 실행 중 `_ensure_session_runners` 에서 최초 빌드 실패나 경로 누락 시 `error` 또는 `pending` 상태가 UI 상에 즉시 반영되도록 수정.
+  - `PROJECT_STATUS.md`, `now_spec.md` 해당 현행화 반영.
+- Validation:
+  - Targeted & Full: `python -m pytest -q` 기반 ManagerTab/SessionManager 관련 테스트 회귀 검증 통과.
 
 ## Session 106 - Stage 4 PR-4-2 Self-Healing 강화(기본값/승격/게이트 텔레메트리)
 - Date: 2026-02-26

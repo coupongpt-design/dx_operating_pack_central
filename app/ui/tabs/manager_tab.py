@@ -381,7 +381,10 @@ class ManagerTab(QWidget):
                         self._logger.warning("Failed to sync runner target title for '%s': %s", sess.name, e)
                 continue
             if not (sess.script_path or "").strip():
+                sess.status = "error"
                 continue
             runner = self._build_runner_for_session(sess)
             if runner is not None:
                 sess.runner = runner
+            else:
+                sess.status = "pending"

@@ -1,6 +1,9 @@
 # 프로젝트 상태
 
 ## 최근 업데이트
+- Multi-Manager 무한 Pending 버그 수정:
+  - `app/core/session_manager.py`: 스크립트 미지정 시 즉각 `error` 상태 반환 및 복구 중단.
+  - `app/ui/tabs/manager_tab.py`: `Start All` 호출 시 스크립트 없거나 초기 로드 실패 세션의 상태를 즉각 UI 반영.
 - DX OS v2.2 중앙 배포 상태 업데이트:
   - 중앙 레포 URL 설정 완료: `git@github.com:coupongpt-design/dx_operating_pack_central.git`
   - 현재 배포 보류 사유:
@@ -386,7 +389,6 @@
   - Tesseract 바이너리 동봉 전략(현재는 경로 설정형 MVP)
   - 실제 사용자 환경(권한/백신/해상도) smoke 배포 검증
 - 복잡 배경에서의 자동 전경 분리 고도화(알파 없는 템플릿 대상)와 특징점 매칭 튜닝은 추가 개선 여지로 유지.
-- `Multi-Manager`는 `Start All`에서 runner 자동 생성/연결을 시도하지만, 스크립트 경로 미지정/로드 실패 세션은 `pending` 상태로 남을 수 있음.
  
 ## DX Guard Phase  
 - task_start_guard blocks new work when index is not clean. 
