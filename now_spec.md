@@ -1,8 +1,8 @@
 # Project Technical Specification (now_spec)
 
 ## 1. Project Overview
-- Python 3.13 기준(PyQt5) 게임 자동화 봇: 매크로 작성·실행, 화면 인식(OCR/이미지), 인간적 입력을 제공.
-- 목표: 안티치트 회피(인간적 입력, 창 포커싱), 모듈성(Logic-UI 분리, Command 패턴), 안정성·가시성(테스트/헬스체크/메트릭).
+- Python 3.13 기준(PyQt5) 게임 자동화 봇: 매크로 작성·실행, 화면 인식(OCR/이미지), 인간적 입력을 제공. 단일 모니터 환경을 위한 컴팩트(Compact) UI 전략을 채택함.
+- 목표: 안티치트 회피(인간적 입력, 창 포커싱), 모듈성(Logic-UI 분리, Command 패턴), 안정성·가시성(테스트/헬스체크/메트릭), 낮은 화면 가림(팝아웃/항상 위).
 
 ## 2. Tech Stack & Dependencies
 - UI: PyQt5 (Widgets/QtCore/QtGui), QSettings.
@@ -13,7 +13,11 @@
 - QA: pytest, pytest-qt, pytest-mock, coverage; 스크립트 run_health_check.py, auto_inspect.py, run_smoke_suite.py.
 
 ## 3. System Architecture
-- UI Layer: `MainWindow`(스텝 목록, 실행/정지/녹화, 타겟 창 입력·Find/Fix/Selector), `ScenarioWizardDialog`(템플릿 선택+입력+검증+미리보기), `ExecutionHistoryDialog`(실행 이력/타임라인 분석), `ManagerTab`(멀티 세션 관리), 각종 다이얼로그(`WindowSelectorDialog` 등).
+- UI Layer: 
+  - 기본 사이즈를 축소 고정(720x480)하고, 보조 컨트롤러 역할을 수행하는 컴팩트 모드 우선.
+  - `MainWindow`(스텝 목록, 실행/정지/녹화, 타겟 창 입력 등). 우측 탭(Presets/Scheduler) 숨김 토글 지원.
+  - Preview 창 독립 팝아웃 기능 및 Always On Top 제어 지원.
+  - 이외 각종 다이얼로그(`TargetDialog`, `ScenarioWizardDialog`, `ManagerTab` 등).
 - Logic Layer: `MacroRunner`(QThread; 스텝 실행, human_mode, OCR/브랜칭/서브스크립트, optional 타겟 포커스), `InputRecorder`(pynput, 필터/리샘플/메트릭), `SessionManager`(라운드로빈 전환/일일 리셋 코어; ManagerTab Start All에서 runner 자동연결 지원).
 - Wizard Core: `app/core/scenario_wizard.py`(JSON 템플릿 로드, 입력 검증, `StepData` 생성, 생성 스텝 정합성 검증 + 데이터 컬럼 검증).
 - Core Utilities: `WindowManager`(find/activate/force_refresh 1px shake + 목록 열거), `ImageProcessor`(OCR 전처리·숫자 추출), `HumanMouse`(베지에 곡선+이지ング+지터), `UndoStack`/Commands(Add/Remove/Edit/Move), `runtime_paths`(`sys._MEIPASS` 대응 리소스 경로/쓰기 경로), `ocr_runtime`(Tesseract 경로 해석/적용).

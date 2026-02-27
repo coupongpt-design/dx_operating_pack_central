@@ -5,6 +5,17 @@
 - 작업 종료는 `python tools/task_finish.py --subject "..." --scope ...` 경로를 표준으로 사용
 - गे이트 통과 후 운영 감사 권장: `python tools/project_audit.py`
 
+## Session 109 - UI 컴팩트(Compact) 우선 모드 도입
+- Date: 2026-02-27
+- Summary:
+  - `app/main.py`: `__init__`에서 시작 크기를 `720x480` 수준으로 줄이고 최소 크기도 `640x420`으로 설정.
+  - `app/main.py`: Splitter 기본 비율 조정 통해 우측 탭(Presets/Scheduler)을 숨김 처리(`setStretchFactor(2, 0)` 등).
+  - `app/main.py`: 단일 모니터 사용성을 위해 '항상 위로(Always on Top)' 기능 추가 (`chkAlwaysOnTop`). 기본값 True.
+  - `app/main.py`: `Preview` 영역을 독립적인 QDialog 창으로 분리할 수 있는 Pop-Out 토글 버튼(`btnPopOutPreview`) 추가.
+- Validation:
+  - 앱 컴팩트 렌더링 검사 완료. (Pop-Out 분리, Always On Top Flag 동작 확인)
+  - 연관된 Pytest 회귀 테스트 통과.
+
 ## Session 108 - Multi-Manager 무한 Pending 버그 수정
 - Date: 2026-02-27
 - Summary:
