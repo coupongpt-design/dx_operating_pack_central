@@ -1,6 +1,14 @@
 # 프로젝트 상태
 
 ## 최근 업데이트
+- DX OS v2.2 중앙 배포 상태 업데이트:
+  - 중앙 레포 URL 설정 완료: `git@github.com:coupongpt-design/dx_operating_pack_central.git`
+  - 현재 배포 보류 사유:
+    - HTTPS push: `403 (Permission denied)`
+    - SSH push: `Host key verification failed`
+  - 조치 필요:
+    - GitHub write 권한(PAT/계정 권한) 또는
+    - SSH 클라이언트/known_hosts 초기화 후 재시도
 - DX Ecosystem Integrity Patch(86 -> 93+) 반영:
   - `dx_operating_pack/tools/capture_lesson_draft.py`:
     - `logs/ai_sessions/` 최신 JSON/Markdown 로그 자동 파싱 추가

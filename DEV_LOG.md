@@ -22,6 +22,21 @@
   - Targeted: `python -m pytest -q tests/test_self_healing.py tests/test_exceptions.py tests/test_post_task_gate.py` -> `16 passed in 4.93s`
   - Full: `python -m pytest -q` -> `547 passed, 1 skipped in 22.43s`
 
+## Session 107 - DX OS v2.2 중앙 배포 시도(보류)
+- Date: 2026-02-26
+- Summary:
+  - 중앙 원격 설정 완료:
+    - `origin = git@github.com:coupongpt-design/dx_operating_pack_central.git`
+  - 배포 시도 결과:
+    - HTTPS push: `403 Permission denied (계정 권한/PAT 필요)`
+    - SSH push: `Host key verification failed` (로컬 SSH 환경 준비 필요)
+  - 현재 상태:
+    - 로컬 워킹트리 clean 유지
+    - 배포는 인증/호스트키 정비 후 재시도 예정
+- Follow-up:
+  - GitHub write 권한 확인(PAT 또는 collaborator 권한 부여)
+  - SSH 클라이언트 + known_hosts 초기화 후 `git push -u origin feature/ui-modernization-v1` 재실행
+
 ## Session 105 - DX Ecosystem Integrity Patch(86 -> 93+)
 - Date: 2026-02-26
 - Summary:
