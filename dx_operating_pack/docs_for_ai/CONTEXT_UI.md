@@ -1,16 +1,16 @@
 # CONTEXT SNAPSHOT
 
-- generated_at_utc: 2026-02-25T12:28:38.279790+00:00
-- project_root: `D:\down\autocording\매크로모듈화`
+- generated_at_utc: 2026-03-01T12:46:08.521106+00:00
+- project_root: `D:\down\autocording\매크로모듈화_초고도화_제미나이용`
 - scope: `ui`
 - scanned_dirs: `app/ui, app, tests`
-- file_count: 483
-- python_file_count: 154
+- file_count: 396
+- python_file_count: 162
 
 ## Directory Summary
-- `app/ui`: 46 files
-- `app`: 181 files
-- `tests`: 256 files
+- `app/ui`: 40 files
+- `app`: 162 files
+- `tests`: 194 files
 
 ## Key Python Interfaces
 - `app\core\commands.py`
@@ -27,6 +27,9 @@
   - functions: -
 - `app\core\excel_io.py`
   - classes: ExcelDataLoader, ExcelResultExporter
+  - functions: -
+- `app\core\exceptions.py`
+  - classes: MacroBaseError, ExecutionError, ResourceError, ActionError, TargetWindowError
   - functions: -
 - `app\core\input_emulator.py`
   - classes: HumanMouse
@@ -208,6 +211,9 @@
 - `tests\test_branching_and_loops.py`
   - classes: -
   - functions: _build_runner, test_jump_if_prefers_step_id, test_jump_if_falls_back_to_index_when_id_missing
+- `tests\test_check_tool_integrity.py`
+  - classes: -
+  - functions: test_wrapper_delegation_is_accepted, test_non_wrapper_hash_mismatch_is_reported
 - `tests\test_ci_governance_guard.py`
   - classes: -
   - functions: test_semantics_risk_requires_full_suite_pass_fail, test_semantics_non_risk_allows_not_required
@@ -241,6 +247,15 @@
 - `tests\test_drag_path_human.py`
   - classes: -
   - functions: test_drag_path_human_uses_human_mouse
+- `tests\test_dx_capture_lesson_draft.py`
+  - classes: -
+  - functions: _load_module, test_default_paths_prefer_dx_pack_docs, test_extract_added_lines_filters_noise, test_build_insight_payload_and_yaml_render, test_extract_ai_session_context_reads_latest_json_markdown_logs
+- `tests\test_dx_promote_feedback.py`
+  - classes: -
+  - functions: _load_module, test_load_bundles_reads_manifest, test_promote_apply_copies_reusable_and_moves_bundle
+- `tests\test_dx_push_feedback.py`
+  - classes: -
+  - functions: _load_module, test_detect_reusable_changes, test_build_feedback_bundle_writes_manifest_and_assets
 - `tests\test_e2e_basic.py`
   - classes: _DummyMSS
   - functions: qapp, _patch_clipboard, _patch_pyautogui, _patch_mss, patched_env, test_e2e_1_macro_save_load_run_loop, test_e2e_2_branch_dialog_roundtrip, test_e2e_3_trigger_watcher
@@ -262,6 +277,9 @@
 - `tests\test_excel_toolbar_responsive.py`
   - classes: -
   - functions: qapp, test_excel_toolbar_priority_controls_are_fixed, test_excel_path_field_elides_but_keeps_full_text, test_excel_priority_controls_stay_visible_on_narrow_width, test_option_toolbar_is_split_into_core_and_advanced_rows, test_excel_mode_visual_feedback_updates_core_row_and_badge, test_left_panel_run_stop_smart_capture_visible_on_narrow_width, test_left_panel_run_stop_buttons_dispatch_existing_paths
+- `tests\test_exceptions.py`
+  - classes: _DummyMSS
+  - functions: test_exception_hierarchy_is_consistent, test_validate_step_resources_raises_resource_error_for_missing_template, test_validate_step_resources_skips_dynamic_template_path_precheck, test_validate_step_resources_skips_dynamic_compare_paths_precheck, test_runner_emits_target_window_error_telemetry_on_activation_failure, test_runner_step_exception_telemetry_includes_step_index_and_type, test_runner_retries_resource_error_and_recovers_success, test_runner_emits_step_recovery_for_action_error
 - `tests\test_final_cleanup_guard.py`
   - classes: -
   - functions: qapp, test_record_cancel_cleans_record_prop_images, test_add_recorded_steps_command_undo_redo_restores_image_file
@@ -318,10 +336,13 @@
   - functions: test_resolve_tesseract_cmd_prefers_env, test_resolve_tesseract_cmd_uses_settings_when_env_missing, test_configure_tesseract_cmd_sets_pytesseract_module
 - `tests\test_post_task_gate.py`
   - classes: -
-  - functions: test_parse_targeted_auto, test_parse_targeted_manual_command, test_has_app_code_changes_detects_python_paths, test_run_gate_auto_fails_when_app_changed_but_no_tests, test_run_gate_writes_timestamp_and_ttl
+  - functions: test_parse_targeted_auto, test_parse_targeted_manual_command, test_parse_harvest_feedback_default_true, test_has_app_code_changes_detects_python_paths, test_run_gate_auto_fails_when_app_changed_but_no_tests, test_run_gate_writes_timestamp_and_ttl
 - `tests\test_preflight_env.py`
   - classes: -
   - functions: test_check_required_commands_reports_missing, test_check_pytest_available_pass, test_check_memory_skipped_when_unknown, test_run_preflight_fails_on_any_error
+- `tests\test_project_audit.py`
+  - classes: -
+  - functions: test_run_audit_writes_report_when_assets_exist, test_run_audit_returns_nonzero_when_assets_missing
 - `tests\test_recorder_advanced.py`
   - classes: -
   - functions: _btn, mock_listeners, test_hybrid_filter_jitter, test_hybrid_filter_precision, test_drag_resample
@@ -334,46 +355,22 @@
 - `tests\test_rule_docs_sync.py`
   - classes: -
   - functions: _extract_sync_block, test_agents_and_cursorrules_sync_block_match
-- `tests\test_rule_guard_steps_mutation.py`
-  - classes: _StepsMutationGuard
-  - functions: _is_self_steps, test_mainwindow_steps_do_not_use_direct_mutation
-- `tests\test_run_history.py`
-  - classes: -
-  - functions: _write_jsonl, test_load_run_events_skips_broken_lines, test_summarize_run_events_success_with_slowest_step, test_summarize_run_events_failed_when_finish_event_false, test_list_run_summaries_returns_newest_first
-- `tests\test_runner_logic.py`
-  - classes: -
-  - functions: patched_runner, test_ocr_store_and_context, test_dynamic_substitution_with_context, test_load_data_file_resolves_relative_path, test_screenshot_roi_fullscreen_when_roi_missing, test_capture_on_fail_triggers_screenshot, test_perf_mode_pyautogui_settings, test_perf_mode_poll_interval_default
-- `tests\test_runner_structured_jsonl.py`
-  - classes: DummyMSS
-  - functions: _read_jsonl, test_runner_writes_structured_jsonl_success, test_runner_writes_structured_jsonl_failure, test_runner_pause_resume_logs_events, test_runner_kill_logs_events_and_finishes_failed
-- `tests\test_runtime_paths.py`
-  - classes: -
-  - functions: test_get_resource_path_points_to_repo_resource, test_get_writable_app_dir_env_override
-- `tests\test_scenario_flow_hints.py`
-  - classes: -
-  - functions: qapp, _build_excel, test_build_step_flow_hint_for_jump_and_loop, test_refresh_step_list_shows_case_insensitive_excel_preview, test_refresh_step_list_builds_flow_edges_for_jump_and_loop, test_refresh_step_list_builds_flow_edges_for_step_fail_and_match_routes
-- `tests\test_scenario_wizard_catalog_integrity.py`
-  - classes: -
-  - functions: _sample_value, test_wizard_all_templates_plan_with_valid_sample_inputs
 
 ## Largest Files (By Size)
-- `app\__pycache__\main.cpython-314.pyc`: 332667 bytes
-- `app\__pycache__\main.cpython-313.pyc`: 311974 bytes
+- `app\__pycache__\main.cpython-314.pyc`: 340318 bytes
+- `app\__pycache__\main.cpython-313.pyc`: 318301 bytes
 - `app\ui\__pycache__\dialogs.cpython-314.pyc`: 265540 bytes
 - `app\ui\__pycache__\dialogs.cpython-314.pyc`: 265540 bytes
 - `app\ui\__pycache__\dialogs.cpython-313.pyc`: 254761 bytes
 - `app\ui\__pycache__\dialogs.cpython-313.pyc`: 254761 bytes
-- `app\main.py`: 211941 bytes
+- `app\main.py`: 215865 bytes
+- `app\core\__pycache__\runner.cpython-314.pyc`: 179330 bytes
 - `app\ui\dialogs.py`: 161594 bytes
 - `app\ui\dialogs.py`: 161594 bytes
-- `app\core\__pycache__\runner.cpython-314.pyc`: 160198 bytes
-- `app\__pycache__\main.cpython-311.pyc`: 157429 bytes
-- `app\core\__pycache__\runner.cpython-313.pyc`: 142818 bytes
-- `app\ui\__pycache__\dialogs.cpython-311.pyc`: 127809 bytes
-- `app\ui\__pycache__\dialogs.cpython-311.pyc`: 127809 bytes
+- `app\core\__pycache__\runner.cpython-313.pyc`: 159811 bytes
+- `app\core\runner.py`: 119399 bytes
 - `app\ui\__pycache__\scenario_wizard.cpython-314.pyc`: 112667 bytes
 - `app\ui\__pycache__\scenario_wizard.cpython-314.pyc`: 112667 bytes
-- `app\core\runner.py`: 105455 bytes
 - `app\ui\__pycache__\scenario_wizard.cpython-313.pyc`: 104587 bytes
 - `app\ui\__pycache__\scenario_wizard.cpython-313.pyc`: 104587 bytes
 - `tests\__pycache__\test_action_dialog_flows.cpython-313-pytest-9.0.1.pyc`: 104271 bytes
@@ -382,3 +379,6 @@
 - `app\core\scenario_wizard_templates.json`: 82790 bytes
 - `app\core\__pycache__\scenario_wizard.cpython-314.pyc`: 74325 bytes
 - `tests\__pycache__\test_excel_toolbar_responsive.cpython-313-pytest-9.0.1.pyc`: 72404 bytes
+- `app\ui\scenario_wizard.py`: 71322 bytes
+- `app\ui\scenario_wizard.py`: 71322 bytes
+- `tests\__pycache__\test_runner_logic.cpython-313-pytest-9.0.1.pyc`: 69307 bytes
