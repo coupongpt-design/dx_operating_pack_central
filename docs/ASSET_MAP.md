@@ -42,12 +42,12 @@
 - Multi-Agent Orchestration
   - `app/core/multi_role_ai.py` (Planner/Executor/Guardian 실행 오케스트레이션)
   - `tools/run_multi_role_ai.py` (멀티 역할 AI 실행 CLI)
-  - `MULTI_AGENT_PROTOCOL.md` (역할 분리 운영 프로토콜)
+  - `docs/dev/MULTI_AGENT_PROTOCOL.md` (역할 분리 운영 프로토콜)
 
 ## 4) Verification (검증 자산)
 - Test Suites
   - `tests/` 하위 unit/integration/e2e 테스트 세트
-  - 루트 검증 파일: `pytest.ini`, `test_core_logic.py`
+  - 루트 검증 파일: `pytest.ini`, `tests/test_core_logic.py`
 - Rule Guard Tests
   - `tests/test_rule_docs_sync.py`
   - `tests/test_rule_guard_steps_mutation.py`
@@ -70,8 +70,9 @@
   - `now_spec.md`
   - `PROJECT_STATUS.md`
   - `DEV_LOG.md`
-  - `DOC_INDEX.md`
-  - `USER_GUIDE.md`
+  - `docs/DOC_INDEX.md`
+  - `docs/USER_GUIDE.md`
+  - `docs/dev/MULTI_AGENT_PROTOCOL.md`
   - `dx_operating_pack/AGENT_ONBOARDING.md`
   - `dx_operating_pack/INSTALL_IN_NEW_PROJECT.md`
 - CI
