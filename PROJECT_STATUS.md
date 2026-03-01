@@ -1,10 +1,22 @@
 # 프로젝트 상태
 
 ## 최근 업데이트
-- UI 탭 통합 및 컴팩트화 2차 완료 (`app/main.py`):
-  - `_create_right_tab_panel()` 제거. Presets/Scheduler/Settings 탭을 좌측 `QTabWidget`에 통합(총 6탭).
-  - Options Toolbar를 `QGridLayout` 3행(Target/Flags/Excel)으로 재구성. 작은 창에서도 버튼 깨짐 없음.
-  - `closeEvent` 추가로 프로그램 종료 시 runner/recorder/watcher/scheduler 안전 종료 보장.
+- **프로젝트 폴더 정리** (2026-03-01):
+  - 루트 파일 45개 → 14개로 압축
+  - 문서 → `docs/`, 개발용 스크립트 → `tools/`, 임시 파일 → `archive/temp/`
+  - 쓰레기 파일(`pass@'+str...` 등), 바로가기, 보안 파일 삭제
+
+- **자동 매뉴얼 시스템 개선 A~F** (2026-03-01):
+  - `AGENTS.md`/.cursorrules: 작업 유형별 컨텍스트 로딩 규칙 추가 (UI→CONTEXT_UI, Runner→CONTEXT_CORE 등)
+  - `task_start_guard.py`: 컨텍스트 스냅샷 24시간 age 체크 경보 추가
+  - `KNOWLEDGE_BASE.md`: 런타임 흐름/실수 패턴/TemplateProcessor 치환 우선순위 추가 (24줄→58줄)
+  - `app/core/.cursorrules`, `app/ui/.cursorrules`: 폴더별 규칙 파일 신규 배포
+  - `LESSONS_LEARNED.md`: 8개 교훈 + Draft 승격 규칙 추가
+  - `dx_operating_pack/prompt_recipes/BUGFIX_RECIPE.md`: 프로젝트 특화 5종 체크항목 추가
+
+- **컨텍스트 스냅샷 갱신** (2026-03-01):
+  - `CONTEXT_CORE.md`, `CONTEXT_UI.md`, `CONTEXT_SNAPSHOT.md` 91시간 → 0시간으로 재생성
+
 
 - Multi-Manager 무한 Pending 버그 수정:
   - `app/core/session_manager.py`: 스크립트 미지정 시 즉각 `error` 상태 반환 및 복구 중단.

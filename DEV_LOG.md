@@ -5,6 +5,23 @@
 - 작업 종료는 `python tools/task_finish.py --subject "..." --scope ...` 경로를 표준으로 사용
 - गे이트 통과 후 운영 감사 권장: `python tools/project_audit.py`
 
+## Session 111 - 자동 매뉴얼 시스템 개선 및 프로젝트 폴더 정리
+- Date: 2026-03-01
+- Summary:
+  - **자동 매뉴얼 시스템 6가지 개선(A~F)**:
+    - A: `AGENTS.md`/`.cursorrules` Session Gate에 UI·Runner·Test 작업 유형별 컨텍스트 로딩 규칙 추가
+    - B: `task_start_guard.py` 스냅샷 24시간 age 체크 경보 추가
+    - C: `KNOWLEDGE_BASE.md` 런타임 흐름/실수 패턴/TemplateProcessor 우선순위 추가 (24→58줄)
+    - D: `app/core/.cursorrules`, `app/ui/.cursorrules` 폴더별 규칙 파일 신규 배포
+    - E: `LESSONS_LEARNED.md` 8개 교훈 + Draft 승격 규칙 추가
+    - F: `BUGFIX_RECIPE.md` Runner/UI/직렬화/Placeholder/멀티-Manager 특화 체크항목 추가
+  - **컨텍스트 스냅샷 갱신**: CONTEXT_CORE, CONTEXT_UI, CONTEXT_SNAPSHOT 91시간 → 재생성
+  - **프로젝트 루트 폴더 정리**: 루트 파일 45개 → 14개, docs/archive/tools 폴더 체계화
+  - **문서 경로 최신화**: DOC_INDEX.md, ASSET_MAP.md 등 새 폴더 구조 반영
+- Validation:
+  - `test_rule_docs_sync`, `test_rule_guard`, `test_task_start_guard` 통과
+  - `task_start_guard.py` 실행 시 스냅샷 경보 정상 작동 확인
+
 ## Session 110 - UI 탭 통합 및 컴팩트화 2차 완료
 - Date: 2026-03-01
 - Summary:
