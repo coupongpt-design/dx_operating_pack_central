@@ -1,5 +1,7 @@
 # 버튼/메뉴 연결 점검 기준 (최신)
 
+**최종 업데이트**: 2026-03-02 (UI 탭 통합 반영)
+
 이 문서는 과거의 라인 번호 수동 점검표를 대체합니다.  
 현재 프로젝트는 **테스트 기반**으로 버튼/메뉴 연결 회귀를 관리합니다.
 
@@ -22,5 +24,6 @@
 - `SMOKE_TEST_CHECKLIST.md`의 `A0 타겟 셀렉터`, `A 캡처->매칭`, `B 매칭->클릭` 수행
 
 ## 4. 현재 기준
-- 전체 회귀 기준: `python -m pytest -q` => `281 passed, 1 skipped`
+- 전체 회귀 기준: `python -m pytest -q` — `tests/` 하위 전체 통과 확인
 - 스모크 기준: `python run_smoke_suite.py` => `PASS`, `SYSTEM HEALTHY`
+- **핵심 guard 테스트**: `test_rule_docs_sync`, `test_rule_guard_steps_mutation`, `test_task_start_guard` 반드시 green 유지

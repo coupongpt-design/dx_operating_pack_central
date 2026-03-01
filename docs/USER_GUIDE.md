@@ -1,18 +1,25 @@
 # 매크로 툴 사용 가이드
 
-## UI 구조 (3분할 레이아웃)
+## UI 구조 (2분할 레이아웃)
+
+**최종 업데이트**: 2026-03-02 (UI 탭 통합 반영)
 
 ```
-┌─────────────┬─────────────────┬─────────────────┐
-│   왼쪽      │      중앙       │     오른쪽      │
-│ (Scenario)  │ (Preview/Log)   │ (Presets/Sched) │
-│             │                 │ (Settings)      │
-└─────────────┴─────────────────┴─────────────────┘
+┌─────────────────┬─────────────────────────────┐
+│    왼쪽 (탭)    │          중앙               │
+│ Scenario        │  Preview / Log              │
+│ Triggers        │                             │
+│ Multi-Manager   │  [상단 옵션 툴바]           │
+│ Presets         │  Target / Flags / Excel     │
+│ Scheduler       │                             │
+│ Settings        │                             │
+└─────────────────┴─────────────────────────────┘
 ```
 
-- 왼쪽: Scenario/Triggers 탭과 스텝 목록 중심 (`Multi-Manager`는 현재 부분구현, 아래 참고)
-- 중앙: Preview/Log
-- 오른쪽: Presets/Scheduler/Settings 탭
+- **왼쪽**: 6개 탭 (Scenario / Triggers / Multi-Manager / Presets / Scheduler / Settings)
+- **중앙**: Preview / Log 영역 + 상단 Options Toolbar (Target행 / Flags행 / Excel행 3단 구성)
+
+> ℹ️ 이전 버전의 **우측 패널**(Presets/Scheduler/Settings)은 제거됐으며, 모든 탭이 왼쪽으로 통합됐습니다.
 
 ---
 
@@ -124,7 +131,7 @@
 
 ## 실행 옵션
 
-오른쪽 Settings 탭 또는 상단 옵션 바에서 조정:
+왼쪽 **Settings** 탭 또는 상단 옵션 바에서 조정:
 - **Dry Run**: 입력 동작 없이 시뮬레이션
 - **Mini Mode**: 실행 시 창 최소화
 - **Capture Fail**: 실패 시 캡처 저장
@@ -495,11 +502,11 @@
 
 ## Presets / Scheduler / Triggers
 
-### Presets (오른쪽 탭)
+### Presets (왼쪽 탭)
 - `.macro` 목록에서 선택/더블클릭으로 로드
 - **Refresh**로 목록 갱신
 
-### Scheduler (오른쪽 탭)
+### Scheduler (왼쪽 탭)
 1. **Add**로 매크로 추가
 2. **Run Time** 설정
 3. **Enable Scheduler** 체크
@@ -540,7 +547,7 @@
 자동 테스트 통과 후에도 해상도/DPI/권한 차이로 실환경 이슈가 날 수 있으니, 수동 시나리오를 반드시 1회 수행하세요.
 
 ## 개발자: EXE 빌드
-- PyInstaller 스펙: `ImageMacro.spec`
+- PyInstaller 스펙: `tools/ImageMacro.spec` (이동됨)
 - 로컬 빌드(Windows PowerShell): `tools/build_exe.ps1`
 - CI 수동 빌드: `.github/workflows/build-exe.yml` (`workflow_dispatch`)
 
