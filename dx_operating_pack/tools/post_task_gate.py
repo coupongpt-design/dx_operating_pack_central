@@ -42,13 +42,22 @@ def _has_app_code_changes(entries: Sequence[object]) -> bool:
 
 
 def _run_shell(command: str) -> tuple[int, str]:
+    import os
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUTF8"] = "1"
+    # Replace bare 'python' with the current interpreter to avoid path issues
+    normalized = command
+    if normalized.startswith("python ") or normalized == "python":
+        normalized = sys.executable + normalized[6:]
     proc = subprocess.run(
-        command,
+        normalized,
         shell=True,
         capture_output=True,
         text=True,
         encoding="utf-8",
         errors="replace",
+        env=env,
     )
     output = (proc.stdout or "") + (proc.stderr or "")
     return proc.returncode, output

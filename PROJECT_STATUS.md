@@ -1,10 +1,11 @@
 # 프로젝트 상태
 
 ## 최근 업데이트
-- UI 컴팩트(Compact) 우선 전략 렌더링 적용 (`app/main.py`):
-  - 메인 창 초기 크기 축소 (기본 760x520) 및 가로 무한정 늘어남 방지.
-  - 우측 패널(Presets/Scheduler) Splitter 숨김 및 Always On Top 기능 툴바 연동.
-  - Preview 패널 분리 팝업(Pop-Out) 기능 추가.
+- UI 탭 통합 및 컴팩트화 2차 완료 (`app/main.py`):
+  - `_create_right_tab_panel()` 제거. Presets/Scheduler/Settings 탭을 좌측 `QTabWidget`에 통합(총 6탭).
+  - Options Toolbar를 `QGridLayout` 3행(Target/Flags/Excel)으로 재구성. 작은 창에서도 버튼 깨짐 없음.
+  - `closeEvent` 추가로 프로그램 종료 시 runner/recorder/watcher/scheduler 안전 종료 보장.
+
 - Multi-Manager 무한 Pending 버그 수정:
   - `app/core/session_manager.py`: 스크립트 미지정 시 즉각 `error` 상태 반환 및 복구 중단.
   - `app/ui/tabs/manager_tab.py`: `Start All` 호출 시 스크립트 없거나 초기 로드 실패 세션의 상태를 즉각 UI 반영.

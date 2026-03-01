@@ -5,7 +5,20 @@
 - 작업 종료는 `python tools/task_finish.py --subject "..." --scope ...` 경로를 표준으로 사용
 - गे이트 통과 후 운영 감사 권장: `python tools/project_audit.py`
 
+## Session 110 - UI 탭 통합 및 컴팩트화 2차 완료
+- Date: 2026-03-01
+- Summary:
+  - `app/main.py`: `_create_right_tab_panel()` 제거 및 `_add_utility_tabs(self.left_tabs)` 로 완전 대체.
+  - 우측 패널(Presets/Scheduler/Settings)을 좌측 `QTabWidget`에 직접 통합. 탭 수 총 6개.
+  - Options Toolbar를 `QGridLayout` 3행(Target/Flags/Excel)으로 재구성. 작은 창에서도 깨지지 않음.
+  - `excel_widget`을 GridLayout row 2에 배치하여 Excel 영역 레이아웃 정상화.
+  - `closeEvent` 추가: 창 닫을 때 runner/recorder/trigger_watcher/scheduler를 안전하게 종료.
+- Validation:
+  - `python -m py_compile app/main.py` → 구문 오류 없음.
+  - 수동 실행 후 좌측 6탭 전환 및 Preview/Log 영역 표시 확인.
+
 ## Session 109 - UI 컴팩트(Compact) 우선 모드 도입
+
 - Date: 2026-02-27
 - Summary:
   - `app/main.py`: `__init__`에서 시작 크기를 `720x480` 수준으로 줄이고 최소 크기도 `640x420`으로 설정.

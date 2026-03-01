@@ -15,8 +15,10 @@
 ## 3. System Architecture
 - UI Layer: 
   - 기본 사이즈를 축소 고정(720x480)하고, 보조 컨트롤러 역할을 수행하는 컴팩트 모드 우선.
-  - `MainWindow`(스텝 목록, 실행/정지/녹화, 타겟 창 입력 등). 우측 탭(Presets/Scheduler) 숨김 토글 지원.
+  - `MainWindow`(스텝 목록, 실행/정지/녹화, 타겟 창 입력 등). 좌측 `QTabWidget`에 Scenario/Triggers/Multi-Manager/Presets/Scheduler/Settings 탭 통합(총 6탭).
+  - Options Toolbar는 `QGridLayout` 3행(Target/Flags/Excel)로 구성되어 작은 창에서도 깨지지 않음.
   - Preview 창 독립 팝아웃 기능 및 Always On Top 제어 지원.
+  - `closeEvent` 추가로 창 닫을 때 runner/recorder/trigger_watcher/scheduler 안전 종료 보장.
   - 이외 각종 다이얼로그(`TargetDialog`, `ScenarioWizardDialog`, `ManagerTab` 등).
 - Logic Layer: `MacroRunner`(QThread; 스텝 실행, human_mode, OCR/브랜칭/서브스크립트, optional 타겟 포커스), `InputRecorder`(pynput, 필터/리샘플/메트릭), `SessionManager`(라운드로빈 전환/일일 리셋 코어; ManagerTab Start All에서 runner 자동연결 지원).
 - Wizard Core: `app/core/scenario_wizard.py`(JSON 템플릿 로드, 입력 검증, `StepData` 생성, 생성 스텝 정합성 검증 + 데이터 컬럼 검증).

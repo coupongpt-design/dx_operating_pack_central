@@ -298,11 +298,13 @@ class MainWindow(QMainWindow):
                 return f"{label} ({hk})" if hk else label
 
         # Row 1: Add buttons
-        self.btnAddImg = QPushButton(btn_text("이미지+", self._hk_add_img))
+        self.btnAddImg = QPushButton("이미지+")
+        self.btnAddImg.setToolTip(btn_text("이미지+", self._hk_add_img))
         self.btnAddImg.clicked.connect(self.add_image_step)
         _slim_left_btn(self.btnAddImg, "left-primary")
         
-        self.btnAddAction = QPushButton(btn_text("동작+", self._hk_add_notimg))
+        self.btnAddAction = QPushButton("동작+")
+        self.btnAddAction.setToolTip(btn_text("동작+", self._hk_add_notimg))
         self.btnAddAction.clicked.connect(self.add_not_image_step)
         _slim_left_btn(self.btnAddAction, "left-secondary")
         
@@ -329,13 +331,15 @@ class MainWindow(QMainWindow):
         btn_layout.addWidget(btn_add_comment, 1, 1)
         
         # Row 2: Record
-        self.btnRun = QPushButton(btn_text("실행", self._hk_run))
+        self.btnRun = QPushButton("실행")
+        self.btnRun.setToolTip(btn_text("실행", self._hk_run))
         self.btnRun.clicked.connect(self._on_run_button_clicked)
         self._btn_run_style_normal = "left-run"
         self._btn_run_style_paused = "left-run-paused"
         _slim_left_btn(self.btnRun, self._btn_run_style_normal)
         
-        self.btnStop = QPushButton(btn_text("정지", self._hk_stop))
+        self.btnStop = QPushButton("정지")
+        self.btnStop.setToolTip(btn_text("정지", self._hk_stop))
         self.btnStop.clicked.connect(self._on_stop_button_clicked)
         _slim_left_btn(self.btnStop, "left-stop")
         self.btnStop.setEnabled(False)
@@ -344,7 +348,8 @@ class MainWindow(QMainWindow):
         btn_layout.addWidget(self.btnStop, 2, 1)
         
         # Row 3: Record button
-        self.btnRecord = QPushButton(btn_text("녹화", self._hk_record))
+        self.btnRecord = QPushButton("녹화")
+        self.btnRecord.setToolTip(btn_text("녹화", self._hk_record))
         self.btnRecord.setCheckable(True)
         self.btnRecord.toggled.connect(self.toggle_record)
         _slim_left_btn(self.btnRecord, "left-record")
@@ -387,6 +392,9 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "ManagerTab Load Error", str(e))
             raise
+
+        # Now attach what used to be the right panel tabs
+        self._add_utility_tabs(self.left_tabs)
         
         self.splitter.addWidget(self.left_tabs)
         
@@ -429,16 +437,10 @@ class MainWindow(QMainWindow):
         
         self.splitter.addWidget(center_widget)
         
-        # Right panel (scheduler, presets, settings)
-        right_panel = self._create_right_tab_panel()
-        self.splitter.addWidget(right_panel)
-        self.right_panel = right_panel
-        
-        # Set Splitter Sizes (Compact: Left 320, Center flexible, Right Hide(0))
+        # Set Splitter Sizes (Compact: Left 320, Right flexible)
         self.splitter.setStretchFactor(0, 0)
         self.splitter.setStretchFactor(1, 1)
-        self.splitter.setStretchFactor(2, 0)
-        self.splitter.setSizes([320, 600, 0])
+        self.splitter.setSizes([320, 440])
         self.splitter.setCollapsible(0, True)
         
         self.setCentralWidget(self.splitter)
@@ -486,9 +488,10 @@ class MainWindow(QMainWindow):
 
         self._opt_core_row = QWidget()
         self._opt_core_row.setObjectName("optCoreRow")
-        self._opt_core_layout = QHBoxLayout(self._opt_core_row)
+        # Change to GridLayout to pack checkboxes efficiently into 2 rows
+        self._opt_core_layout = QGridLayout(self._opt_core_row)
         self._opt_core_layout.setContentsMargins(0, 0, 0, 0)
-        self._opt_core_layout.setSpacing(6)
+        self._opt_core_layout.setSpacing(4)
         self._opt_root_layout.addWidget(self._opt_core_row)
 
         # Keep compatibility fields expected by tests/legacy code.
@@ -504,58 +507,48 @@ class MainWindow(QMainWindow):
         self._opt_scroll.setMinimumHeight(75)
         self.opt_toolbar.addWidget(self._opt_scroll)
 
-        def _make_group(name: str):
-            group = QWidget()
-            group.setObjectName(name)
-            layout = QHBoxLayout(group)
-            layout.setContentsMargins(6, 2, 6, 2)
-            layout.setSpacing(4)
-            return group, layout
-
-        def _vline():
-            line = QFrame()
-            line.setFrameShape(QFrame.VLine)
-            line.setFrameShadow(QFrame.Sunken)
-            line.setMinimumHeight(14)
-            line.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
-            return line
+        # Let's clean up unused functions
 
         # Group 1: Targeting
-        target_group, target_layout = _make_group("optTargetGroup")
         self.lblTarget = QLabel("Target")
         self.edTargetTitle = QLineEdit()
         self.edTargetTitle.setPlaceholderText("Partial Window Name")
-        self.edTargetTitle.setMinimumWidth(120)
-        self.edTargetTitle.setFixedHeight(26)
+        self.edTargetTitle.setMinimumWidth(80)
+        self.edTargetTitle.setFixedHeight(24)
         self.edTargetTitle.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.btnFindTarget = QPushButton("Find")
         self.btnFindTarget.setToolTip("Find and activate target window")
         self.btnFindTarget.clicked.connect(self._find_target_window)
-        self.btnFindTarget.setFixedHeight(26)
+        self.btnFindTarget.setFixedHeight(24)
         self.btnFixWindow = QPushButton("Fix/Shake")
         self.btnFixWindow.setToolTip("Fix black screen/resize glitches")
         self.btnFixWindow.clicked.connect(self._fix_target_window)
-        self.btnFixWindow.setFixedHeight(26)
+        self.btnFixWindow.setFixedHeight(24)
         self.btnSelectTarget = QPushButton("...")
         self.btnSelectTarget.setFixedWidth(28)
         self.btnSelectTarget.setToolTip("Open window selector")
         self.btnSelectTarget.clicked.connect(self._open_window_selector)
-        self.btnSelectTarget.setFixedHeight(26)
+        self.btnSelectTarget.setFixedHeight(24)
+        
+        target_group = QWidget()
+        target_layout = QHBoxLayout(target_group)
+        target_layout.setContentsMargins(0,0,0,0)
         target_layout.addWidget(self.lblTarget)
         target_layout.addWidget(self.edTargetTitle, 1)
         target_layout.addWidget(self.btnSelectTarget)
         target_layout.addWidget(self.btnFindTarget)
         target_layout.addWidget(self.btnFixWindow)
+        self._opt_core_layout.addWidget(target_group, 0, 0, 1, 2)
 
         # Group 2: Flags
-        flags_group, flags_layout = _make_group("optFlagsGroup")
+        flags_widget = QWidget()
+        flags_layout = QHBoxLayout(flags_widget)
+        flags_layout.setContentsMargins(0,0,0,0)
         self.chkAutoEnterAfterText = QCheckBox("Auto Enter")
         self.chkAutoEnterAfterText.setToolTip("텍스트 입력 액션 뒤에 Enter 키를 자동 입력합니다.")
-        self.chkAutoEnterAfterText.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.chkSmartSnap = QCheckBox("Snap")
         self.chkSmartSnap.setToolTip("WZ 세트 스텝 이동 시 내부 흐름이 깨지지 않도록 그룹 이동/보정을 수행합니다.")
         self.chkSmartSnap.setChecked(True)
-        self.chkSmartSnap.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         for cb in (
             self.chkAlwaysOnTop,
             self.chkAutoEnterAfterText,
@@ -568,39 +561,39 @@ class MainWindow(QMainWindow):
         ):
             cb.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
             flags_layout.addWidget(cb)
+        self._opt_core_layout.addWidget(flags_widget, 1, 0, 1, 2)
 
         # Group 3: Excel
-        excel_group, excel_layout = _make_group("optExcelGroup")
+        excel_widget = QWidget()
+        excel_layout = QHBoxLayout(excel_widget)
+        excel_layout.setContentsMargins(0,0,0,0)
         self.chkExcelDataMode = QCheckBox("Excel Mode")
         self.chkExcelDataMode.setToolTip("엑셀 행 데이터를 분배해 멀티 세션 자동화를 실행합니다.")
         self.chkExcelDataMode.setMinimumWidth(120)
         self.chkExcelDataMode.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        excel_layout.addWidget(self.chkExcelDataMode)
-
         self.edExcelDataPath = ElidedPathLineEdit()
         self.edExcelDataPath.setPlaceholderText(".xlsx 파일 경로")
         self.edExcelDataPath.setReadOnly(True)
-        self.edExcelDataPath.setMinimumWidth(120)
-        self.edExcelDataPath.setFixedHeight(26)
+        self.edExcelDataPath.setMinimumWidth(80)
+        self.edExcelDataPath.setFixedHeight(24)
         self.edExcelDataPath.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        excel_layout.addWidget(self.edExcelDataPath, 1)
-
         self.btnExcelDataPick = QPushButton("Excel...")
         self.btnExcelDataPick.setToolTip("엑셀 데이터 파일을 선택합니다.")
         self.btnExcelDataPick.clicked.connect(self._pick_excel_data_file)
         self.btnExcelDataPick.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.btnExcelDataPick.setFixedHeight(26)
-        excel_layout.addWidget(self.btnExcelDataPick)
-
+        self.btnExcelDataPick.setFixedHeight(24)
         self.spExcelParallelism = QSpinBox()
         self.spExcelParallelism.setRange(1, 16)
         self.spExcelParallelism.setValue(2)
         self.spExcelParallelism.setPrefix("P:")
-        self.spExcelParallelism.setMinimumWidth(68)
-        self.spExcelParallelism.setFixedHeight(26)
+        self.spExcelParallelism.setMinimumWidth(60)
+        self.spExcelParallelism.setFixedHeight(24)
         self.spExcelParallelism.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        excel_layout.addWidget(self.chkExcelDataMode)
+        excel_layout.addWidget(self.edExcelDataPath, 1)
+        excel_layout.addWidget(self.btnExcelDataPick)
         excel_layout.addWidget(self.spExcelParallelism)
-
+        
         self.pbExcelProgress = QProgressBar()
         self.pbExcelProgress.setRange(0, 100)
         self.pbExcelProgress.setValue(0)
@@ -620,18 +613,10 @@ class MainWindow(QMainWindow):
             "padding: 2px 8px; border-radius: 10px; font-weight: 600;"
             "}"
         )
+        # backward compatibility:
         self.lblBatchModeBadge.hide()
         excel_layout.addWidget(self.lblBatchModeBadge)
-
-        self._opt_core_layout.addWidget(target_group, 2)
-        self._opt_core_layout.addWidget(_vline())
-        self._opt_core_layout.addWidget(flags_group, 0)
-        self._opt_core_layout.addWidget(_vline())
-        self._opt_core_layout.addWidget(excel_group, 3)
-        self._opt_core_layout.addStretch(0)
-        self._opt_core_layout.setStretchFactor(target_group, 2)
-        self._opt_core_layout.setStretchFactor(excel_group, 3)
-
+        self._opt_core_layout.addWidget(excel_widget, 2, 0, 1, 2)
         # Backward compatibility for references that used a single row layout.
         self._opt_row_layout = self._opt_core_layout
 
@@ -4388,10 +4373,8 @@ class MainWindow(QMainWindow):
         
         return widget
 
-    def _create_right_tab_panel(self):
-        tabs = QTabWidget()
-        
-        # --- 1. Presets Tab (Create & Add First) ---
+    def _add_utility_tabs(self, tabs: QTabWidget):
+        # --- 1. Presets Tab ---
         preset_tab = QWidget()
         preset_layout = QVBoxLayout(preset_tab)
         
@@ -4411,14 +4394,12 @@ class MainWindow(QMainWindow):
         preset_layout.addWidget(self.lblPresetStatus)
         
         self._refresh_preset_list()
-        
         tabs.addTab(preset_tab, "Presets")
         
-        # --- 2. Scheduler Tab (Create & Add Second) ---
+        # --- 2. Scheduler Tab ---
         sched_tab = QWidget()
         sched_layout = QVBoxLayout(sched_tab)
         
-        # Macro List
         self.sched_list = QListWidget()
         sched_layout.addWidget(self.sched_list)
         
@@ -4445,7 +4426,6 @@ class MainWindow(QMainWindow):
         
         self.sched_enable_chk = QCheckBox("Enable Scheduler")
         self.sched_enable_chk.stateChanged.connect(self._on_sched_enable_changed)
-        # Alias for tests expecting a toggle button with setChecked
         self.sched_btnToggle = self.sched_enable_chk
 
         self.sched_failure_policy = QComboBox()
@@ -4478,7 +4458,7 @@ class MainWindow(QMainWindow):
         
         tabs.addTab(sched_tab, "Scheduler")
         
-        # Settings Tab (Repeat Config)
+        # --- 3. Settings Tab ---
         settings_tab = QWidget()
         settings_layout = QFormLayout(settings_tab)
         
@@ -4496,7 +4476,7 @@ class MainWindow(QMainWindow):
         self.cbStopOnFail.setChecked(True)
         
         self.sbMaxDuration = QSpinBox()
-        self.sbMaxDuration.setRange(0, 1440) # 24 hours
+        self.sbMaxDuration.setRange(0, 1440)
         self.sbMaxDuration.setValue(0)
         self.sbMaxDuration.setSuffix(" min")
         
@@ -4507,12 +4487,10 @@ class MainWindow(QMainWindow):
 
         self.chkPerfPlayback = QCheckBox("High Performance Playback")
         self.chkPerfPlayback.setChecked(True)
-        self.chkPerfPlayback.setToolTip("Reduce internal sleeps and pyautogui delays.")
         settings_layout.addRow(self.chkPerfPlayback)
 
         self.chkPerfRecording = QCheckBox("High Performance Recording")
         self.chkPerfRecording.setChecked(True)
-        self.chkPerfRecording.setToolTip("Increase recorder buffer and capture rate.")
         settings_layout.addRow(self.chkPerfRecording)
 
         self.cbPerfLevel = QComboBox()
@@ -4523,7 +4501,6 @@ class MainWindow(QMainWindow):
 
         self.chkRecordDelay = QCheckBox("Record Action Delays")
         self.chkRecordDelay.setChecked(bool(getattr(self, "rec_record_delay_enabled", False)))
-        self.chkRecordDelay.setToolTip("Capture real time gaps between actions during recording.")
         self.chkRecordDelay.toggled.connect(self._on_record_delay_toggle)
         settings_layout.addRow(self.chkRecordDelay)
         
@@ -4536,8 +4513,28 @@ class MainWindow(QMainWindow):
         settings_layout.addRow(btn_hotkeys)
         
         tabs.addTab(settings_tab, "Settings")
-        
-        return tabs
+
+    def closeEvent(self, event):
+        """Clean up background processes before closing."""
+        try:
+            if getattr(self, "runner", None) and self.runner.isRunning():
+                self.runner.stop()
+                self.runner.wait(1000)
+            if getattr(self, "recorder", None) and self.recorder.isRunning():
+                self.recorder.stop()
+                self.recorder.wait(1000)
+            if hasattr(self, "trigger_watcher"):
+                self.trigger_watcher.stop()
+            if hasattr(self, "scheduler"):
+                # MacroScheduler may expose requestStop or stop depending on version
+                stop_fn = getattr(self.scheduler, "stop", None) or getattr(self.scheduler, "requestStop", None)
+                if callable(stop_fn):
+                    stop_fn()
+            if hasattr(self, "_excel_job_manager") and self._excel_job_manager:
+                self._excel_stop_event.set()
+        except Exception as e:
+            print(f"Error during close: {e}")
+        event.accept()
 
     # --- Floating "Open Panel" button ----------------------------------
     def _init_open_panel_button(self):
@@ -4560,23 +4557,26 @@ class MainWindow(QMainWindow):
             if getattr(self, "_splitter_snap_guard", False):
                 return
             sizes = self.splitter.sizes()
-            if len(sizes) >= 3:
-                left_size, center_size, right_size = sizes[0], sizes[1], sizes[2]
-                threshold = int(getattr(self, "_left_panel_snap_threshold_px", 80) or 80)
-                should_snap_left = (0 < left_size <= threshold) or (index == 0 and pos <= threshold and left_size > 0)
-                if should_snap_left:
-                    self._splitter_snap_guard = True
-                    try:
-                        self.splitter.setSizes([0, center_size + left_size, right_size])
-                    finally:
-                        self._splitter_snap_guard = False
-                    sizes = self.splitter.sizes()
+            threshold = int(getattr(self, "_left_panel_snap_threshold_px", 80) or 80)
+            left_size = sizes[0] if sizes else 0
+            should_snap_left = (0 < left_size <= threshold) or (index == 0 and pos <= threshold and left_size > 0)
+            if should_snap_left:
+                self._splitter_snap_guard = True
+                try:
+                    rest = sum(sizes[1:])
+                    new_sizes = [0] + [rest] + [0] * max(0, len(sizes) - 2)
+                    self.splitter.setSizes(new_sizes)
+                finally:
+                    self._splitter_snap_guard = False
+                sizes = self.splitter.sizes()
 
+            # Show open-panel button only when right panel (index 2) is collapsed
             right_size = sizes[2] if len(sizes) > 2 else 0
-            show_btn = right_size <= 5
-            self.btn_open_panel.setVisible(show_btn)
-            if show_btn:
-                self._reposition_open_panel_button()
+            if hasattr(self, "btn_open_panel"):
+                show_btn = right_size <= 5
+                self.btn_open_panel.setVisible(show_btn)
+                if show_btn:
+                    self._reposition_open_panel_button()
         except Exception as e:
             self._warn_once("open_panel_splitter_moved", f"Failed to update open-panel button visibility: {e}")
 
