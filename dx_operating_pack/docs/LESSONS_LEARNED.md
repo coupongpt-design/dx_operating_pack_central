@@ -20,3 +20,20 @@
 - 증상: 멀티 워커에서 키보드/클립보드 간섭.
 - 교정: Global Input Lock + timeout + 구조화 로그 추적.
 
+## 6) 컨텍스트 스냅샷이 낡으면 AI가 오판한다
+- 증상: `docs_for_ai/CONTEXT_CORE.md`가 2일 이상 오래되어 삭제된 메서드를 참조.
+- 교정: 24시간 이상 오래된 스냅샷은 `python tools/generate_context_snapshot.py --scope core` 재생성.
+
+## 7) 컴팩트 UI에서 레이아웃 충돌이 자주 발생한다
+- 증상: Options Toolbar에서 3줄 Grid 중 일부 위젯이 배치되지 않아 보이지 않음.
+- 교정: `QGridLayout.addWidget(widget, row, col, rowspan, colspan)` 경로 **반드시** 확인.
+
+## 8) closeEvent 미구현 시 백그라운드 프로세스가 남는다
+- 증상: 프로그램 종료 후 Python 프로세스가 좀비로 남아 다음 실행 시 충돌.
+- 교정: `closeEvent` 재정의로 runner/recorder/watcher/scheduler 안전 종료 보장.
+
+---
+> **Draft 승격 규칙**: 세션 종료 시 `LESSONS_LEARNED_DRAFT.md`를 확인하여  
+> 3회 이상 언급된 패턴이 있으면 위 번호 목록에 승격 반영 후 Draft에서 제거.
+
+

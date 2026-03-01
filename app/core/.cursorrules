@@ -1,0 +1,33 @@
+# Core module rules (auto-loaded by IDE)
+# Source: dx_operating_pack/templates/folder_rules/core.cursorrules.template
+
+## StepData 변경 규칙
+- StepData 필드 추가/수정/삭제 시 반드시 4종 동시 업데이트:
+  1. `StepData` 모델 (`app/core/step.py` 또는 해당 파일)
+  2. `to_dict()` / `from_dict()` 직렬화 경로
+  3. `MacroRunner._run_step()` 처리 경로
+  4. 관련 테스트 (`tests/test_step_*.py` 또는 `tests/test_runner_*.py`)
+
+## 상태 변경 규칙
+- `self.steps` 직접 변경 절대 금지 → 반드시 `_push_command(...)` 사용
+- `UndoStack`을 경유하지 않는 CRUD/reorder 감지 시 `test_rule_guard_steps_mutation.py` 실패
+
+## 스레드/UI 안전
+- Worker 스레드(`QThread`)에서 UI 위젯 직접 접근 금지
+- UI 업데이트는 반드시 `pyqtSignal` emit으로만
+
+## 핵심 클래스
+- `MacroRunner` (`app/core/runner.py`, ~105KB): 스텝 실행, human_mode, OCR/브랜칭, 서브스크립트
+- `StepData` (`app/core/step.py`): 실행 스텝 데이터 모델
+- `TemplateProcessor`: placeholder 치환 우선 처리 (미해결 시 fail-fast)
+- `GlobalInputManager` (`app/core/input_lock.py`): 멀티워커 물리 입력 직렬화
+- `SessionManager` (`app/core/session_manager.py`): 라운드로빈/일일리셋/backoff 재시도
+
+## 런타임 실행 흐름
+```
+MacroRunner._run_step()
+  → ActionType 분기
+  → _action_text() / _action_click() / _action_ocr() / ...
+  → TemplateProcessor.render(text)  ← 반드시 이 경로 경유
+  → pyautogui.write() or clipboard paste
+```

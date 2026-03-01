@@ -1,0 +1,32 @@
+# UI module rules (auto-loaded by IDE)
+# Source: dx_operating_pack/templates/folder_rules/ui.cursorrules.template
+
+## 다이얼로그 규칙
+- 다이얼로그는 데이터 **반환만** 담당; 직접 상태 변경 금지
+- 상태 적용은 반드시 `MainWindow`에서 처리
+- 반환 형식: `(accepted: bool, data: dict)` 패턴 권장
+
+## 레이아웃 패턴
+- 조건부 표시: hide-all then show-needed 패턴 사용
+  ```python
+  for widget in group_widgets:
+      widget.hide()
+  active_widget.show()
+  ```
+- `layout.addWidget()` 경로는 반드시 유지 (제거하면 위젯 소유권 문제 발생)
+
+## 핵심 UI 구조 (MainWindow)
+- 좌측 `QTabWidget` 6탭: Scenario / Triggers / Multi-Manager / Presets / Scheduler / Settings
+- Options Toolbar: `QGridLayout` 3행 (Target / Flags / Excel)
+- Center Panel: Preview GroupBox + Log GroupBox
+- `MainWindow`가 `steps`와 `UndoStack` 소유 (다른 곳에서 직접 접근 금지)
+
+## 탭별 주의사항
+- `Scenario` 탭: 스텝 목록 변경은 `_push_command()`만 사용
+- `Multi-Manager` 탭 (`ManagerTab`): 세션 상태 변경은 `SessionManager`를 통해서만
+- `Scheduler` 탭: `MacroScheduler` 인터페이스만 사용 (직접 타이머 추가 금지)
+
+## QThread 안전 규칙
+- `QThread` 내부에서 `QWidget` 직접 접근 절대 금지
+- UI 업데이트는 signal → slot 연결로만
+- 예: `self.log_signal.emit(msg)` → `self.log_output.appendPlainText(msg)`

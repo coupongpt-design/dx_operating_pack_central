@@ -13,7 +13,11 @@
 
 ## 1) Session Gate (Required)
 1. Read `PROJECT_STATUS.md` first.
-2. If task scope includes DX Pack governance/install/sync (`dx_operating_pack/**`, `tools/setup_dx.py`, `tools/sync_dx_pack.py`, hooks/CI/rules), then read `dx_operating_pack/AGENT_ONBOARDING.md`.
+2. Load additional context based on task scope:
+   - **DX Pack governance/install/sync** (`dx_operating_pack/**`, hooks/CI/rules) → read `dx_operating_pack/AGENT_ONBOARDING.md`
+   - **UI layout/overlay work** (`app/main.py`, `app/ui/**`) → read `dx_operating_pack/docs_for_ai/CONTEXT_UI.md`
+   - **Runner/StepData/serialization work** (`app/core/runner.py`, `StepData`, serialization paths) → read `dx_operating_pack/docs_for_ai/CONTEXT_CORE.md`
+   - **Test additions** → read `dx_operating_pack/docs_for_ai/CONTEXT_CORE.md` (includes test list)
 3. Summarize current focus in 2 lines.
 4. Declare mode (`Compact` or `Precision`) before edits.
 
@@ -165,8 +169,8 @@ For meaningful behavior changes, sync:
 ## 12) Synced Normative Block (for `.cursorrules`)
 <!-- SYNC_BLOCK_START -->
 Priority: system/dev/runtime > user > AGENTS.md > .cursorrules
-Agent rules: read PROJECT_STATUS.md first; read dx_operating_pack/AGENT_ONBOARDING.md only for DX Pack governance/install/sync tasks; follow Task Cycle when DX scope is active
-Session Gate: read PROJECT_STATUS.md -> (DX Pack scope only) read AGENT_ONBOARDING.md -> 2-line current-focus summary -> declare mode
+Agent rules: read PROJECT_STATUS.md first; load context by task scope (DX Pack→AGENT_ONBOARDING.md; UI work→CONTEXT_UI.md; Runner/StepData/serialization→CONTEXT_CORE.md; Test additions→CONTEXT_CORE.md); follow Task Cycle when DX scope is active
+Session Gate: read PROJECT_STATUS.md -> load scope-specific context docs -> 2-line current-focus summary -> declare mode
 Mode: compact by default; precision on high-risk triggers; keep precision through validation
 Precision triggers: files>=5, StepData change, serialization change, thread/signal change, runner flow change, unclear repro/scope
 Multi-Agent flow: default Executor->Guardian; precision trigger -> Planner->Executor->Guardian
