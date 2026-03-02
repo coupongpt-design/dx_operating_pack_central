@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 from tools.post_task_gate import parse_targeted
@@ -79,3 +80,28 @@ def test_run_gate_writes_timestamp_and_ttl(monkeypatch, tmp_path: Path) -> None:
     record = json.loads(ctx["GATE_FILE"].read_text(encoding="utf-8"))
     assert "timestamp" in record
     assert record.get("ttl_sec") == 1800
+
+
+def test_run_gate_initial_commit_mode_sets_empty_head(monkeypatch, tmp_path: Path) -> None:
+    import json
+    import tools.post_task_gate as gate
+    ctx = run_gate.__globals__
+    monkeypatch.setitem(ctx, "GATE_FILE", tmp_path / "gate.json")
+
+    def fake_git(*args: str) -> str:
+        if args == ("diff", "--cached", "--name-status"):
+            return "M\ttools/task_finish.py\n"
+        if args == ("rev-parse", "HEAD"):
+            raise subprocess.CalledProcessError(128, ["git", "rev-parse", "HEAD"])
+        raise AssertionError(f"unexpected git args: {args}")
+
+    monkeypatch.setitem(ctx, "_git", fake_git)
+    monkeypatch.setitem(ctx, "select_tests", lambda paths: ["tests/test_task_finish.py"])
+    monkeypatch.setitem(ctx, "filter_existing_tests", lambda tests: list(tests))
+    monkeypatch.setitem(ctx, "build_pytest_command", lambda tests: "python -m pytest -q tests/test_task_finish.py")
+    monkeypatch.setitem(ctx, "_run_shell", lambda command: (0, "3 passed in 0.02s"))
+
+    rc = run_gate("auto")
+    assert rc == 0
+    record = json.loads(ctx["GATE_FILE"].read_text(encoding="utf-8"))
+    assert record.get("head") == ""

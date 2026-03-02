@@ -20,6 +20,7 @@ TOOL_FILES = (
     "dependency_graph_gen.py",
     "context_compressor.py",
     "generate_session_brief.py",
+    "transplant_full_system.py",
 )
 
 

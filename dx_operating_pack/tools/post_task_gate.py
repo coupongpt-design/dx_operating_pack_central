@@ -32,6 +32,14 @@ def _git(*args: str) -> str:
     return subprocess.check_output(["git", *args], text=True, encoding="utf-8", errors="replace")
 
 
+def _current_head_or_empty() -> str:
+    try:
+        return _git("rev-parse", "HEAD").strip()
+    except subprocess.CalledProcessError:
+        # Initial commit flow: HEAD does not exist yet.
+        return ""
+
+
 def _has_app_code_changes(entries: Sequence[object]) -> bool:
     for entry in entries:
         paths = getattr(entry, "paths", ())
@@ -165,7 +173,7 @@ def run_gate(targeted_cmd: str, *, harvest_feedback: bool = True) -> int:
         print("no staged changes; stage files before running post-task gate")
         return 1
 
-    head = _git("rev-parse", "HEAD").strip()
+    head = _current_head_or_empty()
     staged_hash = compute_staged_hash(entries)
     risk = is_risk_triggered(entries)
 

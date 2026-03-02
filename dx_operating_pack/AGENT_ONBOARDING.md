@@ -22,7 +22,7 @@ git init && wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remo
 3. 훅 설치:
    - `python tools/install_git_hooks.py`
 4. 규칙/도구 맵 로드:
-   - `rules/AGENTS.md`, `.cursorrules`, `dx_operating_pack/MANIFEST_AI.yaml` 순서로 확인
+   - `AGENTS.md`(정본) -> `rules/AGENTS.md`(브리지, 존재 시) -> `.cursorrules` -> `dx_operating_pack/MANIFEST_AI.yaml` 순서로 확인
 
 참고:
 - `setup_dx.py`는 시작 시 Git 설치 여부와 대상 루트의 git init 상태를 자동 검사합니다.

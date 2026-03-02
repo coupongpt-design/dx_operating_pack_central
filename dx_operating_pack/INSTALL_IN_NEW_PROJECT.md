@@ -107,3 +107,36 @@ python tools\push_dx_feedback.py --base HEAD~1 --head HEAD --remote-url <CENTRAL
 - `post_task_gate` 성공 시 `feedback/LATEST_INSIGHT.yaml`와 `LESSONS_LEARNED_DRAFT`가 자동 갱신됩니다.
 - `push_dx_feedback.py`는 `feedback/outbox/`에 번들을 만들고, 원격 URL이 주어지면 `inbox/<project>/`로 반영합니다.
 - 중앙 DX Repo에서는 `python tools/promote_dx_feedback.py --apply`로 inbox 번들을 승격/처리할 수 있습니다.
+
+## 8) 기존 프로젝트에 전부복사 이식 (동일 UX 유지)
+이미 작업 중인 프로젝트에 현재 운영 체계를 거의 그대로 옮기려면 아래 명령을 사용합니다.
+
+```bat
+python tools\transplant_full_system.py --target-root <TARGET_PROJECT_PATH> --overwrite
+```
+
+기본 자동 보정:
+- 루트 거버넌스 테스트 브리지 파일(`tests/test_rule_docs_sync.py` 등) 자동 생성/동기화
+- 상태 문서(`DEV_LOG.md`, `PROJECT_STATUS.md`, `now_spec.md`) 누락 시 템플릿 기반 자동 부트스트랩
+- 규칙 정규화: 루트 `.cursorrules`를 `dx_operating_pack/rules/.cursorrules` 기준으로 정렬
+- 레거시 규칙 파일(`rule.md`, 기존 `.cursorrules`, 기존 `rules/AGENTS.md`)은 `archive/legacy_rules/<timestamp>/`로 이동
+- 경로 호환 브리지 `rules/AGENTS.md` 자동 생성
+- post-transplant doctor로 구조 충돌 자동 점검(훅 참조/필수 파일/규칙 동기화)
+
+옵션:
+- `--dry-run`: 실제 복사 없이 대상 변경 예정 항목만 출력
+- `--include-project-state`: `DEV_LOG.md`, `PROJECT_STATUS.md`, `now_spec.md`까지 같이 이식
+- `--skip-verify`: 이식 후 `check_tool_integrity` 자동 검증 생략
+- `--skip-bootstrap-state`: 상태 문서 자동 부트스트랩 생략
+- `--skip-governance-bridge`: 거버넌스 테스트 브리지 자동 생성 생략
+- `--skip-rule-normalization`: 규칙 정규화/브리지 동기화 생략
+- `--skip-doctor`: post-transplant doctor 점검 생략
+
+이식 후 대상 프로젝트에서 실행:
+
+```bat
+cd <TARGET_PROJECT_PATH>
+python tools\install_git_hooks.py
+python tools\task_start_guard.py
+python tools\check_tool_integrity.py --project-root . --strict
+```

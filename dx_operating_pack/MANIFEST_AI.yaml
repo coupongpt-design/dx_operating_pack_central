@@ -51,6 +51,11 @@ entries:
     related_tests:
       - tests/test_check_tool_integrity.py
 
+  - path: tools/transplant_full_system.py
+    purpose: Copy full DX operating assets to another existing project
+    when_to_use: When same governance/tooling UX must be transplanted with minimal omission risk
+    must_follow: Keep default normalization enabled (governance test bridges + state-doc bootstrap + rules/AGENTS bridge + doctor checks) and use --overwrite for deterministic replacement
+
   - path: reusable/core/template_processor.py
     purpose: Placeholder replacement core
     when_to_use: Any text/data binding feature

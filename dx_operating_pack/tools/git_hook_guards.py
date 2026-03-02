@@ -294,6 +294,14 @@ def _git(*args: str) -> str:
     return subprocess.check_output(["git", *args], text=True, encoding="utf-8", errors="replace")
 
 
+def _current_head_or_empty() -> str:
+    try:
+        return _git("rev-parse", "HEAD").strip()
+    except subprocess.CalledProcessError:
+        # Initial commit flow: HEAD does not exist yet.
+        return ""
+
+
 def _load_gate_record() -> dict[str, Any] | None:
     if not GATE_FILE.exists():
         return None
@@ -388,7 +396,7 @@ def run_pre_commit_guard() -> int:
             "'python tools/post_task_gate.py --targeted \"<targeted pytest command>\"'"
         )
     else:
-        current_head = _git("rev-parse", "HEAD").strip()
+        current_head = _current_head_or_empty()
         current_staged_hash = compute_staged_hash(entries)
         errors.extend(
             validate_gate_record(

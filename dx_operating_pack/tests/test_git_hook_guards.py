@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 import time
 
 from tools.git_hook_guards import compute_staged_hash
@@ -184,7 +185,7 @@ def test_validate_staged_entries_blocks_constitutional_mixed_changes() -> None:
 
 
 def test_run_pre_commit_guard_emits_scope_warning(monkeypatch, capsys) -> None:
-    import tools.git_hook_guards as guards
+    ctx = run_pre_commit_guard.__globals__
 
     staged_text = "".join([f"M\tapp/ui/file_{i}.py\n" for i in range(8)])
     entries = parse_name_status(staged_text)
@@ -199,9 +200,9 @@ def test_run_pre_commit_guard_emits_scope_warning(monkeypatch, capsys) -> None:
             return "abc123\n"
         raise AssertionError(f"unexpected git args: {args}")
 
-    monkeypatch.setattr(guards, "_git", fake_git)
-    monkeypatch.setattr(
-        guards,
+    monkeypatch.setitem(ctx, "_git", fake_git)
+    monkeypatch.setitem(
+        ctx,
         "_load_gate_record",
         lambda: {
             "timestamp": time.time(),
@@ -316,3 +317,36 @@ def test_validate_message_against_gate_record_rejects_mismatch() -> None:
     errors = validate_message_against_gate_record(message, record)
     assert any("targeted line mismatch" in err for err in errors)
     assert any("full suite line mismatch" in err for err in errors)
+
+
+def test_run_pre_commit_guard_allows_initial_commit_without_head(monkeypatch) -> None:
+    ctx = run_pre_commit_guard.__globals__
+
+    staged_text = "M\ttools/task_finish.py\n"
+    entries = parse_name_status(staged_text)
+    staged_hash = compute_staged_hash(entries)
+
+    def fake_git(*args: str) -> str:
+        if args == ("diff", "--cached", "--name-status"):
+            return staged_text
+        if args == ("diff", "--cached", "--numstat"):
+            return "1\t0\ttools/task_finish.py\n"
+        if args == ("rev-parse", "HEAD"):
+            raise subprocess.CalledProcessError(128, ["git", "rev-parse", "HEAD"])
+        raise AssertionError(f"unexpected git args: {args}")
+
+    monkeypatch.setitem(ctx, "_git", fake_git)
+    monkeypatch.setitem(
+        ctx,
+        "_load_gate_record",
+        lambda: {
+            "timestamp": time.time(),
+            "head": "",
+            "staged_hash": staged_hash,
+            "targeted_pass": True,
+            "risk": False,
+            "full_suite_pass": True,
+        },
+    )
+
+    assert run_pre_commit_guard() == 0
