@@ -41,6 +41,10 @@ HIGH_RISK_PATH_PATTERNS = (
     re.compile(r"undostack", re.IGNORECASE),
     re.compile(r"app/core/commands\.py$", re.IGNORECASE),
 )
+HIGH_RISK_PATH_PREFIXES = (
+    "app/core/",
+    "app/main.py",
+)
 
 BLOCKED_USER_PATH_PATTERNS = (
     re.compile(r"(^|/)backups/"),
@@ -128,6 +132,9 @@ def is_risk_triggered(entries: list[StagedEntry]) -> bool:
     for path in file_set:
         if _is_blocked_artifact(path):
             continue
+        lowered = path.lower()
+        if any(lowered.startswith(prefix) for prefix in HIGH_RISK_PATH_PREFIXES):
+            return True
         if any(pattern.search(path) for pattern in HIGH_RISK_PATH_PATTERNS):
             return True
     return False

@@ -226,13 +226,18 @@ def run_audit(report_path: Path) -> int:
 
     report_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
     print(f"[audit] report written: {report_path}")
+    failures: list[str] = []
     if missing_assets:
-        print(f"[audit] missing assets: {len(missing_assets)}")
+        failures.append(f"missing assets: {len(missing_assets)}")
+    if missing_docs:
+        failures.append(f"missing docs: {len(missing_docs)}")
     if docs_out_of_sync:
-        print("[audit] warning: docs modified-time gap exceeds 1 hour")
+        failures.append("docs modified-time gap exceeds 1 hour")
     if not gate_fresh:
-        print("[audit] warning: post-task gate is stale or unavailable")
-    return 1 if missing_assets else 0
+        failures.append("post-task gate is stale or unavailable")
+    for item in failures:
+        print(f"[audit] failure: {item}")
+    return 1 if failures else 0
 
 
 def parse_args() -> argparse.Namespace:

@@ -6,6 +6,7 @@ import time
 from tools.task_finish import build_template_text
 from tools.task_finish import _confirm_doc_sync
 from tools.task_finish import _doc_mtime_gap_seconds
+from tools.task_finish import _enforce_doc_mtime_drift
 from tools.task_finish import _needs_doc_sync_confirmation
 from tools.task_finish import parse_args
 
@@ -38,35 +39,37 @@ def test_build_template_text_non_risk_marks_not_required() -> None:
 
 
 def test_parse_args_scope_and_targeted() -> None:
-    subject, targeted, scope, confirm_doc_sync, run_audit, auto_push = parse_args(
+    subject, targeted, scope, auto_push = parse_args(
         ["--subject", "feat: x", "--scope", "rule", "--targeted", "auto"]
     )
     assert subject == "feat: x"
     assert targeted == "auto"
     assert scope == "rule"
-    assert confirm_doc_sync is False
-    assert run_audit is False
     assert auto_push is False
 
 
 def test_parse_args_targeted_with_scope_after_it() -> None:
-    subject, targeted, scope, confirm_doc_sync, run_audit, auto_push = parse_args(
+    subject, targeted, scope, auto_push = parse_args(
         ["--subject", "feat: y", "--targeted", "python", "-m", "pytest", "-q", "tests/test_a.py", "--scope", "test"]
     )
     assert subject == "feat: y"
     assert targeted == "python -m pytest -q tests/test_a.py"
     assert scope == "test"
-    assert confirm_doc_sync is False
-    assert run_audit is False
     assert auto_push is False
 
 
-def test_parse_args_flags() -> None:
-    _, _, _, confirm_doc_sync, run_audit, auto_push = parse_args(
-        ["--confirm-doc-sync", "--run-audit", "--auto-push"]
-    )
-    assert confirm_doc_sync is True
-    assert run_audit is True
+def test_parse_args_rejects_removed_flags() -> None:
+    for flag in ("--confirm-doc-sync", "--run-audit"):
+        try:
+            parse_args([flag])
+        except ValueError as exc:
+            assert "no longer supported" in str(exc)
+        else:
+            raise AssertionError(f"expected ValueError for {flag}")
+
+
+def test_parse_args_auto_push_flag() -> None:
+    _, _, _, auto_push = parse_args(["--auto-push"])
     assert auto_push is True
 
 
@@ -79,12 +82,8 @@ def test_needs_doc_sync_confirmation_when_partial_docs_touched() -> None:
     assert missing == ["DEV_LOG.md", "now_spec.md"]
 
 
-def test_confirm_doc_sync_passes_with_explicit_flag() -> None:
-    assert _confirm_doc_sync(["PROJECT_STATUS.md"], confirmed_flag=True) is True
-
-
 def test_confirm_doc_sync_blocks_partial_without_flag() -> None:
-    assert _confirm_doc_sync(["PROJECT_STATUS.md"], confirmed_flag=False) is False
+    assert _confirm_doc_sync(["PROJECT_STATUS.md"]) is False
 
 
 def test_doc_mtime_gap_seconds_returns_zero_without_docs(tmp_path, monkeypatch) -> None:
@@ -102,3 +101,14 @@ def test_doc_mtime_gap_seconds_detects_drift(tmp_path, monkeypatch) -> None:
     os.utime(tmp_path / "now_spec.md", (now - 60, now - 60))
     os.utime(tmp_path / "DEV_LOG.md", (now, now))
     assert _doc_mtime_gap_seconds() >= 420 - 1
+
+
+def test_enforce_doc_mtime_drift_blocks_large_gap(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    now = time.time()
+    for name in ("PROJECT_STATUS.md", "now_spec.md", "DEV_LOG.md"):
+        (tmp_path / name).write_text("x", encoding="utf-8")
+    os.utime(tmp_path / "PROJECT_STATUS.md", (now - 500, now - 500))
+    os.utime(tmp_path / "now_spec.md", (now - 100, now - 100))
+    os.utime(tmp_path / "DEV_LOG.md", (now, now))
+    assert _enforce_doc_mtime_drift() is False

@@ -4,7 +4,6 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Callable
 from typing import Sequence
 
 try:
@@ -25,7 +24,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution fallba
 TEMPLATE_PATH = Path(".git") / "TASK_COMMIT_TEMPLATE.md"
 ALLOWED_SCOPES = ("feature", "rule", "cleanup", "docs", "test")
 DOC_SYNC_FILES = ("PROJECT_STATUS.md", "now_spec.md", "DEV_LOG.md")
-DOC_MTIME_WARN_SEC = 5 * 60
+DOC_MTIME_MAX_DRIFT_SEC = 5 * 60
 
 
 def _git(*args: str) -> str:
@@ -55,34 +54,14 @@ def _needs_doc_sync_confirmation(staged_paths: list[str]) -> tuple[bool, list[st
     return (len(missing) > 0, touched, missing)
 
 
-def _confirm_doc_sync(
-    staged_paths: list[str],
-    *,
-    confirmed_flag: bool,
-    stdin_reader: Callable[[], str] | None = None,
-) -> bool:
+def _confirm_doc_sync(staged_paths: list[str]) -> bool:
     needs_confirm, touched, missing = _needs_doc_sync_confirmation(staged_paths)
     if not needs_confirm:
         return True
-    if confirmed_flag:
-        print(
-            "doc-sync confirm: acknowledged partial docs update "
-            f"(touched={touched}, missing={missing})"
-        )
-        return True
-    if sys.stdin.isatty():
-        print(
-            "doc-sync check: partial docs update detected "
-            f"(touched={touched}, missing={missing})"
-        )
-        print("did you verify all three docs are intentionally handled? [y/N]: ", end="")
-        reader = stdin_reader or input
-        answer = str(reader() or "").strip().lower()
-        if answer in {"y", "yes"}:
-            return True
     print(
-        "doc-sync guard: blocked. update all docs or re-run with --confirm-doc-sync "
-        f"(missing={missing})"
+        "doc-sync guard: blocked. partial docs update is not allowed "
+        f"(touched={touched}, missing={missing}). "
+        "update PROJECT_STATUS.md / now_spec.md / DEV_LOG.md together."
     )
     return False
 
@@ -98,15 +77,16 @@ def _doc_mtime_gap_seconds(paths: Sequence[str] = DOC_SYNC_FILES) -> float:
     return max(mtimes) - min(mtimes)
 
 
-def _warn_doc_mtime_drift(threshold_sec: int = DOC_MTIME_WARN_SEC) -> None:
+def _enforce_doc_mtime_drift(threshold_sec: int = DOC_MTIME_MAX_DRIFT_SEC) -> bool:
     gap = _doc_mtime_gap_seconds()
     if gap <= threshold_sec:
-        return
+        return True
     print(
-        "doc-sync warning: docs modified-time drift detected "
+        "doc-sync guard: blocked by docs modified-time drift "
         f"(gap={int(gap)}s, threshold={threshold_sec}s). "
-        "check PROJECT_STATUS.md / now_spec.md / DEV_LOG.md alignment."
+        "realign PROJECT_STATUS.md / now_spec.md / DEV_LOG.md and retry."
     )
+    return False
 
 
 def recommend_scope() -> str:
@@ -167,14 +147,19 @@ def build_template_text(subject: str, record: dict, scope: str) -> str:
     )
 
 
-def parse_args(argv: Sequence[str]) -> tuple[str, str, str, bool, bool, bool]:
+def parse_args(argv: Sequence[str]) -> tuple[str, str, str, bool]:
     subject = "chore: task finish checkpoint"
     targeted = "auto"
     scope = ""
-    confirm_doc_sync = False
-    run_audit = False
     auto_push = False
     items = list(argv)
+
+    for removed_opt in ("--confirm-doc-sync", "--run-audit"):
+        if removed_opt in items:
+            raise ValueError(
+                f"{removed_opt} is no longer supported; "
+                "doc sync cannot be bypassed and project audit always runs"
+            )
 
     if "--scope" in items:
         sidx = items.index("--scope")
@@ -185,7 +170,7 @@ def parse_args(argv: Sequence[str]) -> tuple[str, str, str, bool, bool, bool]:
     if "--targeted" in items:
         tidx = items.index("--targeted")
         remain = items[tidx + 1 :]
-        for stop_opt in ("--scope", "--subject", "--confirm-doc-sync", "--run-audit", "--auto-push"):
+        for stop_opt in ("--scope", "--subject", "--auto-push"):
             if stop_opt in remain:
                 remain = remain[: remain.index(stop_opt)]
         if not remain:
@@ -195,10 +180,6 @@ def parse_args(argv: Sequence[str]) -> tuple[str, str, str, bool, bool, bool]:
         else:
             targeted = " ".join(remain)
 
-    if "--confirm-doc-sync" in items:
-        confirm_doc_sync = True
-    if "--run-audit" in items:
-        run_audit = True
     if "--auto-push" in items:
         auto_push = True
 
@@ -212,7 +193,7 @@ def parse_args(argv: Sequence[str]) -> tuple[str, str, str, bool, bool, bool]:
             i += 2
             continue
         i += 1
-    return subject, targeted, scope, confirm_doc_sync, run_audit, auto_push
+    return subject, targeted, scope, auto_push
 
 
 def _run_auto_push() -> int:
@@ -224,7 +205,7 @@ def _run_auto_push() -> int:
 def main(argv: Sequence[str] | None = None) -> int:
     items = list(argv) if argv is not None else sys.argv[1:]
     try:
-        subject, targeted_cmd, scope_arg, confirm_doc_sync, run_audit, auto_push = parse_args(items)
+        subject, targeted_cmd, scope_arg, auto_push = parse_args(items)
     except ValueError as exc:
         print(str(exc))
         return 2
@@ -238,14 +219,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
 
     staged_paths = _staged_paths()
-    if not _confirm_doc_sync(staged_paths, confirmed_flag=confirm_doc_sync):
+    if not _confirm_doc_sync(staged_paths):
         return 1
-    _warn_doc_mtime_drift()
+    if not _enforce_doc_mtime_drift():
+        return 1
 
     rc = run_gate(targeted_cmd)
     if rc != 0:
         print("post-task gate failed")
         return rc
+
+    audit_rc = subprocess.call([sys.executable, "tools/project_audit.py"])
+    if audit_rc != 0:
+        print(f"project audit failed with exit code {audit_rc}")
+        return audit_rc
+    print("project audit: PASS")
 
     record = _load_gate_record()
     suggested_scope = scope_arg if scope_arg in ALLOWED_SCOPES else recommend_scope()
@@ -253,7 +241,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     TEMPLATE_PATH.write_text(template, encoding="utf-8")
     print(f"commit template written: {TEMPLATE_PATH}")
     print(f"scope suggestion: {suggested_scope} (allowed: {'|'.join(ALLOWED_SCOPES)})")
-    print("현재 프로젝트 자산 상태를 확인하려면 `python tools/project_audit.py`를 실행하세요")
     print("feedback hint: python tools/push_dx_feedback.py --base HEAD~1 --head HEAD")
     if auto_push:
         push_rc = _run_auto_push()
@@ -261,12 +248,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"auto-push failed with exit code {push_rc}")
             return push_rc
         print("auto-push: PASS")
-    if run_audit:
-        audit_rc = subprocess.call([sys.executable, "tools/project_audit.py"])
-        if audit_rc != 0:
-            print(f"project audit failed with exit code {audit_rc}")
-            return audit_rc
-        print("project audit: PASS")
     print(f"next: git commit -F {TEMPLATE_PATH}")
     return 0
 

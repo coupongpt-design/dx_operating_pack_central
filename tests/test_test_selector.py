@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from tools.test_selector import FALLBACK_TESTS
 from tools.test_selector import build_pytest_command
 from tools.test_selector import select_tests
 
@@ -30,3 +31,7 @@ def test_select_tests_for_task_start_guard() -> None:
 def test_select_tests_for_preflight_env() -> None:
     tests = select_tests(["tools/preflight_env.py"])
     assert "tests/test_preflight_env.py" in tests
+
+
+def test_select_tests_uses_strict_fallback_bundle() -> None:
+    assert select_tests([]) == FALLBACK_TESTS

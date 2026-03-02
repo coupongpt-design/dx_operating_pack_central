@@ -60,7 +60,10 @@ MAPPINGS: list[tuple[re.Pattern[str], list[str]]] = [
 ]
 
 FALLBACK_TESTS = [
-    "tests/test_ui_integration.py",
+    "tests/test_rule_docs_sync.py",
+    "tests/test_git_hook_guards.py",
+    "tests/test_task_finish.py",
+    "tests/test_project_audit.py",
 ]
 
 

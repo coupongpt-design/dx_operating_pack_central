@@ -75,6 +75,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
 
+      - name: AI security check
+        run: python dx_operating_pack/tools/check_ai_security.py
+
       - name: Governance guard (commit policy + file policy)
         env:
           CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -116,6 +119,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
           python -m pip install PyQt5 mss numpy opencv-python pyautogui pyperclip pillow pynput psutil
+
+      - name: AI security check
+        run: python dx_operating_pack/tools/check_ai_security.py
 
       - name: Run pytest
         run: python -m pytest -q

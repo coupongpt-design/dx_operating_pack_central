@@ -125,6 +125,11 @@ def test_is_risk_triggered_only_on_high_risk_paths() -> None:
     assert is_risk_triggered(high) is True
 
 
+def test_is_risk_triggered_not_for_guard_tool_paths() -> None:
+    entries = parse_name_status("M\ttools/task_finish.py\n")
+    assert is_risk_triggered(entries) is False
+
+
 def test_is_risk_triggered_ignores_artifact_paths() -> None:
     artifact_only = parse_name_status("D\ttests/__pycache__/test_signal_and_logic.cpython-313.pyc\n")
     assert is_risk_triggered(artifact_only) is False
