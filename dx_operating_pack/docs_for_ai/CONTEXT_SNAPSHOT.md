@@ -1,17 +1,17 @@
 # CONTEXT SNAPSHOT
 
-- generated_at_utc: 2026-03-01T12:51:28.530499+00:00
+- generated_at_utc: 2026-03-02T16:37:29.014746+00:00
 - project_root: `D:\down\autocording\매크로모듈화_초고도화_제미나이용`
 - scope: `all`
 - scanned_dirs: `app/core, app/ui, tools, tests`
-- file_count: 343
-- python_file_count: 152
+- file_count: 357
+- python_file_count: 162
 
 ## Directory Summary
 - `app/core`: 81 files
 - `app/ui`: 40 files
-- `tools`: 28 files
-- `tests`: 194 files
+- `tools`: 37 files
+- `tests`: 199 files
 
 ## Key Python Interfaces
 - `app\core\commands.py`
@@ -125,6 +125,9 @@
 - `app\ui\window_selector.py`
   - classes: WindowSelectorDialog
   - functions: -
+- `tests\conftest.py`
+  - classes: -
+  - functions: _force_exit, pytest_configure, pytest_runtest_protocol, pytest_runtest_logfinish, pytest_sessionfinish
 - `tests\test_action_dialog_flows.py`
   - classes: -
   - functions: qapp, _make_dialog, _set_action_type, test_action_dialog_pick_click_updates_coordinates, test_action_dialog_keyboard_mode_saved, test_action_dialog_key_record_button_captures_special_key, test_action_dialog_key_record_disabled_for_text_mode, test_action_dialog_mouse_mode_switches_groups
@@ -167,6 +170,9 @@
 - `tests\test_coordinate_overlay_mapping.py`
   - classes: -
   - functions: qapp, test_coordinate_overlay_show_marker_stores_payload, test_coordinate_overlay_has_transparent_mouse_passthrough, test_coordinate_overlay_shared_instance_reuse, test_step_list_coordinate_preview_signal_on_selection, test_step_list_coordinate_preview_cleared_on_non_coordinate_selection, test_mainwindow_routes_coordinate_preview_to_overlay, test_mainwindow_coordinate_preview_guard_blocks_when_running
+- `tests\test_core_logic.py`
+  - classes: -
+  - functions: patch_deps, runner, test_dynamic_strings, test_load_data_file, test_ocr_stub, main
 - `tests\test_csv_loader.py`
   - classes: -
   - functions: test_bom, test_bom
@@ -218,6 +224,9 @@
 - `tests\test_final_cleanup_guard.py`
   - classes: -
   - functions: qapp, test_record_cancel_cleans_record_prop_images, test_add_recorded_steps_command_undo_redo_restores_image_file
+- `tests\test_generate_session_brief.py`
+  - classes: -
+  - functions: test_build_brief_contains_required_sections, test_snapshot_summary_marks_missing_file
 - `tests\test_git_hook_guards.py`
   - classes: -
   - functions: test_validate_commit_message_accepts_required_sections, test_validate_commit_message_rejects_missing_targeted, test_validate_commit_message_rejects_invalid_scope, test_extract_tests_lines_returns_values, test_parse_name_status_handles_rename, test_validate_staged_entries_blocks_constitutional_rename, test_validate_staged_entries_blocks_runtime_log_artifact, test_validate_staged_entries_allows_artifact_deletion
@@ -277,7 +286,7 @@
   - functions: test_check_required_commands_reports_missing, test_check_pytest_available_pass, test_check_memory_skipped_when_unknown, test_run_preflight_fails_on_any_error
 - `tests\test_project_audit.py`
   - classes: -
-  - functions: test_run_audit_writes_report_when_assets_exist, test_run_audit_returns_nonzero_when_assets_missing
+  - functions: test_default_doc_sync_paths_use_docs_directory, test_run_audit_writes_report_when_assets_exist, test_run_audit_returns_nonzero_when_assets_missing, test_run_audit_returns_nonzero_when_gate_stale, test_run_audit_returns_nonzero_when_docs_out_of_sync
 - `tests\test_recorder_advanced.py`
   - classes: -
   - functions: _btn, mock_listeners, test_hybrid_filter_jitter, test_hybrid_filter_precision, test_drag_resample
@@ -359,39 +368,30 @@
 - `tests\test_smart_recorder_transformer.py`
   - classes: -
   - functions: _key_event, _click_release, test_text_keystrokes_merge_into_single_type_text_step, test_text_flush_on_arrow_and_resume_for_next_printable, test_click_generates_dual_proposal_with_image_capture
-- `tests\test_smart_snap_logic.py`
-  - classes: -
-  - functions: qapp, _ids, test_collect_step_group_detects_wizard_reference_cluster, test_sync_order_smart_snap_moves_group_and_normalizes_legacy_indices, test_smart_snap_dangling_warning_sets_flow_warning_edges
-- `tests\test_stepdata_serialization.py`
-  - classes: -
-  - functions: test_legacy_jump_fields_map_to_target_ids, test_to_dict_is_json_serializable_and_excludes_cache, test_ensure_tpl_extracts_alpha_mask, test_ensure_tpl_loads_from_anchor_image_path
-- `tests\test_stress.py`
-  - classes: -
-  - functions: _dummy_mss, test_long_running_macro, test_chaos_undo_redo, test_call_stack_no_leak
 
 ## Largest Files (By Size)
-- `app\ui\__pycache__\dialogs.cpython-314.pyc`: 265540 bytes
-- `app\ui\__pycache__\dialogs.cpython-313.pyc`: 254761 bytes
-- `app\core\__pycache__\runner.cpython-314.pyc`: 179330 bytes
+- `app\ui\__pycache__\dialogs.cpython-314.pyc`: 265569 bytes
+- `app\ui\__pycache__\dialogs.cpython-313.pyc`: 254790 bytes
+- `app\core\__pycache__\runner.cpython-314.pyc`: 179359 bytes
 - `app\ui\dialogs.py`: 161594 bytes
-- `app\core\__pycache__\runner.cpython-313.pyc`: 159811 bytes
+- `app\core\__pycache__\runner.cpython-313.pyc`: 159840 bytes
 - `app\core\runner.py`: 119399 bytes
-- `app\ui\__pycache__\scenario_wizard.cpython-314.pyc`: 112667 bytes
-- `app\ui\__pycache__\scenario_wizard.cpython-313.pyc`: 104587 bytes
-- `tests\__pycache__\test_action_dialog_flows.cpython-313-pytest-9.0.1.pyc`: 104271 bytes
-- `tests\__pycache__\test_ui_integration.cpython-313-pytest-9.0.1.pyc`: 94169 bytes
-- `tests\__pycache__\test_main_trigger_scheduler_integration.cpython-313-pytest-9.0.1.pyc`: 85468 bytes
+- `app\ui\__pycache__\scenario_wizard.cpython-314.pyc`: 112696 bytes
+- `app\ui\__pycache__\scenario_wizard.cpython-313.pyc`: 104616 bytes
+- `tests\__pycache__\test_action_dialog_flows.cpython-313-pytest-9.0.1.pyc`: 104300 bytes
+- `tests\__pycache__\test_ui_integration.cpython-313-pytest-9.0.1.pyc`: 94198 bytes
+- `tests\__pycache__\test_main_trigger_scheduler_integration.cpython-313-pytest-9.0.1.pyc`: 85497 bytes
 - `app\core\scenario_wizard_templates.json`: 82790 bytes
-- `app\core\__pycache__\scenario_wizard.cpython-314.pyc`: 74325 bytes
-- `tests\__pycache__\test_excel_toolbar_responsive.cpython-313-pytest-9.0.1.pyc`: 72404 bytes
+- `app\core\__pycache__\scenario_wizard.cpython-314.pyc`: 74354 bytes
+- `tests\__pycache__\test_excel_toolbar_responsive.cpython-313-pytest-9.0.1.pyc`: 72433 bytes
 - `app\ui\scenario_wizard.py`: 71322 bytes
-- `tests\__pycache__\test_runner_logic.cpython-313-pytest-9.0.1.pyc`: 69307 bytes
-- `app\core\__pycache__\scenario_wizard.cpython-313.pyc`: 64958 bytes
+- `tests\__pycache__\test_runner_logic.cpython-313-pytest-9.0.1.pyc`: 69336 bytes
+- `app\core\__pycache__\scenario_wizard.cpython-313.pyc`: 64987 bytes
 - `app\core\scenario_wizard.py`: 46841 bytes
-- `tests\__pycache__\test_ui_orchestration_integration.cpython-313-pytest-9.0.1.pyc`: 45149 bytes
-- `app\core\__pycache__\recorder.cpython-314.pyc`: 43460 bytes
-- `app\ui\__pycache__\widgets.cpython-314.pyc`: 43379 bytes
-- `app\ui\__pycache__\widgets.cpython-313.pyc`: 40299 bytes
-- `app\ui\__pycache__\overlay.cpython-314.pyc`: 39641 bytes
-- `app\core\__pycache__\recorder.cpython-313.pyc`: 39274 bytes
-- `tests\__pycache__\test_git_hook_guards.cpython-313-pytest-9.0.1.pyc`: 37999 bytes
+- `tests\__pycache__\test_ui_orchestration_integration.cpython-313-pytest-9.0.1.pyc`: 45178 bytes
+- `app\core\__pycache__\recorder.cpython-314.pyc`: 43489 bytes
+- `app\ui\__pycache__\widgets.cpython-314.pyc`: 43408 bytes
+- `app\ui\__pycache__\widgets.cpython-313.pyc`: 40328 bytes
+- `app\ui\__pycache__\overlay.cpython-314.pyc`: 39670 bytes
+- `app\core\__pycache__\recorder.cpython-313.pyc`: 39303 bytes
+- `tests\__pycache__\test_git_hook_guards.cpython-313-pytest-9.0.1.pyc`: 39015 bytes

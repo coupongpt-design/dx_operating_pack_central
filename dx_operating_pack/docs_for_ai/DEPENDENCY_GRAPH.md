@@ -7,6 +7,7 @@
 - `app.core.data_orchestration` -> -
 - `app.core.evaluator` -> -
 - `app.core.excel_io` -> -
+- `app.core.exceptions` -> -
 - `app.core.input_emulator` -> -
 - `app.core.input_lock` -> -
 - `app.core.logic_path_simulator` -> -

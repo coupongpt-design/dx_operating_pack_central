@@ -1,15 +1,15 @@
 # CONTEXT SNAPSHOT
 
-- generated_at_utc: 2026-03-01T12:46:18.977660+00:00
+- generated_at_utc: 2026-03-02T16:37:28.965130+00:00
 - project_root: `D:\down\autocording\매크로모듈화_초고도화_제미나이용`
 - scope: `core`
 - scanned_dirs: `app/core, tests`
-- file_count: 275
-- python_file_count: 123
+- file_count: 280
+- python_file_count: 126
 
 ## Directory Summary
 - `app/core`: 81 files
-- `tests`: 194 files
+- `tests`: 199 files
 
 ## Key Python Interfaces
 - `app\core\commands.py`
@@ -87,6 +87,9 @@
 - `app\core\window_manager.py`
   - classes: WindowManager
   - functions: -
+- `tests\conftest.py`
+  - classes: -
+  - functions: _force_exit, pytest_configure, pytest_runtest_protocol, pytest_runtest_logfinish, pytest_sessionfinish
 - `tests\test_action_dialog_flows.py`
   - classes: -
   - functions: qapp, _make_dialog, _set_action_type, test_action_dialog_pick_click_updates_coordinates, test_action_dialog_keyboard_mode_saved, test_action_dialog_key_record_button_captures_special_key, test_action_dialog_key_record_disabled_for_text_mode, test_action_dialog_mouse_mode_switches_groups
@@ -129,6 +132,9 @@
 - `tests\test_coordinate_overlay_mapping.py`
   - classes: -
   - functions: qapp, test_coordinate_overlay_show_marker_stores_payload, test_coordinate_overlay_has_transparent_mouse_passthrough, test_coordinate_overlay_shared_instance_reuse, test_step_list_coordinate_preview_signal_on_selection, test_step_list_coordinate_preview_cleared_on_non_coordinate_selection, test_mainwindow_routes_coordinate_preview_to_overlay, test_mainwindow_coordinate_preview_guard_blocks_when_running
+- `tests\test_core_logic.py`
+  - classes: -
+  - functions: patch_deps, runner, test_dynamic_strings, test_load_data_file, test_ocr_stub, main
 - `tests\test_csv_loader.py`
   - classes: -
   - functions: test_bom, test_bom
@@ -180,6 +186,9 @@
 - `tests\test_final_cleanup_guard.py`
   - classes: -
   - functions: qapp, test_record_cancel_cleans_record_prop_images, test_add_recorded_steps_command_undo_redo_restores_image_file
+- `tests\test_generate_session_brief.py`
+  - classes: -
+  - functions: test_build_brief_contains_required_sections, test_snapshot_summary_marks_missing_file
 - `tests\test_git_hook_guards.py`
   - classes: -
   - functions: test_validate_commit_message_accepts_required_sections, test_validate_commit_message_rejects_missing_targeted, test_validate_commit_message_rejects_invalid_scope, test_extract_tests_lines_returns_values, test_parse_name_status_handles_rename, test_validate_staged_entries_blocks_constitutional_rename, test_validate_staged_entries_blocks_runtime_log_artifact, test_validate_staged_entries_allows_artifact_deletion
@@ -239,7 +248,7 @@
   - functions: test_check_required_commands_reports_missing, test_check_pytest_available_pass, test_check_memory_skipped_when_unknown, test_run_preflight_fails_on_any_error
 - `tests\test_project_audit.py`
   - classes: -
-  - functions: test_run_audit_writes_report_when_assets_exist, test_run_audit_returns_nonzero_when_assets_missing
+  - functions: test_default_doc_sync_paths_use_docs_directory, test_run_audit_writes_report_when_assets_exist, test_run_audit_returns_nonzero_when_assets_missing, test_run_audit_returns_nonzero_when_gate_stale, test_run_audit_returns_nonzero_when_docs_out_of_sync
 - `tests\test_recorder_advanced.py`
   - classes: -
   - functions: _btn, mock_listeners, test_hybrid_filter_jitter, test_hybrid_filter_precision, test_drag_resample
@@ -338,7 +347,7 @@
   - functions: test_subscript_context_shared
 - `tests\test_task_finish.py`
   - classes: -
-  - functions: test_build_template_text_includes_gate_summaries, test_build_template_text_non_risk_marks_not_required, test_parse_args_scope_and_targeted, test_parse_args_targeted_with_scope_after_it, test_parse_args_flags, test_needs_doc_sync_confirmation_when_partial_docs_touched, test_confirm_doc_sync_passes_with_explicit_flag, test_confirm_doc_sync_blocks_partial_without_flag
+  - functions: test_build_template_text_includes_gate_summaries, test_build_template_text_non_risk_marks_not_required, test_parse_args_scope_and_targeted, test_parse_args_targeted_with_scope_after_it, test_parse_args_rejects_removed_flags, test_parse_args_auto_push_flag, test_needs_doc_sync_confirmation_when_partial_docs_touched, test_confirm_doc_sync_blocks_partial_without_flag
 - `tests\test_task_start_guard.py`
   - classes: -
   - functions: test_count_cleanup_artifact_deletes, test_run_guard_blocks_when_staged_entries_exist, test_run_guard_passes_when_index_clean
@@ -347,7 +356,7 @@
   - functions: test_template_processor_renders_single_and_double_brace_tokens, test_template_processor_keeps_unknown_tokens_and_reports_unresolved
 - `tests\test_test_selector.py`
   - classes: -
-  - functions: test_select_tests_for_governance_files, test_select_tests_includes_changed_test_file_itself, test_build_pytest_command, test_select_tests_for_task_start_guard, test_select_tests_for_preflight_env
+  - functions: test_select_tests_for_governance_files, test_select_tests_includes_changed_test_file_itself, test_build_pytest_command, test_select_tests_for_task_start_guard, test_select_tests_for_preflight_env, test_select_tests_uses_strict_fallback_bundle
 - `tests\test_trigger_engine_core.py`
   - classes: _DummySct
   - functions: test_capture_frame_bgr_from_rgb_buffer_object, test_capture_frame_bgr_from_bgra_numpy_array, test_capture_frame_bgr_returns_none_for_invalid_shape, test_check_condition_uses_provided_frame_without_capture, test_check_condition_returns_false_when_capture_fails, test_pause_resume_sets_state_and_wakes_waiter, test_stop_sets_flags_when_not_running, test_stop_timeout_forces_terminate
@@ -360,39 +369,30 @@
 - `tests\test_undo_redo.py`
   - classes: -
   - functions: test_add_remove_redo, test_edit_move
-- `tests\test_vision_logic.py`
-  - classes: -
-  - functions: _make_text_image, test_preprocess_scales_and_thresholds, test_extract_number_basic, test_extract_number_percent, test_extract_number_commas, test_extract_number_none, test_preprocess_threshold_modes, test_preprocess_invalid_input_raises
-- `tests\test_visual_capturer.py`
-  - classes: -
-  - functions: qapp, test_visual_capture_creates_image_click_step_with_coordinates, test_visual_capture_cancel_keeps_steps_unchanged, test_visual_capture_blocked_while_running
-- `tests\test_visual_drag_drop_logic.py`
-  - classes: -
-  - functions: qapp, _edge_set, test_build_flow_preview_edges_marks_ok_self_jump_and_dangling, test_build_flow_preview_edges_uses_cache, test_flow_preview_request_applies_and_clears_edges
 
 ## Largest Files (By Size)
-- `app\core\__pycache__\runner.cpython-314.pyc`: 179330 bytes
-- `app\core\__pycache__\runner.cpython-313.pyc`: 159811 bytes
+- `app\core\__pycache__\runner.cpython-314.pyc`: 179359 bytes
+- `app\core\__pycache__\runner.cpython-313.pyc`: 159840 bytes
 - `app\core\runner.py`: 119399 bytes
-- `tests\__pycache__\test_action_dialog_flows.cpython-313-pytest-9.0.1.pyc`: 104271 bytes
-- `tests\__pycache__\test_ui_integration.cpython-313-pytest-9.0.1.pyc`: 94169 bytes
-- `tests\__pycache__\test_main_trigger_scheduler_integration.cpython-313-pytest-9.0.1.pyc`: 85468 bytes
+- `tests\__pycache__\test_action_dialog_flows.cpython-313-pytest-9.0.1.pyc`: 104300 bytes
+- `tests\__pycache__\test_ui_integration.cpython-313-pytest-9.0.1.pyc`: 94198 bytes
+- `tests\__pycache__\test_main_trigger_scheduler_integration.cpython-313-pytest-9.0.1.pyc`: 85497 bytes
 - `app\core\scenario_wizard_templates.json`: 82790 bytes
-- `app\core\__pycache__\scenario_wizard.cpython-314.pyc`: 74325 bytes
-- `tests\__pycache__\test_excel_toolbar_responsive.cpython-313-pytest-9.0.1.pyc`: 72404 bytes
-- `tests\__pycache__\test_runner_logic.cpython-313-pytest-9.0.1.pyc`: 69307 bytes
-- `app\core\__pycache__\scenario_wizard.cpython-313.pyc`: 64958 bytes
+- `app\core\__pycache__\scenario_wizard.cpython-314.pyc`: 74354 bytes
+- `tests\__pycache__\test_excel_toolbar_responsive.cpython-313-pytest-9.0.1.pyc`: 72433 bytes
+- `tests\__pycache__\test_runner_logic.cpython-313-pytest-9.0.1.pyc`: 69336 bytes
+- `app\core\__pycache__\scenario_wizard.cpython-313.pyc`: 64987 bytes
 - `app\core\scenario_wizard.py`: 46841 bytes
-- `tests\__pycache__\test_ui_orchestration_integration.cpython-313-pytest-9.0.1.pyc`: 45149 bytes
-- `app\core\__pycache__\recorder.cpython-314.pyc`: 43460 bytes
-- `app\core\__pycache__\recorder.cpython-313.pyc`: 39274 bytes
-- `tests\__pycache__\test_git_hook_guards.cpython-313-pytest-9.0.1.pyc`: 37999 bytes
-- `tests\__pycache__\test_scheduler_core.cpython-313-pytest-9.0.1.pyc`: 37532 bytes
-- `tests\__pycache__\test_matcher_quality.cpython-313-pytest-9.0.1.pyc`: 37269 bytes
-- `tests\__pycache__\test_image_dialog_presets.cpython-313-pytest-9.0.1.pyc`: 35075 bytes
-- `tests\__pycache__\test_conditional_wizard_generation.cpython-313-pytest-9.0.1.pyc`: 34572 bytes
-- `tests\__pycache__\test_data_orchestration_v2.cpython-313-pytest-9.0.1.pyc`: 33095 bytes
-- `tests\__pycache__\test_coordinate_overlay_mapping.cpython-313-pytest-9.0.1.pyc`: 29123 bytes
-- `tests\__pycache__\test_e2e_runtime_orchestration.cpython-313-pytest-9.0.1.pyc`: 28643 bytes
+- `tests\__pycache__\test_ui_orchestration_integration.cpython-313-pytest-9.0.1.pyc`: 45178 bytes
+- `app\core\__pycache__\recorder.cpython-314.pyc`: 43489 bytes
+- `app\core\__pycache__\recorder.cpython-313.pyc`: 39303 bytes
+- `tests\__pycache__\test_git_hook_guards.cpython-313-pytest-9.0.1.pyc`: 39015 bytes
+- `tests\__pycache__\test_scheduler_core.cpython-313-pytest-9.0.1.pyc`: 37561 bytes
+- `tests\__pycache__\test_matcher_quality.cpython-313-pytest-9.0.1.pyc`: 37298 bytes
+- `tests\__pycache__\test_image_dialog_presets.cpython-313-pytest-9.0.1.pyc`: 35104 bytes
+- `tests\__pycache__\test_conditional_wizard_generation.cpython-313-pytest-9.0.1.pyc`: 34601 bytes
+- `tests\__pycache__\test_data_orchestration_v2.cpython-313-pytest-9.0.1.pyc`: 33124 bytes
+- `tests\__pycache__\test_coordinate_overlay_mapping.cpython-313-pytest-9.0.1.pyc`: 29152 bytes
+- `tests\__pycache__\test_e2e_runtime_orchestration.cpython-313-pytest-9.0.1.pyc`: 28672 bytes
 - `app\core\recorder.py`: 27070 bytes
-- `tests\__pycache__\test_multi_role_ai.cpython-313-pytest-9.0.1.pyc`: 26555 bytes
+- `tests\__pycache__\test_multi_role_ai.cpython-313-pytest-9.0.1.pyc`: 26584 bytes
