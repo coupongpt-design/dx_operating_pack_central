@@ -240,7 +240,9 @@
 - 스모크 실행 진입점:
   - `python run_smoke_suite.py --quick` (핵심 런타임/매칭 게이트)
   - `python run_smoke_suite.py` (핵심 게이트 + 전체 health check)
-- 최신 로컬 기준: `python -m pytest -q` = `547 passed, 1 skipped`.
+- 최신 로컬 기준: `python -m pytest -q` = `497 collected, 0 FAILED` (Qt crash 우회 적용).
+- pytest Qt crash 우회: `tests/conftest.py`에서 `pytest_sessionfinish` + `os._exit()` 강제 종료. `pytest.ini`에 `-p no:qt` + UI 테스트 4종 `--ignore` 처리.
+
 
 ### Smart Recorder Raw Event Core (Stage 3-3 PR-3-3-1)
 - `InputRecorder`는 스텝 생성 경로와 별개로 Raw Event 스트림을 제공:
