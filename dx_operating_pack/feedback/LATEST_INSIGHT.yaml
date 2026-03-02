@@ -1,12 +1,12 @@
 schema_version: 1
-generated_at: "2026-03-03T02:41:32"
+generated_at: "2026-03-03T03:25:35"
 title: "Post Task Gate Harvest"
 source:
   mode: "staged"
   base: "HEAD~1"
   head: "HEAD"
 stats:
-  changed_files_count: 3
+  changed_files_count: 0
   reusable_changes_count: 0
   added_lessons_count: 0
   ai_decisions_count: 0
@@ -14,9 +14,7 @@ stats:
   ai_warnings_count: 0
   ai_sources_count: 0
 changed_files:
-  - "dx_operating_pack/tests/test_post_task_gate.py"
-  - "dx_operating_pack/tools/post_task_gate.py"
-  - "tests/test_post_task_gate.py"
+
 reusable_changes:
 
 added_lessons:
