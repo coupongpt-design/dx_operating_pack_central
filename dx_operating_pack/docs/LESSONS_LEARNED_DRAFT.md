@@ -153,3 +153,52 @@
 ### Human Review Notes
 - [ ] 실제 실패 원인 요약
 - [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-03-02T16:39:30
+- changed_files: 5
+  - `DEV_LOG.md`
+  - `PROJECT_STATUS.md`
+  - `now_spec.md`
+  - `pytest.ini`
+  - `tests/conftest.py`
+
+### Suggested Lessons
+- 변경 범위 기반으로 핵심 회귀 포인트를 수동 추가하세요.
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-03-03T00:37:53
+- changed_files: 9
+  - `.github/workflows/ci.yml`
+  - `dx_operating_pack/tools/git_hook_guards.py`
+  - `dx_operating_pack/tools/task_finish.py`
+  - `dx_operating_pack/tools/test_selector.py`
+  - `tests/test_git_hook_guards.py`
+  - `tests/test_project_audit.py`
+  - `tests/test_task_finish.py`
+  - `tests/test_test_selector.py`
+  - `tools/project_audit.py`
+
+### Suggested Lessons
+- 변경 범위 기반으로 핵심 회귀 포인트를 수동 추가하세요.
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-03-03T00:51:36
+- changed_files: 2
+  - `dx_operating_pack/docs/LESSONS_LEARNED_DRAFT.md`
+  - `dx_operating_pack/feedback/LATEST_INSIGHT.yaml`
+
+### Suggested Lessons
+- 변경 범위 기반으로 핵심 회귀 포인트를 수동 추가하세요.
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부
