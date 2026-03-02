@@ -16,6 +16,13 @@ def test_parse_targeted_manual_command() -> None:
     assert cmd == "python -m pytest -q tests/test_x.py"
 
 
+def test_parse_targeted_ignores_skip_harvest_option() -> None:
+    cmd = parse_targeted(
+        ["--targeted", "python", "-m", "pytest", "-q", "tests/test_x.py", "--skip-harvest"]
+    )
+    assert cmd == "python -m pytest -q tests/test_x.py"
+
+
 def test_has_app_code_changes_detects_python_paths() -> None:
     class _Entry:
         def __init__(self, *paths: str) -> None:
@@ -27,8 +34,9 @@ def test_has_app_code_changes_detects_python_paths() -> None:
 
 def test_run_gate_auto_fails_when_app_changed_but_no_tests(monkeypatch, tmp_path: Path) -> None:
     import tools.post_task_gate as gate
+    ctx = run_gate.__globals__
 
-    monkeypatch.setattr(gate, "GATE_FILE", tmp_path / "gate.json")
+    monkeypatch.setitem(ctx, "GATE_FILE", tmp_path / "gate.json")
 
     def fake_git(*args: str) -> str:
         if args == ("diff", "--cached", "--name-status"):
@@ -37,21 +45,21 @@ def test_run_gate_auto_fails_when_app_changed_but_no_tests(monkeypatch, tmp_path
             return "abc123\n"
         raise AssertionError(f"unexpected git args: {args}")
 
-    monkeypatch.setattr(gate, "_git", fake_git)
-    monkeypatch.setattr(gate, "select_tests", lambda paths: [])
-    monkeypatch.setattr(gate, "filter_existing_tests", lambda tests: [])
-    monkeypatch.setattr(gate, "_run_shell", lambda command: (0, "1 passed in 0.01s"))
+    monkeypatch.setitem(ctx, "_git", fake_git)
+    monkeypatch.setitem(ctx, "select_tests", lambda paths: [])
+    monkeypatch.setitem(ctx, "filter_existing_tests", lambda tests: [])
+    monkeypatch.setitem(ctx, "_run_shell", lambda command: (0, "1 passed in 0.01s"))
 
     rc = run_gate("auto")
     assert rc == 1
-    assert not gate.GATE_FILE.exists()
+    assert not ctx["GATE_FILE"].exists()
 
 
 def test_run_gate_writes_timestamp_and_ttl(monkeypatch, tmp_path: Path) -> None:
     import json
     import tools.post_task_gate as gate
-
-    monkeypatch.setattr(gate, "GATE_FILE", tmp_path / "gate.json")
+    ctx = run_gate.__globals__
+    monkeypatch.setitem(ctx, "GATE_FILE", tmp_path / "gate.json")
 
     def fake_git(*args: str) -> str:
         if args == ("diff", "--cached", "--name-status"):
@@ -60,14 +68,14 @@ def test_run_gate_writes_timestamp_and_ttl(monkeypatch, tmp_path: Path) -> None:
             return "abc123\n"
         raise AssertionError(f"unexpected git args: {args}")
 
-    monkeypatch.setattr(gate, "_git", fake_git)
-    monkeypatch.setattr(gate, "select_tests", lambda paths: ["tests/test_task_finish.py"])
-    monkeypatch.setattr(gate, "filter_existing_tests", lambda tests: list(tests))
-    monkeypatch.setattr(gate, "build_pytest_command", lambda tests: "python -m pytest -q tests/test_task_finish.py")
-    monkeypatch.setattr(gate, "_run_shell", lambda command: (0, "3 passed in 0.02s"))
+    monkeypatch.setitem(ctx, "_git", fake_git)
+    monkeypatch.setitem(ctx, "select_tests", lambda paths: ["tests/test_task_finish.py"])
+    monkeypatch.setitem(ctx, "filter_existing_tests", lambda tests: list(tests))
+    monkeypatch.setitem(ctx, "build_pytest_command", lambda tests: "python -m pytest -q tests/test_task_finish.py")
+    monkeypatch.setitem(ctx, "_run_shell", lambda command: (0, "3 passed in 0.02s"))
 
     rc = run_gate("auto")
     assert rc == 0
-    record = json.loads(gate.GATE_FILE.read_text(encoding="utf-8"))
+    record = json.loads(ctx["GATE_FILE"].read_text(encoding="utf-8"))
     assert "timestamp" in record
     assert record.get("ttl_sec") == 1800

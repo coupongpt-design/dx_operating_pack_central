@@ -17,6 +17,13 @@ def test_parse_targeted_manual_command() -> None:
     assert cmd == "python -m pytest -q tests/test_x.py"
 
 
+def test_parse_targeted_ignores_skip_harvest_option() -> None:
+    cmd = parse_targeted(
+        ["--targeted", "python", "-m", "pytest", "-q", "tests/test_x.py", "--skip-harvest"]
+    )
+    assert cmd == "python -m pytest -q tests/test_x.py"
+
+
 def test_parse_harvest_feedback_default_true() -> None:
     assert parse_harvest_feedback(["--targeted", "auto"]) is True
     assert parse_harvest_feedback(["--targeted", "auto", "--skip-harvest"]) is False

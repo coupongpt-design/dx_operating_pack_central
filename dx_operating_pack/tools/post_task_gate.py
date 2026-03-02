@@ -25,6 +25,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution fallba
 GATE_FILE = Path(".git") / "post_task_gate.json"
 GATE_TTL_SEC = 30 * 60
 RUNTIME_LOG_DIRS = (Path("logs"), Path("dx_operating_pack/logs"))
+GATE_ONLY_OPTIONS = {"--skip-harvest"}
 
 
 def _git(*args: str) -> str:
@@ -258,7 +259,10 @@ def parse_targeted(argv: Sequence[str] | None = None) -> str:
         raise ValueError(
             "missing --targeted. usage: python tools/post_task_gate.py --targeted python -m pytest -q tests/..."
         ) from exc
-    tokens = items[idx + 1 :]
+    raw_tokens = items[idx + 1 :]
+    if not raw_tokens:
+        raise ValueError("empty targeted command after --targeted")
+    tokens = [tok for tok in raw_tokens if tok not in GATE_ONLY_OPTIONS]
     if not tokens:
         raise ValueError("empty targeted command after --targeted")
     if len(tokens) == 1 and tokens[0].lower() == "auto":
