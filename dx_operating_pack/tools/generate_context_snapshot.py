@@ -8,11 +8,12 @@ from typing import Iterable
 
 
 DEFAULT_DIRS = ("app/core", "app/ui", "tools", "tests")
+CANONICAL_DOCS_DIR = "dx_operating_pack/docs_for_ai"
 SCOPE_DIRS: dict[str, tuple[str, ...]] = {
     "all": DEFAULT_DIRS,
     "core": ("app/core", "tests"),
     "ui": ("app/ui", "app", "tests"),
-    "dx": ("tools", ".githooks", ".github", "docs", "docs_for_ai", "prompt_recipes"),
+    "dx": ("tools", ".githooks", ".github", "docs", CANONICAL_DOCS_DIR, "prompt_recipes"),
 }
 
 
@@ -91,7 +92,7 @@ def main() -> int:
     parser.add_argument("--root", default=".", help="Project root path.")
     parser.add_argument(
         "--out",
-        default="docs_for_ai/CONTEXT_SNAPSHOT.md",
+        default=f"{CANONICAL_DOCS_DIR}/CONTEXT_SNAPSHOT.md",
         help="Output markdown path.",
     )
     parser.add_argument(

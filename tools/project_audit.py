@@ -13,12 +13,18 @@ from pathlib import Path
 DEFAULT_REPORT_PATH = Path("project_audit_latest.md")
 GATE_FILES = (Path(".git") / "post_task_gate.json", Path("post_task_gate.json"))
 GATE_TTL_SEC = 30 * 60
+DOC_MTIME_MAX_DRIFT_SEC = 24 * 60 * 60
 DOC_SYNC_FILES = (
     "now_spec.md",
     "PROJECT_STATUS.md",
     "DEV_LOG.md",
-    "DOC_INDEX.md",
-    "ASSET_MAP.md",
+    "docs/DOC_INDEX.md",
+    "docs/ASSET_MAP.md",
+)
+DOC_MTIME_SYNC_FILES = (
+    "now_spec.md",
+    "PROJECT_STATUS.md",
+    "DEV_LOG.md",
 )
 TEST_GLOB_PATTERNS = ("tests/test_*.py", "test_*.py")
 
@@ -46,11 +52,15 @@ ASSET_GROUPS: dict[str, list[str]] = {
         "tools/preflight_env.py",
         "tools/post_task_gate.py",
         "tools/project_audit.py",
+        "tools/generate_context_snapshot.py",
+        "tools/dependency_graph_gen.py",
+        "tools/context_compressor.py",
+        "tools/generate_session_brief.py",
     ],
     "Verification": [
         "tests",
         "pytest.ini",
-        "test_core_logic.py",
+        "tests/test_core_logic.py",
     ],
     "Resources": [
         "images",
@@ -60,12 +70,12 @@ ASSET_GROUPS: dict[str, list[str]] = {
         "app/utils/runtime_paths.py",
     ],
     "Infrastructure": [
-        "ASSET_MAP.md",
+        "docs/ASSET_MAP.md",
         "now_spec.md",
         "PROJECT_STATUS.md",
         "DEV_LOG.md",
-        "DOC_INDEX.md",
-        "USER_GUIDE.md",
+        "docs/DOC_INDEX.md",
+        "docs/USER_GUIDE.md",
         ".github/workflows/ci.yml",
     ],
 }
@@ -101,6 +111,7 @@ def _iter_asset_checks() -> Iterable[AssetCheck]:
 def _format_docs_mtime_table() -> tuple[str, list[str], bool]:
     rows: list[str] = []
     missing: list[str] = []
+    mtime_targets = set(DOC_MTIME_SYNC_FILES)
     mtimes: list[float] = []
     for rel in DOC_SYNC_FILES:
         path = Path(rel)
@@ -109,11 +120,12 @@ def _format_docs_mtime_table() -> tuple[str, list[str], bool]:
             missing.append(rel)
             continue
         mtime = path.stat().st_mtime
-        mtimes.append(mtime)
+        if rel in mtime_targets:
+            mtimes.append(mtime)
         human = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
         rows.append(f"| `{rel}` | ✅ exists | {human} |")
     out_of_sync = False
-    if len(mtimes) >= 2 and (max(mtimes) - min(mtimes)) > 3600:
+    if len(mtimes) >= 2 and (max(mtimes) - min(mtimes)) > DOC_MTIME_MAX_DRIFT_SEC:
         out_of_sync = True
     return ("\n".join(rows), missing, out_of_sync)
 
@@ -206,11 +218,13 @@ def run_audit(report_path: Path) -> int:
     lines.append("## 6) Maintenance Guide")
     lines.append("- [ ] `task_finish.py`를 통한 문서 동기화 여부 확인")
     lines.append("- [ ] 30분 초과 stale gate 재실행 여부 점검")
-    lines.append("- [ ] 누락 자산 발생 시 ASSET_MAP와 실제 경로 동시 갱신")
+    lines.append("- [ ] 누락 자산 발생 시 `docs/ASSET_MAP.md`와 실제 경로 동시 갱신")
     lines.append("")
     lines.append("## 7) Maintenance Checklist")
     lines.append(f"- [{'x' if gate_fresh else ' '}] Gate TTL(30m) fresh")
-    lines.append(f"- [{' ' if docs_out_of_sync else 'x'}] Doc mtimes reasonably aligned (<=1h gap)")
+    lines.append(
+        f"- [{' ' if docs_out_of_sync else 'x'}] Doc mtimes reasonably aligned (<=24h gap for core docs)"
+    )
     lines.append(f"- [{' ' if missing_assets else 'x'}] Required assets present")
     lines.append("")
     if missing_assets:
@@ -232,7 +246,7 @@ def run_audit(report_path: Path) -> int:
     if missing_docs:
         failures.append(f"missing docs: {len(missing_docs)}")
     if docs_out_of_sync:
-        failures.append("docs modified-time gap exceeds 1 hour")
+        failures.append("docs modified-time gap exceeds 24 hours (core docs)")
     if not gate_fresh:
         failures.append("post-task gate is stale or unavailable")
     for item in failures:

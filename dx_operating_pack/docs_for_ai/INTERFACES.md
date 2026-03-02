@@ -26,3 +26,10 @@
 - `tools/check_ai_security.py`
   - 저장소 스캔 후 잠재 비밀정보 탐지
 
+## Catch-Up
+- `tools/generate_context_snapshot.py`
+  - 도메인(scope)별 스냅샷 문서 생성
+
+- `tools/generate_session_brief.py`
+  - 최신 커밋/게이트/스냅샷 신선도를 1페이지로 요약
+

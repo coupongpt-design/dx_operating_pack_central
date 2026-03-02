@@ -5,9 +5,10 @@
 
 ## 사용 예시
 ```bat
-python tools/generate_context_snapshot.py --scope core --out docs_for_ai/CONTEXT_CORE.md
-python tools/generate_context_snapshot.py --scope ui --out docs_for_ai/CONTEXT_UI.md
-python tools/generate_context_snapshot.py --scope dx --out docs_for_ai/CONTEXT_DX.md
+python tools/generate_context_snapshot.py --scope core --out dx_operating_pack/docs_for_ai/CONTEXT_CORE.md
+python tools/generate_context_snapshot.py --scope ui --out dx_operating_pack/docs_for_ai/CONTEXT_UI.md
+python tools/generate_context_snapshot.py --scope dx --out dx_operating_pack/docs_for_ai/CONTEXT_DX.md
+python tools/generate_session_brief.py --out dx_operating_pack/docs_for_ai/SESSION_BRIEF.md
 ```
 
 ## 권장 시나리오

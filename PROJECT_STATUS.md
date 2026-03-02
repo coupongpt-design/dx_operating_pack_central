@@ -70,20 +70,20 @@
     - `dx_operating_pack/feedback/README.md`, `dx_operating_pack/feedback/inbox/.gitkeep`, `dx_operating_pack/feedback/outbox/.gitkeep`
     - `dx_operating_pack/README.md`, `dx_operating_pack/INSTALL_IN_NEW_PROJECT.md`, `dx_operating_pack/AGENT_ONBOARDING.md`, `dx_operating_pack/MANIFEST*.md` 갱신
 - 거버넌스 전수(6대 영역) 확장:
-  - `ASSET_MAP.md`를 Product/Rule Guard/DX Tools/Verification/Resources/Infrastructure 기준으로 재정리.
+- `docs/ASSET_MAP.md`를 Product/Rule Guard/DX Tools/Verification/Resources/Infrastructure 기준으로 재정리.
   - `tools/project_audit.py`가 테스트 자산 수량/리소스 스냅샷/자산 매트릭스를 포함한 전수 감사 리포트를 생성하도록 확장.
   - `tools/task_finish.py`에 문서 3종 mtime 드리프트(5분) 경고를 추가하고, 종료 안내 문구를 감사 실행 가이드(한국어)로 통일.
 - 거버넌스 자동화/자산 관리 체계 고도화:
-  - 루트 `ASSET_MAP.md` 신설(코드/규칙/도구/문서/CI 자산 지도).
+  - `docs/ASSET_MAP.md` 신설(코드/규칙/도구/문서/CI 자산 지도).
   - `tools/project_audit.py` 신설:
     - 자산 무결성 검사
     - 게이트 TTL 신선도(30분) 점검
     - 문서 수정시간 불일치 점검
     - `project_audit_latest.md` 리포트 생성
   - `tools/task_finish.py` 보강:
-    - 문서 부분 수정 시 `--confirm-doc-sync` 확인 절차 추가
-    - 성공 시 감사 실행 가이드 출력
-    - 옵션 `--run-audit`로 감사 자동 실행 지원
+    - 문서 부분 수정 시 즉시 차단(우회 옵션 제거)
+    - 문서 3종 mtime 드리프트 5분 초과 시 차단
+    - 게이트 통과 직후 감사(`python tools/project_audit.py`) 자동 실행
   - `DEV_LOG.md` 상단 운영 지침에 task start/finish/audit 표준 루프 명시.
 - Stage 4 PR-4-1 반영:
   - `app/core/exceptions.py` 신규 추가(`MacroBaseError`, `ExecutionError`, `ResourceError`, `ActionError`, `TargetWindowError`).

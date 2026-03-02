@@ -16,6 +16,10 @@ TOOL_FILES = (
     "install_git_hooks.py",
     "run_multi_role_ai.py",
     "check_tool_integrity.py",
+    "generate_context_snapshot.py",
+    "dependency_graph_gen.py",
+    "context_compressor.py",
+    "generate_session_brief.py",
 )
 
 

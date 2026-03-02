@@ -494,17 +494,17 @@
 
 ## Governance Automation / Asset Management (Session 102)
 - Root asset map:
-  - `ASSET_MAP.md` is the governance inventory source for Product/Rule/DX/Docs/CI layers.
+  - `docs/ASSET_MAP.md` is the governance inventory source for Product/Rule/DX/Docs/CI layers.
 - Project audit tool:
   - `tools/project_audit.py` generates `project_audit_latest.md`.
   - Audit covers:
     - asset existence integrity
     - gate freshness TTL (30m, `.git/post_task_gate.json`)
-    - docs mtime alignment (`now_spec.md`, `PROJECT_STATUS.md`, `DEV_LOG.md`, `DOC_INDEX.md`, `ASSET_MAP.md`)
+    - docs mtime alignment (`now_spec.md`, `PROJECT_STATUS.md`, `DEV_LOG.md`, `docs/DOC_INDEX.md`, `docs/ASSET_MAP.md`)
 - Task finish hardening:
-  - `tools/task_finish.py` requires doc-sync confirmation when only 일부 기준 문서가 수정된 경우.
-  - `--confirm-doc-sync` 플래그로 의도된 부분 수정 여부를 명시적으로 확인.
-  - 성공 시 `python tools/project_audit.py` 실행 가이드를 출력하고, `--run-audit`로 즉시 실행 가능.
+  - `tools/task_finish.py` blocks partial update of the core docs trio (`PROJECT_STATUS.md`, `now_spec.md`, `DEV_LOG.md`).
+  - `tools/task_finish.py` blocks docs modified-time drift over 5 minutes.
+  - `tools/task_finish.py` always runs `python tools/project_audit.py` after gate success.
 # now_spec (Current Behavior Snapshot)
 
 ## UI Modernization - Stage 3-5 PR-3-5-2
@@ -547,16 +547,15 @@
   - `post_task_gate.json` includes runtime self-healing summary (`retry_count`, `recovery_status`, `recovery_log`).
 
 ## Governance Master Audit (Ultimate Executor 반영)
-- `ASSET_MAP.md`는 6대 영역( Product / Rule Guard / DX Tools / Verification / Resources / Infrastructure ) 기준의 마스터 자산 지도로 운영.
+- `docs/ASSET_MAP.md`는 6대 영역( Product / Rule Guard / DX Tools / Verification / Resources / Infrastructure ) 기준의 마스터 자산 지도로 운영.
 - `tools/project_audit.py`는 아래 항목을 한 번에 점검:
   - Verification Health(테스트 파일 수, gate 존재 상태)
   - Asset Integrity Matrix(6대 영역별 경로 존재 여부)
   - Gate Freshness(TTL 30분)
   - Resource Snapshot(images/logs 개수)
   - Docs Sync Health + Maintenance Guide
-- `tools/task_finish.py`는 문서 3종(`PROJECT_STATUS.md`, `now_spec.md`, `DEV_LOG.md`) 수정시간 격차가 5분을 초과하면 경고를 출력.
-- `tools/task_finish.py` 성공 메시지에는 감사 실행 안내가 고정됨:
-  - `현재 프로젝트 자산 상태를 확인하려면 python tools/project_audit.py를 실행하세요`
+- `tools/task_finish.py`는 문서 3종(`PROJECT_STATUS.md`, `now_spec.md`, `DEV_LOG.md`) 수정시간 격차가 5분을 초과하면 실패로 차단.
+- `tools/task_finish.py`는 게이트 성공 시 `python tools/project_audit.py`를 항상 실행한다.
 
 ## DX Feedback Loop (Knowledge Harvesting / Upstream Sync)
 - `dx_operating_pack/tools/capture_lesson_draft.py`

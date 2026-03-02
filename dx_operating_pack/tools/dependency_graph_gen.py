@@ -63,7 +63,11 @@ def generate(root: Path, out: Path, dot_out: Path | None) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate local module dependency graph.")
     parser.add_argument("--root", default=".", help="Project root.")
-    parser.add_argument("--out", default="docs_for_ai/DEPENDENCY_GRAPH.md", help="Markdown output path.")
+    parser.add_argument(
+        "--out",
+        default="dx_operating_pack/docs_for_ai/DEPENDENCY_GRAPH.md",
+        help="Markdown output path.",
+    )
     parser.add_argument("--dot-out", default="", help="Optional Graphviz DOT output path.")
     args = parser.parse_args()
 

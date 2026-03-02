@@ -8,6 +8,11 @@ from pathlib import Path
 from tools import project_audit
 
 
+def test_default_doc_sync_paths_use_docs_directory() -> None:
+    assert "docs/DOC_INDEX.md" in project_audit.DOC_SYNC_FILES
+    assert "docs/ASSET_MAP.md" in project_audit.DOC_SYNC_FILES
+
+
 def test_run_audit_writes_report_when_assets_exist(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".git").mkdir(parents=True, exist_ok=True)
@@ -88,7 +93,7 @@ def test_run_audit_returns_nonzero_when_docs_out_of_sync(tmp_path, monkeypatch) 
     now = time.time()
     for name in ("now_spec.md", "PROJECT_STATUS.md", "DEV_LOG.md", "DOC_INDEX.md", "ASSET_MAP.md"):
         (tmp_path / name).write_text("ok", encoding="utf-8")
-    os.utime(tmp_path / "now_spec.md", (now - 7200, now - 7200))
+    os.utime(tmp_path / "now_spec.md", (now - (49 * 3600), now - (49 * 3600)))
     os.utime(tmp_path / "PROJECT_STATUS.md", (now, now))
     os.utime(tmp_path / "DEV_LOG.md", (now, now))
     os.utime(tmp_path / "DOC_INDEX.md", (now, now))

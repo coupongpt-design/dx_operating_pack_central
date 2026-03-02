@@ -17,6 +17,7 @@ SNAPSHOT_FILES = (
     Path("dx_operating_pack/docs_for_ai/CONTEXT_CORE.md"),
     Path("dx_operating_pack/docs_for_ai/CONTEXT_UI.md"),
     Path("dx_operating_pack/docs_for_ai/CONTEXT_SNAPSHOT.md"),
+    Path("dx_operating_pack/docs_for_ai/SESSION_BRIEF.md"),
 )
 SNAPSHOT_MAX_AGE_SEC = 24 * 60 * 60  # 24 hours
 
@@ -45,6 +46,13 @@ def _warn_stale_snapshots() -> None:
     now = time.time()
     for snap in SNAPSHOT_FILES:
         if not snap.exists():
+            print(
+                f"[snapshot-warn] {snap.name} is missing. "
+                "Generate canonical AI docs with: "
+                "python tools/generate_context_snapshot.py --scope all --out "
+                "dx_operating_pack/docs_for_ai/CONTEXT_SNAPSHOT.md "
+                "&& python tools/generate_session_brief.py"
+            )
             continue
         age = now - snap.stat().st_mtime
         if age > SNAPSHOT_MAX_AGE_SEC:
@@ -52,7 +60,9 @@ def _warn_stale_snapshots() -> None:
             print(
                 f"[snapshot-warn] {snap.name} is {hours}h old "
                 f"(threshold={SNAPSHOT_MAX_AGE_SEC // 3600}h). "
-                "Consider regenerating: python tools/generate_context_snapshot.py --scope core"
+                "Consider regenerating: "
+                "python tools/generate_context_snapshot.py --scope core --out "
+                "dx_operating_pack/docs_for_ai/CONTEXT_CORE.md"
             )
 
 
