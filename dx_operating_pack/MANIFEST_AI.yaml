@@ -1,0 +1,108 @@
+version: 1
+description: AI-oriented manifest with usage guidance per file/module.
+
+entries:
+  - path: tools/task_start_guard.py
+    purpose: Start-of-task cleanliness gate
+    when_to_use: Before any code edit
+    must_follow: Block work if index/worktree is not clean
+    related_tests:
+      - tests/test_task_start_guard.py
+
+  - path: tools/task_finish.py
+    purpose: Single-command finish pipeline
+    when_to_use: After implementation, before commit
+    must_follow: Run targeted tests first; full suite on risk; use `--auto-push` when feedback should be shipped immediately
+    related_tests:
+      - tests/test_task_finish.py
+      - tests/test_post_task_gate.py
+
+  - path: tools/test_selector.py
+    purpose: Auto-select targeted tests from changed files
+    when_to_use: Every task finish
+    must_follow: app/ changed but selected tests=0 => fail
+    related_tests:
+      - tests/test_test_selector.py
+
+  - path: tools/check_ai_security.py
+    purpose: Secret leak scan for generated code
+    when_to_use: Before push/release
+    must_follow: No hardcoded secrets committed
+
+  - path: tools/capture_lesson_draft.py
+    purpose: Harvest task insight and append lesson draft
+    when_to_use: After gate pass (or standalone review)
+    must_follow: Generate `feedback/LATEST_INSIGHT.yaml` for reusable/pattern feedback handoff
+
+  - path: tools/push_dx_feedback.py
+    purpose: Package and publish feedback bundle to central DX repo inbox
+    when_to_use: After meaningful task completion
+    must_follow: Keep local outbox bundle first; push only with explicit `--push`
+
+  - path: tools/promote_dx_feedback.py
+    purpose: Promote inbox feedback bundles into reusable/docs and archive processed bundles
+    when_to_use: In central DX repository maintenance cycle
+    must_follow: Run dry-run first, then `--apply` after review
+
+  - path: tools/check_tool_integrity.py
+    purpose: Validate root tools delegation/sync against dx_operating_pack/tools
+    when_to_use: After setup/sync and before governance debugging
+    must_follow: Wrapper delegation or exact copy must be preserved; mismatch without delegation is a governance warning
+    related_tests:
+      - tests/test_check_tool_integrity.py
+
+  - path: tools/transplant_full_system.py
+    purpose: Copy full DX operating assets to another existing project
+    when_to_use: When same governance/tooling UX must be transplanted with minimal omission risk
+    must_follow: Keep default normalization enabled (governance test bridges + state-doc bootstrap + rules/AGENTS bridge + doctor checks) and use --overwrite for deterministic replacement
+
+  - path: reusable/core/template_processor.py
+    purpose: Placeholder replacement core
+    when_to_use: Any text/data binding feature
+    must_follow: Never bypass this with raw unresolved placeholders
+    related_tests:
+      - tests/test_template_processor.py
+
+  - path: reusable/core/input_lock.py
+    purpose: Global input serialization for multi-worker runs
+    when_to_use: Keyboard/mouse actions in concurrent execution
+    must_follow: Physical input paths must acquire/release lock safely
+    related_tests:
+      - tests/test_input_lock_runner.py
+
+  - path: reusable/core/data_orchestration.py
+    purpose: JobQueueManager/Retry/Aggregator orchestration
+    when_to_use: Data-driven multi-session automation
+    must_follow: Preserve inflight integrity and delayed retry semantics
+    related_tests:
+      - tests/test_data_orchestration_v2.py
+
+  - path: reusable/core/session_adapter.py
+    purpose: Runner-adapter between orchestrator and session worker
+    when_to_use: Session worker execution path
+    must_follow: stop_event.wait usage; no hard sleep in stop path
+    related_tests:
+      - tests/test_session_adapter_v2.py
+
+  - path: reusable/core/logic_path_simulator.py
+    purpose: Pre-run execution path prediction
+    when_to_use: Validate complex branch/loop flows before run
+    must_follow: Evaluate with same condition logic as runtime evaluator
+    related_tests:
+      - tests/test_logic_path_simulator.py
+
+  - path: reusable/ui/overlay.py
+    purpose: Capture/coordinate/recording overlays
+    when_to_use: Visual authoring and runtime guidance UI
+    must_follow: Keep transparent-mouse and cleanup lifecycle stable
+    related_tests:
+      - tests/test_coordinate_overlay_mapping.py
+
+  - path: rules/AGENTS.md
+    purpose: Canonical governance rules
+    when_to_use: Every session
+    must_follow: Precedence and post-task gate are mandatory
+    related_tests:
+      - tests/test_rule_docs_sync.py
+      - tests/test_rule_guard_steps_mutation.py
+

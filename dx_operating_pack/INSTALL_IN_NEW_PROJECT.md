@@ -1,0 +1,142 @@
+# INSTALL_IN_NEW_PROJECT (v2.1)
+
+이 문서는 빈 프로젝트에 DX Operating Pack v2.1을 설치하고, 중앙 레포 기반으로 안정적으로 운영하는 절차를 설명합니다.
+
+## 최종 퀵스타트 명령어
+```bat
+git init && curl -fsSL <RAW_SETUP_DX_URL> -o setup_dx.py && python setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite
+```
+
+```bat
+git init && wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite
+```
+
+## 0) 사전 조건
+- Git 설치 확인: `git --version`
+- 프로젝트 루트에서 Git 초기화: `git init`
+
+주의:
+- `setup_dx.py`, `sync_dx_pack.py`는 시작 시 위 조건을 자동 점검합니다.
+- 미충족 시 가이드 메시지를 출력하고 즉시 종료합니다.
+
+## 1) 빈 프로젝트에서 최초 설치 (Bootstrap)
+설치 스크립트가 아직 없는 상태에서 아래 한 줄로 시작합니다.
+
+```bat
+curl -fsSL <RAW_SETUP_DX_URL> -o setup_dx.py && python setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite
+```
+
+```bat
+wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite
+```
+
+## 2) 중앙 레포 기반 설치/동기화
+최초 설치:
+
+```bat
+python dx_operating_pack\tools\setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite
+```
+
+지속 동기화:
+
+```bat
+python dx_operating_pack\tools\sync_dx_pack.py --remote-url <CENTRAL_REPO_URL_OR_PATH> --project-root . --mode copy --overwrite
+```
+
+## 3) Safe Sync 보호 정책
+`sync_dx_pack.py --overwrite` 실행 시에도 아래 파일은 보호됩니다.
+
+- `DEV_LOG.md`
+- `PROJECT_STATUS.md`
+- `now_spec.md`
+- `**/*.local.*`
+
+보호 로직:
+1. 보호 파일 사전 백업
+2. 업데이트 수행
+3. 보호 파일 자동 복원(`finally`)
+
+추가 백업:
+- 업데이트 직전 팩 전체 백업 생성:
+  - `.dx_cache/backups/pack_<timestamp>/dx_operating_pack`
+
+무결성:
+- v2.1 검증에서 SHA256 해시 비교로 보호 파일 복원 동일성이 확인되었습니다.
+
+## 4) 인증 실패(Private Repo) 대응
+clone/pull 실패 시 점검:
+- SSH: 공개키 등록 후 `git@...` URL 사용
+- HTTPS: PAT + credential manager 설정
+- 접근 테스트: `git ls-remote <repo-url>`
+
+## 5) 운영 가드레일
+1400라인 제한:
+- 단일 커밋 변경량이 과하면 가드가 차단합니다.
+- 대규모 변경은 원자 단위 분할 커밋을 사용하십시오.
+
+필수 태스크 흐름:
+
+```bat
+python tools/task_start_guard.py
+python tools/post_task_gate.py
+```
+
+권장:
+
+```bat
+python tools/check_ai_security.py
+```
+
+## 6) AI Agent 시작 규칙
+에이전트는 작업 시작 즉시 `MANIFEST_AI.yaml`을 읽어야 합니다.
+
+이유:
+- 도구 목적/사용 시점/실행 위치를 즉시 파악
+- 잘못된 도구 선택과 불필요한 탐색 감소
+- 협업 응답 품질 및 속도 향상
+
+## 7) 지식 환류 운영 (선택 권장)
+게이트 통과 후 아래 루프로 인사이트를 중앙 DX Repo에 상신할 수 있습니다.
+
+```bat
+python tools\post_task_gate.py --targeted auto
+python tools\push_dx_feedback.py --base HEAD~1 --head HEAD --remote-url <CENTRAL_REPO_URL> --push
+```
+
+설명:
+- `post_task_gate` 성공 시 `feedback/LATEST_INSIGHT.yaml`와 `LESSONS_LEARNED_DRAFT`가 자동 갱신됩니다.
+- `push_dx_feedback.py`는 `feedback/outbox/`에 번들을 만들고, 원격 URL이 주어지면 `inbox/<project>/`로 반영합니다.
+- 중앙 DX Repo에서는 `python tools/promote_dx_feedback.py --apply`로 inbox 번들을 승격/처리할 수 있습니다.
+
+## 8) 기존 프로젝트에 전부복사 이식 (동일 UX 유지)
+이미 작업 중인 프로젝트에 현재 운영 체계를 거의 그대로 옮기려면 아래 명령을 사용합니다.
+
+```bat
+python tools\transplant_full_system.py --target-root <TARGET_PROJECT_PATH> --overwrite
+```
+
+기본 자동 보정:
+- 루트 거버넌스 테스트 브리지 파일(`tests/test_rule_docs_sync.py` 등) 자동 생성/동기화
+- 상태 문서(`DEV_LOG.md`, `PROJECT_STATUS.md`, `now_spec.md`) 누락 시 템플릿 기반 자동 부트스트랩
+- 규칙 정규화: 루트 `.cursorrules`를 `dx_operating_pack/rules/.cursorrules` 기준으로 정렬
+- 레거시 규칙 파일(`rule.md`, 기존 `.cursorrules`, 기존 `rules/AGENTS.md`)은 `archive/legacy_rules/<timestamp>/`로 이동
+- 경로 호환 브리지 `rules/AGENTS.md` 자동 생성
+- post-transplant doctor로 구조 충돌 자동 점검(훅 참조/필수 파일/규칙 동기화)
+
+옵션:
+- `--dry-run`: 실제 복사 없이 대상 변경 예정 항목만 출력
+- `--include-project-state`: `DEV_LOG.md`, `PROJECT_STATUS.md`, `now_spec.md`까지 같이 이식
+- `--skip-verify`: 이식 후 `check_tool_integrity` 자동 검증 생략
+- `--skip-bootstrap-state`: 상태 문서 자동 부트스트랩 생략
+- `--skip-governance-bridge`: 거버넌스 테스트 브리지 자동 생성 생략
+- `--skip-rule-normalization`: 규칙 정규화/브리지 동기화 생략
+- `--skip-doctor`: post-transplant doctor 점검 생략
+
+이식 후 대상 프로젝트에서 실행:
+
+```bat
+cd <TARGET_PROJECT_PATH>
+python tools\install_git_hooks.py
+python tools\task_start_guard.py
+python tools\check_tool_integrity.py --project-root . --strict
+```

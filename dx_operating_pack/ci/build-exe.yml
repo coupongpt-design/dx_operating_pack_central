@@ -1,0 +1,36 @@
+name: Build EXE
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+      IMAGEMACRO_SKIP_TESSERACT_PROMPT: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+          python -m pip install PyQt5 mss numpy opencv-python pyautogui pyperclip pillow pynput psutil pytesseract pyinstaller
+
+      - name: Build executable
+        shell: pwsh
+        run: |
+          ./tools/build_exe.ps1 -SkipSmoke
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ImageMacro-dist
+          path: dist/ImageMacro/**
