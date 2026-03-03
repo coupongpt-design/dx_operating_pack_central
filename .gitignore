@@ -1,0 +1,25 @@
+# Python cache and test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local virtual environments
+.venv/
+venv/
+env/
+
+# Build outputs
+build/
+dist/
+
+# Runtime/data outputs
+customer_data/
+playwright_profile/
+system_logs/
+scraper.log
+
+# DX local cache
+.dx_cache/
+
+# OS noise
+Thumbs.db
