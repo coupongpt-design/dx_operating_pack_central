@@ -23,3 +23,9 @@ scraper.log
 
 # OS noise
 Thumbs.db
+
+# Local archived/temporary artifacts
+archive/
+backup_before_stability_01/
+targets.xlsm
+temp_test.py
