@@ -1,0 +1,9 @@
+# ui folder local rules (template)
+
+- Scope: app/ui/**
+- Priority: follow root AGENTS.md first, then this local rule.
+- Focus:
+  - keep signal-slot thread safety
+  - avoid blocking UI thread
+  - preserve visible state sync and layout integrity
+
