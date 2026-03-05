@@ -1,65 +1,28 @@
 from __future__ import annotations
 
-import argparse
-import fnmatch
-import subprocess
+import importlib.util
+import runpy
 import sys
-from typing import Iterable
+from pathlib import Path
 
-PATTERNS = (
-    "__pycache__/*",
-    "**/__pycache__/*",
-    "*.pyc",
-    "logs/*.jsonl",
-)
+_TARGET = Path(__file__).resolve().parents[1] / "dk_system" / "tools" / "cleanup_repo_artifacts.py"
 
 
-def _git(*args: str) -> str:
-    return subprocess.check_output(["git", *args], text=True, encoding="utf-8", errors="replace")
-
-
-def _tracked_files() -> list[str]:
-    out = _git("ls-files")
-    return [line.strip().replace("\\", "/") for line in out.splitlines() if line.strip()]
-
-
-def _match(path: str) -> bool:
-    return any(fnmatch.fnmatch(path, pattern) for pattern in PATTERNS)
-
-
-def find_tracked_artifacts() -> list[str]:
-    return [path for path in _tracked_files() if _match(path)]
-
-
-def run_cleanup(apply: bool) -> int:
-    hits = find_tracked_artifacts()
-    if not hits:
-        print("no tracked artifacts found")
-        return 0
-
-    print(f"tracked artifacts: {len(hits)}")
-    for path in hits:
-        print(path)
-
-    if not apply:
-        print("dry-run only. use --apply to run git rm --cached.")
-        return 0
-
-    subprocess.check_call(["git", "rm", "--cached", "--", *hits])
-    print("removed from index (working files kept).")
-    return 0
-
-
-def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Remove tracked build/runtime artifacts from Git index.")
-    parser.add_argument("--apply", action="store_true", help="apply git rm --cached")
-    return parser.parse_args(list(argv) if argv is not None else None)
-
-
-def main(argv: Iterable[str] | None = None) -> int:
-    args = parse_args(argv)
-    return run_cleanup(args.apply)
+def _load_module():
+    spec = importlib.util.spec_from_file_location("dk_tool_cleanup_repo_artifacts", _TARGET)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"failed to load dk tool: {_TARGET}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    runpy.run_path(str(_TARGET), run_name="__main__")
+else:
+    _dk = _load_module()
+    for _k, _v in _dk.__dict__.items():
+        if _k in {"__name__", "__file__", "__package__", "__spec__"}:
+            continue
+        globals()[_k] = _v
