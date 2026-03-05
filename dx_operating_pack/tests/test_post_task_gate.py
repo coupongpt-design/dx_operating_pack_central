@@ -51,7 +51,7 @@ def test_run_gate_auto_fails_when_app_changed_but_no_tests(monkeypatch, tmp_path
     monkeypatch.setitem(ctx, "filter_existing_tests", lambda tests: [])
     monkeypatch.setitem(ctx, "_run_shell", lambda command: (0, "1 passed in 0.01s"))
 
-    rc = run_gate("auto")
+    rc = run_gate("auto", harvest_feedback=False)
     assert rc == 1
     assert not ctx["GATE_FILE"].exists()
 
@@ -75,7 +75,7 @@ def test_run_gate_writes_timestamp_and_ttl(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setitem(ctx, "build_pytest_command", lambda tests: "python -m pytest -q tests/test_task_finish.py")
     monkeypatch.setitem(ctx, "_run_shell", lambda command: (0, "3 passed in 0.02s"))
 
-    rc = run_gate("auto")
+    rc = run_gate("auto", harvest_feedback=False)
     assert rc == 0
     record = json.loads(ctx["GATE_FILE"].read_text(encoding="utf-8"))
     assert "timestamp" in record
@@ -101,7 +101,7 @@ def test_run_gate_initial_commit_mode_sets_empty_head(monkeypatch, tmp_path: Pat
     monkeypatch.setitem(ctx, "build_pytest_command", lambda tests: "python -m pytest -q tests/test_task_finish.py")
     monkeypatch.setitem(ctx, "_run_shell", lambda command: (0, "3 passed in 0.02s"))
 
-    rc = run_gate("auto")
+    rc = run_gate("auto", harvest_feedback=False)
     assert rc == 0
     record = json.loads(ctx["GATE_FILE"].read_text(encoding="utf-8"))
     assert record.get("head") == ""
