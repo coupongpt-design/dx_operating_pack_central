@@ -9,6 +9,11 @@ from config import CONFIG, SELECTORS
 
 
 class GoogleMessagesAuthMixin:
+    def _has_chat_entry_ui(self) -> bool:
+        if self._safe_is_visible(SELECTORS["LOGIN_SUCCESS_INDICATOR"]):
+            return True
+        return any(self._safe_is_visible(sel) for sel in SELECTORS["START_CHAT_BTNS"])
+
     def wait_for_login(self):
         """로그인 대기 및 초기화"""
         if self._is_page_closed():
@@ -58,9 +63,7 @@ class GoogleMessagesAuthMixin:
                 start_scan_wait = time.time()
                 login_success = False
                 while time.time() - start_scan_wait < 300:
-                    if self._safe_is_visible(SELECTORS["LOGIN_SUCCESS_INDICATOR"]) or any(
-                        self._safe_is_visible(sel) for sel in SELECTORS["START_CHAT_BTNS"]
-                    ):
+                    if self._has_chat_entry_ui():
                         login_success = True
                         break
                     time.sleep(1)
@@ -74,9 +77,7 @@ class GoogleMessagesAuthMixin:
                 logging.error(f"[FAIL] QR 스캔 대기 중 에러: {e}")
                 return False
 
-        if self._safe_is_visible(SELECTORS["LOGIN_SUCCESS_INDICATOR"]) or any(
-            self._safe_is_visible(sel) for sel in SELECTORS["START_CHAT_BTNS"]
-        ):
+        if self._has_chat_entry_ui():
             logging.info("[OK] 로그인 감지됨. UI 초기화 대기 중...")
             try:
                 self.page.wait_for_selector(
@@ -84,6 +85,27 @@ class GoogleMessagesAuthMixin:
                 )
             except PlaywrightTimeoutError:
                 logging.debug("시작 채팅 버튼 가시화 대기 타임아웃: 계속 진행합니다.")
+
+            # 로그인 직후 즉시 동작 시 QR 재노출되는 경우를 줄이기 위해
+            # 짧은 안정화 윈도우에서 상태를 연속 확인한다.
+            stable_hits = 0
+            for _ in range(8):
+                if self._safe_is_visible(SELECTORS["QR_CODE_INDICATOR"]):
+                    stable_hits = 0
+                    time.sleep(0.5)
+                    continue
+                if self._has_chat_entry_ui():
+                    stable_hits += 1
+                    if stable_hits >= 3:
+                        break
+                else:
+                    stable_hits = 0
+                time.sleep(0.5)
+
+            if stable_hits < 3:
+                logging.warning("[WARN] 로그인 UI 안정화 확인에 실패했습니다.")
+                return False
+
             logging.info("[START] 브라우저 준비 완료!")
             return True
 
@@ -92,13 +114,17 @@ class GoogleMessagesAuthMixin:
     def is_logged_in(self) -> bool:
         """현재 로그인 상태 여부 확인"""
         try:
+            if self._is_page_closed():
+                return False
+            if "messages.google.com" not in self.page.url:
+                return False
             if self.page.locator(SELECTORS["QR_CODE_INDICATOR"]).is_visible():
                 return False
             if self.page.locator(SELECTORS["LOGIN_SUCCESS_INDICATOR"]).is_visible():
                 return True
-            for sel in SELECTORS["START_CHAT_BTNS"]:
-                if self.page.locator(sel).first.is_visible():
-                    return True
+            # fallback: 시작 채팅 버튼은 보조 지표로만 사용
+            if self.page.locator(SELECTORS["START_CHAT_BTNS"][0]).first.is_visible():
+                return True
         except Exception:
             pass
         return False

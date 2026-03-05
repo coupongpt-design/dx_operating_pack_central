@@ -76,6 +76,105 @@ def _remove_completion_flags(phone=None):
                 logging.warning(f"작업완료.txt 삭제 실패: {entry} ({e})")
     return removed
 
+def _attempt_same_target_recovery(scraper, *, recovery_used, recovery_limit, reason):
+    """로그인 이탈 시 동일 대상 1회 재개 정책을 일관되게 적용."""
+    if scraper.is_logged_in():
+        return recovery_used, False, "still_logged_in"
+    if recovery_used >= recovery_limit:
+        return recovery_used, False, "limit_reached"
+
+    logging.warning(
+        "[SM] %s: 로그인 이탈 감지. 즉시 재로그인 후 동일 대상 재개 (%d/%d)",
+        reason,
+        recovery_used + 1,
+        recovery_limit,
+    )
+    if scraper.wait_for_login():
+        recovery_used += 1
+        logging.info("[SM] 재로그인 성공. 동일 대상 재개를 진행합니다.")
+        return recovery_used, True, "relogin_success"
+    logging.error("[SM] 재로그인 실패. 동일 대상 재개를 중단하고 실패 처리합니다.")
+    return recovery_used, False, "relogin_failed"
+
+def _run_target_job_with_recovery(
+    *,
+    current_scraper,
+    current_page,
+    tracker,
+    logger,
+    name,
+    phone,
+    path,
+    s,
+    e,
+    recovery_limit=1,
+    return_to_home=True,
+):
+    """단일 대상 처리 + 로그인 이탈 복구 상태머신."""
+    start_time = time.time()
+    recovery_used = 0
+
+    while True:
+        try:
+            if current_scraper.enter_chat_room(phone):
+                current_scraper.load_past_messages(s)
+                msg_cnt, img_cnt = current_scraper.process_messages(path, s, e)
+                duration = time.time() - start_time
+                logger.log_execution(name, "Success", duration, msg_cnt, img_cnt)
+
+                tracker.update_job(phone, 'completed', msg_cnt, img_cnt, duration)
+                if return_to_home:
+                    try:
+                        current_page.goto("https://messages.google.com/web/")
+                    except Exception:
+                        pass
+                return "success"
+
+            recovery_used, should_retry, recovery_status = _attempt_same_target_recovery(
+                current_scraper,
+                recovery_used=recovery_used,
+                recovery_limit=recovery_limit,
+                reason="진입 실패",
+            )
+            if should_retry:
+                continue
+
+            duration = time.time() - start_time
+            fail_note = "진입 실패"
+            if recovery_status == "limit_reached":
+                fail_note = "진입 실패(로그인 이탈, 재개 한도 소진)"
+            elif recovery_status == "relogin_failed":
+                fail_note = "진입 실패(로그인 이탈, 재로그인 실패)"
+            logger.log_execution(name, "Fail", duration, note=fail_note)
+            tracker.update_job(phone, 'failed', error=fail_note)
+
+            if return_to_home:
+                try:
+                    current_page.goto("https://messages.google.com/web/")
+                except Exception:
+                    pass
+            return "fail"
+
+        except Exception as exc:
+            error_text = str(exc)
+            login_related = ("로그인" in error_text) or (not current_scraper.is_logged_in())
+            if login_related:
+                recovery_used, should_retry, _ = _attempt_same_target_recovery(
+                    current_scraper,
+                    recovery_used=recovery_used,
+                    recovery_limit=recovery_limit,
+                    reason="예외 후 복구",
+                )
+                if should_retry:
+                    continue
+
+            logging.error(f"[ERROR] 작업 중 오류: {error_text}")
+            logger.log_execution(name, "Error", 0, note=error_text)
+            tracker.update_job(phone, 'failed', error=error_text)
+            if "로그인" in error_text:
+                logging.warning("로그인 오류 감지. 다음 루프에서 재확인합니다.")
+            return "error"
+
 def _confirm_reset():
     confirm = safe_input("정말 초기화하려면 YES를 입력하세요: ")
     if confirm is None:
@@ -312,39 +411,19 @@ def main():
                             login_failed = True
                             break
                     
-                    start_time = time.time()
-                    
-                    try:
-                        if current_scraper.enter_chat_room(phone):
-                            current_scraper.load_past_messages(s)
-                            msg_cnt, img_cnt = current_scraper.process_messages(path, s, e)
-                            duration = time.time() - start_time
-                            logger.log_execution(name, "Success", duration, msg_cnt, img_cnt)
-                            
-                            # 체크포인트: 작업 완료 기록
-                            tracker.update_job(phone, 'completed', msg_cnt, img_cnt, duration)
-                            
-                            # 메인으로 복귀
-                            try: current_page.goto("https://messages.google.com/web/")
-                            except: pass
-                        else:
-                            duration = time.time() - start_time
-                            logger.log_execution(name, "Fail", duration, note="진입 실패")
-                            
-                            # 체크포인트: 실패 기록
-                            tracker.update_job(phone, 'failed', error="진입 실패")
-                            
-                            try: current_page.goto("https://messages.google.com/web/")
-                            except: pass
-                            
-                    except Exception as e:
-                        logging.error(f"[ERROR] 작업 중 오류: {e}")
-                        logger.log_execution(name, "Error", 0, note=str(e))
-                        
-                        # 체크포인트: 에러 기록
-                        tracker.update_job(phone, 'failed', error=str(e))
-                        if "로그인" in str(e):
-                            logging.warning("로그인 오류 감지. 다음 루프에서 재확인합니다.")
+                    _run_target_job_with_recovery(
+                        current_scraper=current_scraper,
+                        current_page=current_page,
+                        tracker=tracker,
+                        logger=logger,
+                        name=name,
+                        phone=phone,
+                        path=path,
+                        s=s,
+                        e=e,
+                        recovery_limit=1,
+                        return_to_home=(idx < len(valid_list) - 1),
+                    )
 
                 if login_failed:
                     print("\n[오류] 로그인 실패로 작업을 중단합니다.")

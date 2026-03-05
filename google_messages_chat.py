@@ -28,6 +28,48 @@ class GoogleMessagesChatMixin:
             logging.debug("채팅방 입력창 가시성 확인 중 예외: %s", exc)
         return url_ok or input_visible
 
+    def _recover_search_input(self, *, allow_navigation: bool):
+        """
+        채팅 검색 입력창 복구.
+
+        재시도 중에는 불필요한 전체 페이지 이동을 피하고,
+        마지막 수단일 때만 conversations/new로 이동한다.
+        """
+        if self._is_page_closed():
+            return None
+
+        input_box = self._find_search_input()
+        if input_box:
+            return input_box
+
+        for sel in SELECTORS["START_CHAT_BTNS"]:
+            if not self._safe_is_visible(sel):
+                continue
+            try:
+                self.page.locator(sel).first.click()
+                self.page.wait_for_timeout(600)
+            except Exception as exc:
+                logging.debug("채팅 시작 버튼 재열기 실패(%s): %s", sel, exc)
+                continue
+            input_box = self._find_search_input()
+            if input_box:
+                return input_box
+
+        if not allow_navigation:
+            return None
+
+        try:
+            self.page.goto("https://messages.google.com/web/conversations/new")
+            self.page.wait_for_timeout(1200)
+        except Exception as exc:
+            logging.debug("conversations/new 이동 복구 실패: %s", exc)
+            return None
+
+        if self._safe_is_visible(SELECTORS["QR_CODE_INDICATOR"]):
+            logging.warning("채팅방 복구 중 QR 화면 감지됨. 로그인 재확인이 필요합니다.")
+            return None
+        return self._find_search_input()
+
     def enter_chat_room(self, phone: str) -> bool:
         """전화번호로 채팅방 진입 (재시도 로직 포함)"""
         try:
@@ -35,30 +77,9 @@ class GoogleMessagesChatMixin:
                 logging.error("페이지가 닫혀 채팅방 진입을 중단합니다.")
                 return False
 
-            clicked = False
-            for sel in SELECTORS["START_CHAT_BTNS"]:
-                if self._safe_is_visible(sel):
-                    try:
-                        self.page.locator(sel).first.click()
-                        clicked = True
-                        break
-                    except Exception as exc:
-                        logging.debug("시작 채팅 버튼 클릭 실패(%s): %s", sel, exc)
-                        continue
-
-            if not clicked:
-                self.page.goto("https://messages.google.com/web/conversations/new")
-
-            try:
-                self.page.wait_for_selector(
-                    "input[role='combobox'], input[type='text']", state="visible", timeout=5000
-                )
-            except PlaywrightTimeoutError:
-                logging.error("❌ 검색 입력창을 찾을 수 없습니다.")
-                return False
-
-            input_box = self._find_search_input()
+            input_box = self._recover_search_input(allow_navigation=True)
             if not input_box:
+                logging.error("❌ 검색 입력창을 찾을 수 없습니다.")
                 return False
 
             for attempt in range(1, 4):
@@ -67,12 +88,28 @@ class GoogleMessagesChatMixin:
                     logging.error("페이지가 닫혀 채팅방 진입을 중단합니다.")
                     return False
 
+                if self._safe_is_visible(SELECTORS["QR_CODE_INDICATOR"]):
+                    logging.warning("재시도 중 QR 화면 감지. 로그인 상태를 재확인합니다.")
+                    wait_for_login = getattr(self, "wait_for_login", None)
+                    if callable(wait_for_login):
+                        if not wait_for_login():
+                            logging.error("재로그인 확인 실패로 채팅방 진입을 중단합니다.")
+                            return False
+                        input_box = self._recover_search_input(allow_navigation=True)
+                        if not input_box:
+                            logging.error("재로그인 후 검색 입력창 복구 실패.")
+                            return False
+                    else:
+                        logging.error("로그인 복구 메서드가 없어 채팅방 진입을 중단합니다.")
+                        return False
+
                 if not input_box or not input_box.is_visible():
-                    input_box = self._find_search_input()
+                    input_box = self._recover_search_input(allow_navigation=False)
+                    if not input_box and attempt == 1:
+                        # 첫 회차에만 강한 복구(전체 이동) 허용
+                        input_box = self._recover_search_input(allow_navigation=True)
                     if not input_box:
-                        logging.warning("검색 입력창 재탐색 실패. 페이지 재시도...")
-                        self.page.goto("https://messages.google.com/web/conversations/new")
-                        self.page.wait_for_timeout(1500)
+                        logging.warning("검색 입력창 재탐색 실패. 현재 화면에서 재시도합니다.")
                         continue
 
                 input_box.fill("")
@@ -80,11 +117,13 @@ class GoogleMessagesChatMixin:
                 input_box.fill(phone)
                 self.page.wait_for_timeout(1500)
 
+                # 안정 버전에서 검증된 순서:
+                # 1차 ArrowDown+Enter -> 2차 Enter -> 3차 좌표 클릭
                 if attempt == 1:
-                    input_box.press("Enter")
-                elif attempt == 2:
                     input_box.press("ArrowDown")
                     self.page.wait_for_timeout(500)
+                    input_box.press("Enter")
+                elif attempt == 2:
                     input_box.press("Enter")
                 elif attempt == 3:
                     try:
@@ -113,17 +152,15 @@ class GoogleMessagesChatMixin:
                     return True
 
                 logging.warning(f"   ⚠️ {attempt}차 진입 실패. 재시도...")
-                self.page.goto("https://messages.google.com/web/conversations/new")
-                self.page.wait_for_timeout(2000)
-
                 try:
-                    self.page.wait_for_selector(
-                        "input[role='combobox'], input[type='text']", state="visible", timeout=5000
-                    )
-                    input_box = self._find_search_input()
+                    # 재시도 전 soft reset: 검색 레이어만 닫고 동일 세션을 유지
+                    input_box.press("Escape")
                 except Exception:
-                    input_box = None
-                    continue
+                    pass
+                self.page.wait_for_timeout(700)
+                input_box = self._recover_search_input(allow_navigation=False)
+                if not input_box and attempt == 1:
+                    input_box = self._recover_search_input(allow_navigation=True)
 
             logging.error(f"❌ {phone} 채팅방 진입 최종 실패.")
             return False

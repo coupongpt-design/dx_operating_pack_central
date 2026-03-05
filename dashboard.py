@@ -126,7 +126,7 @@ def run_dashboard(port=5000):
     setup_websocket_logging()
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
     logging.info(f"🌐 웹 대시보드 실행 중: http://localhost:{port}")
-    socketio.run(app, host='0.0.0.0', port=port, debug=False, use_reloader=False)
+    socketio.run(app, host='0.0.0.0', port=port, debug=False, use_reloader=False, allow_unsafe_werkzeug=True)
 
 def start_dashboard_thread(port=5000):
     """대시보드를 별도 스레드로 시작"""
