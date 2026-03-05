@@ -1,2 +1,2 @@
 #!/bin/sh
-python tools/git_hook_guards.py commit-msg "$1"
+sh dk_system/.githooks/commit-msg "$@"

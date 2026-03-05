@@ -1,2 +1,2 @@
 #!/bin/sh
-python tools/git_hook_guards.py pre-commit
+sh dk_system/.githooks/pre-commit "$@"
