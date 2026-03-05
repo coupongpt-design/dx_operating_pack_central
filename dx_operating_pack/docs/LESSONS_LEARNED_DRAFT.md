@@ -1236,7 +1236,7 @@
   - `.githooks/commit-msg`
   - `.githooks/pre-commit`
   - `.githooks/pre-push`
-  - `MONOREPO_STAGE1_MAP.md`
+  - `docs/project/MONOREPO_STAGE1_MAP.md`
   - `dk_system/.cursorrules`
   - `dk_system/.githooks/commit-msg`
   - `dk_system/.githooks/pre-commit`

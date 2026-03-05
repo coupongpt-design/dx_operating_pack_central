@@ -131,7 +131,7 @@ playwright install chromium
    (이름, 전화번호, 시작일, 종료일)
 
 2. 프로그램 실행
-   python main_refactored.py
+   python -m macro.main_refactored
 
 3. 메뉴에서 "1. 작업 시작" 선택
 
@@ -160,7 +160,7 @@ playwright install chromium
 
 ### 알림 설정 (선택사항)
 
-[config.py](file:///D:/down/매크로/구글메세지다운로드/main/config.py) 파일 수정:
+[macro/config.py](macro/config.py) 파일 수정:
 
 #### 이메일 알림 (Gmail)
 
@@ -168,7 +168,7 @@ playwright install chromium
    - Google 계정 → 보안 → 2단계 인증 활성화
    - 앱 비밀번호 생성
 
-2. config.py 수정:
+2. `macro/config.py` 수정:
 ```python
 CONFIG["NOTIFICATION"] = {
     "enabled": True,  # False → True 변경
@@ -189,7 +189,7 @@ CONFIG["NOTIFICATION"] = {
 1. Slack Webhook URL 생성
    - https://api.slack.com/messaging/webhooks
 
-2. config.py 수정:
+2. `macro/config.py` 수정:
 ```python
 CONFIG["NOTIFICATION"]["slack_webhook"] = "https://hooks.slack.com/services/..."
 ```
@@ -283,7 +283,7 @@ playwright install chromium
 ## 📞 지원
 
 - **이메일**: support@example.com
-- **문서**: [완료 보고서](file:///C:/Users/Admin/.gemini/antigravity/brain/1689ef6e-da04-4bfa-a677-e4aefb6f066c/walkthrough.md)
+- **문서**: [완료 보고서](docs/project/walkthrough.md)
 
 ---
 

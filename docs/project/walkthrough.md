@@ -70,40 +70,40 @@
 
 ### 수정된 파일 (8개)
 
-1. [google_messages.py](file:///D:/down/매크로/구글메세지다운로드/main/google_messages.py)
+1. [google_messages/google_messages.py](../../google_messages/google_messages.py)
    - Strict mode 수정, pandas import 추가
 
-2. [utils.py](file:///D:/down/매크로/구글메세지다운로드/main/utils.py)
+2. [macro/utils.py](../../macro/utils.py)
    - UTF-8 강제, force=True 추가
 
-3. [data_handler.py](file:///D:/down/매크로/구글메세지다운로드/main/data_handler.py)
+3. [macro/data_handler.py](../../macro/data_handler.py)
    - time import 추가
 
-4. [config.py](file:///D:/down/매크로/구글메세지다운로드/main/config.py)
+4. [macro/config.py](../../macro/config.py)
    - NOTIFICATION 설정 추가
 
-5. [dashboard.py](file:///D:/down/매크로/구글메세지다운로드/main/dashboard.py)
+5. [macro/dashboard.py](../../macro/dashboard.py)
    - 분석 API 5개 추가
 
-6. [main_refactored.py](file:///D:/down/매크로/구글메세지다운로드/main/main_refactored.py)
+6. [macro/main_refactored.py](../../macro/main_refactored.py)
    - 모든 신규 기능 통합, 버전 표시 추가
 
-7. [templates/dashboard.html](file:///D:/down/매크로/구글메세지다운로드/main/templates/dashboard.html)
+7. [templates/dashboard.html](../../templates/dashboard.html)
    - Chart.js 차트 3개 추가
 
-8. [requirements.txt](file:///D:/down/매크로/구글메세지다운로드/main/requirements.txt)
+8. [requirements.txt](../../requirements.txt)
    - flask, socketio, reportlab, requests 추가
 
 ### 신규 파일 (11개)
 
-1. [job_tracker.py](file:///D:/down/매크로/구글메세지다운로드/main/job_tracker.py) - 작업 추적
-2. [dashboard.py](file:///D:/down/매크로/구글메세지다운로드/main/dashboard.py) - 웹 서버
-3. [templates/dashboard.html](file:///D:/down/매크로/구글메세지다운로드/main/templates/dashboard.html) - UI
-4. [data_analyzer.py](file:///D:/down/매크로/구글메세지다운로드/main/data_analyzer.py) - 분석 엔진
-5. [notifier.py](file:///D:/down/매크로/구글메세지다운로드/main/notifier.py) - 알림
-6. [pdf_generator.py](file:///D:/down/매크로/구글메세지다운로드/main/pdf_generator.py) - PDF 생성
-7. [README.md](file:///D:/down/매크로/구글메세지다운로드/main/README.md) - 사용자 가이드
-8. [version.py](file:///D:/down/매크로/구글메세지다운로드/main/version.py) - 버전 관리
+1. [macro/job_tracker.py](../../macro/job_tracker.py) - 작업 추적
+2. [macro/dashboard.py](../../macro/dashboard.py) - 웹 서버
+3. [templates/dashboard.html](../../templates/dashboard.html) - UI
+4. [macro/data_analyzer.py](../../macro/data_analyzer.py) - 분석 엔진
+5. [macro/notifier.py](../../macro/notifier.py) - 알림
+6. [macro/pdf_generator.py](../../macro/pdf_generator.py) - PDF 생성
+7. [README.md](../../README.md) - 사용자 가이드
+8. [macro/version.py](../../macro/version.py) - 버전 관리
 
 ---
 
@@ -141,7 +141,7 @@ pip install -r requirements.txt
 playwright install chromium
 
 # 2. 프로그램 실행
-python main_refactored.py
+python -m macro.main_refactored
 
 # 3. 웹 대시보드 접속
 브라우저에서 http://localhost:5000 열기
@@ -149,8 +149,8 @@ python main_refactored.py
 
 ### 주요 파일
 
-- 📖 **사용자 가이드**: [README.md](file:///D:/down/매크로/구글메세지다운로드/main/README.md)
-- ⚙️ **설정 파일**: [config.py](file:///D:/down/매크로/구글메세지다운로드/main/config.py)
+- 📖 **사용자 가이드**: [README.md](../../README.md)
+- ⚙️ **설정 파일**: [macro/config.py](../../macro/config.py)
 - 📊 **엑셀 입력**: `targets.xlsm`
 - 📁 **결과 폴더**: `customer_data/`
 
@@ -228,9 +228,9 @@ python main_refactored.py
 ## 📞 지원 및 문의
 
 ### 문서
-- 📖 [사용자 가이드](file:///D:/down/매크로/구글메세지다운로드/main/README.md)
-- 📊 [기능 상세 설명](file:///C:/Users/Admin/.gemini/antigravity/brain/1689ef6e-da04-4bfa-a677-e4aefb6f066c/walkthrough.md)
-- 📋 [코드 전수검사 결과](file:///C:/Users/Admin/.gemini/antigravity/brain/1689ef6e-da04-4bfa-a677-e4aefb6f066c/code_review_report.md)
+- 📖 [사용자 가이드](../../README.md)
+- 📊 [기능 상세 설명](walkthrough.md)
+- 📋 [코드 전수검사 결과](code_review_report.md)
 
 ---
 
@@ -276,8 +276,8 @@ python main_refactored.py
 ## 📦 전달 파일
 
 프로그램 폴더에 포함된 파일:
-- ✅ 실행 파일: `main_refactored.py`
-- ✅ 설정 파일: `config.py`
+- ✅ 실행 파일: `macro/main_refactored.py`
+- ✅ 설정 파일: `macro/config.py`
 - ✅ 모든 모듈 파일 (11개)
 - ✅ 사용자 가이드: `README.md`
 - ✅ 의존성: `requirements.txt`

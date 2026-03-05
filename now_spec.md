@@ -1,6 +1,10 @@
 # Project Technical Specification (now_spec)
 
 ## 0. Latest Update (2026-03-05)
+- 루트 문서 구조 정리:
+  - 일반 프로젝트 문서를 `docs/project/`로 이동해 루트를 경량화
+  - 운영 필수 문서(`README.md`, `AGENTS.md`, `DEV_LOG.md`, `PROJECT_STATUS.md`, `now_spec.md`)는 루트 유지
+  - `README.md`, `docs/project/walkthrough.md`의 문서/실행 경로 링크를 현재 구조로 갱신
 - `macro`/`google_messages` 도메인은 루트 Python 래퍼 제거 정리 완료:
   - 루트 래퍼 파일 제거(`main_refactored.py`, `run_health_check.py`, `config.py`, `google_messages_auth.py` 등)
   - import 경로를 `macro.*`, `google_messages.*` 패키지 경로로 통일

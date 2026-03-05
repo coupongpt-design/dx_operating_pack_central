@@ -1,6 +1,13 @@
 # 프로젝트 상태
 
 ## 최근 업데이트
+- **Root 문서 정리 (2026-03-05)**:
+  - 루트의 일반 문서를 `docs/project/`로 이동:
+    - `MONOREPO_STAGE1_MAP.md`, `implementation_plan.md`, `phase4_plan.md`, `program_purpose_analysis.md`, `task.md`, `walkthrough.md`, `code_review_report.md`, `사용설명서.txt`
+  - 루트 유지 문서(운영 필수):
+    - `README.md`, `AGENTS.md`, `DEV_LOG.md`, `PROJECT_STATUS.md`, `now_spec.md`
+  - 문서 내 링크를 새 경로 기준으로 갱신(`README.md`, `docs/project/walkthrough.md`).
+
 - **Monorepo Stage2-2 - 루트 Python 래퍼 제거 정리 (2026-03-05)**:
   - 루트 호환 래퍼 `*.py` 제거:
     - `main_refactored.py`, `run_health_check.py`, `run_runtime_smoke.py`, `config.py`, `utils.py`, `browser_*`, `data_*`, `job_tracker.py`, `notifier.py`, `pdf_generator.py`, `version.py`

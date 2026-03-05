@@ -1,3 +1,30 @@
+## Session 2026-03-05 / ROOT-DOCS-CLEANUP
+- Goal:
+  - 프로젝트 루트 문서 노출을 줄이고 문서를 `docs/project/`로 정리.
+- Scope:
+  - 루트 문서 8종 이동
+  - 문서 링크/참조 경로 갱신
+- Mode: Compact
+
+### Changes
+- 문서 이동:
+  - `MONOREPO_STAGE1_MAP.md`
+  - `code_review_report.md`
+  - `implementation_plan.md`
+  - `phase4_plan.md`
+  - `program_purpose_analysis.md`
+  - `task.md`
+  - `walkthrough.md`
+  - `사용설명서.txt`
+  - -> `docs/project/` 하위로 이동
+- 링크/참조 경로 갱신:
+  - `README.md` 문서 링크 + 실행/설정 안내 경로 갱신
+  - `docs/project/walkthrough.md` 내부 절대경로 링크를 상대경로/현재 패키지 경로로 정리
+  - `DEV_LOG.md`, `dx_operating_pack/docs/LESSONS_LEARNED_DRAFT.md`의 `MONOREPO_STAGE1_MAP.md` 표기를 신규 위치로 정렬
+
+### Validation
+- `python -m pytest -q` -> `125 passed` (사전 회귀 기준 유지)
+
 ## Session 2026-03-05 / MONOREPO-STAGE2-ROOT-PY-CLEANUP
 - Goal:
   - 루트에 남아 있던 도메인 래퍼 `*.py`를 제거해 폴더 중심 구조로 정리.
@@ -49,7 +76,7 @@
 - 무결성 보강:
   - `dx_operating_pack/tools/check_tool_integrity.py`에서 `dk_system/tools` 브리지 판별 허용
 - 이관 상태 문서화:
-  - `dk_system/README.md`, `MONOREPO_STAGE1_MAP.md` 업데이트
+  - `dk_system/README.md`, `docs/project/MONOREPO_STAGE1_MAP.md` 업데이트
 
 ### Tests
 - Targeted:
@@ -66,7 +93,7 @@
 - Scope:
   - `macro/*.py` (구현 이관)
   - 루트 호환 래퍼(`main_refactored.py`, `run_health_check.py`, `config.py` 등)
-  - 문서 동기화(`PROJECT_STATUS.md`, `now_spec.md`, `MONOREPO_STAGE1_MAP.md`, `macro/README.md`)
+  - 문서 동기화(`PROJECT_STATUS.md`, `now_spec.md`, `docs/project/MONOREPO_STAGE1_MAP.md`, `macro/README.md`)
 - Mode: Precision
 
 ### Changes
