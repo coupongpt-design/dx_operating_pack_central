@@ -37,9 +37,12 @@ def _sha256(path: Path) -> str:
 
 def _is_wrapper(text: str, tool_name: str) -> bool:
     norm = text.replace("\\", "/").lower()
+    wrapper_targets = ("dx_operating_pack" in norm) or (
+        "dk_system" in norm and "tools" in norm
+    )
     return (
         "importlib.util.spec_from_file_location" in norm
-        and "dx_operating_pack" in norm
+        and wrapper_targets
         and tool_name.lower() in norm
     )
 
