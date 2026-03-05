@@ -9,8 +9,8 @@ from typing import Optional, Tuple
 import dateparser
 import pandas as pd
 
-from config import CONFIG, SELECTORS
-from data_handler import DataHandler
+from macro.config import CONFIG, SELECTORS
+from macro.data_handler import DataHandler
 
 
 class GoogleMessagesProcessingMixin:

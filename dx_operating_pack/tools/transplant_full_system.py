@@ -17,7 +17,7 @@ BASE_ITEMS: tuple[tuple[str, str], ...] = (
     ("docs_for_ai", "docs_for_ai"),
     ("pytest.ini", "pytest.ini"),
     ("requirements-dev.txt", "requirements-dev.txt"),
-    ("run_health_check.py", "run_health_check.py"),
+    ("macro/run_health_check.py", "macro/run_health_check.py"),
 )
 
 PROJECT_STATE_ITEMS: tuple[tuple[str, str], ...] = (

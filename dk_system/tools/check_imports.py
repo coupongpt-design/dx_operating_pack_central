@@ -27,18 +27,18 @@ APP_LAYOUT_MODULES = [
 ]
 
 ROOT_LAYOUT_MODULES = [
-    "config",
-    "utils",
-    "data_handler",
-    "data_analyzer",
-    "job_tracker",
-    "notifier",
-    "pdf_generator",
-    "browser_manager",
-    "browser_pool",
-    "dashboard",
+    "macro.config",
+    "macro.utils",
+    "macro.data_handler",
+    "macro.data_analyzer",
+    "macro.job_tracker",
+    "macro.notifier",
+    "macro.pdf_generator",
+    "macro.browser_manager",
+    "macro.browser_pool",
+    "macro.dashboard",
     "google_messages",
-    "version",
+    "macro.version",
 ]
 
 
@@ -49,7 +49,7 @@ def _detect_modules(project_root: Path) -> list[str]:
 
 
 def main() -> int:
-    project_root = Path(__file__).resolve().parents[1]
+    project_root = Path(__file__).resolve().parents[2]
     sys.path.insert(0, str(project_root))
 
     modules_to_check = _detect_modules(project_root)

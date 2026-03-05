@@ -5,7 +5,7 @@ import time
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from config import CONFIG, SELECTORS
+from macro.config import CONFIG, SELECTORS
 
 
 class GoogleMessagesAuthMixin:

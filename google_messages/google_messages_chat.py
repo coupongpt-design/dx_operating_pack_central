@@ -7,7 +7,7 @@ from typing import Optional
 import dateparser
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from config import SELECTORS
+from macro.config import SELECTORS
 
 
 class GoogleMessagesChatMixin:
