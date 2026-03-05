@@ -1,7 +1,7 @@
 import logging
 import os
 from playwright.sync_api import sync_playwright, Playwright, BrowserContext, Page
-from config import CONFIG
+from .config import CONFIG
 
 class BrowserManager:
     def __init__(self):

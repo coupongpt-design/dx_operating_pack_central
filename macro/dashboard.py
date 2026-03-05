@@ -8,9 +8,9 @@ import sys
 from flask import Flask, render_template, jsonify, cli
 from flask_socketio import SocketIO, emit
 from pathlib import Path
-from job_tracker import JobTracker
-from config import CONFIG
-from data_analyzer import DataAnalyzer
+from .job_tracker import JobTracker
+from .config import CONFIG
+from .data_analyzer import DataAnalyzer
 
 def _resource_path(relative: str) -> Path:
     # macro/ 하위로 이관된 뒤에도 템플릿/리소스는 저장소 루트 기준으로 찾는다.

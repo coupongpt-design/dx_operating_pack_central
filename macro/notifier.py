@@ -8,7 +8,7 @@ import requests
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional
-from config import CONFIG
+from .config import CONFIG
 
 class Notifier:
     """통합 알림 전송 클래스"""

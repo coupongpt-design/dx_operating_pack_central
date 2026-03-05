@@ -4,7 +4,7 @@ import argparse
 import sys
 import time
 
-from config import SELECTORS
+from .config import SELECTORS
 
 
 def _probe_selectors() -> dict[str, str]:

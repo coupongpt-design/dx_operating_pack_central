@@ -7,7 +7,7 @@ import pandas as pd
 from pathlib import Path
 from typing import List, Dict, Optional
 from datetime import datetime
-from config import CONFIG
+from .config import CONFIG
 
 class DataHandler:
     @staticmethod

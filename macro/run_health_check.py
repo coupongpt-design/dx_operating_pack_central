@@ -118,7 +118,7 @@ def _run_pytest_suite() -> int:
 
 
 def _run_runtime_smoke(*, python: str, timeout_sec: float, headed: bool) -> int:
-    cmd = [python, "run_runtime_smoke.py", "--timeout-sec", str(timeout_sec)]
+    cmd = [python, "-m", "macro.run_runtime_smoke", "--timeout-sec", str(timeout_sec)]
     if headed:
         cmd.append("--headed")
     print(f"Running runtime smoke: {' '.join(cmd)}")

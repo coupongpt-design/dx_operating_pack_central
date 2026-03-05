@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 from playwright.sync_api import sync_playwright, BrowserContext
 from typing import List, Optional
-from config import CONFIG
+from .config import CONFIG
 from google_messages import GoogleMessagesPage
 
 class BrowserPool:

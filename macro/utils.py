@@ -7,7 +7,7 @@ import dateparser
 from datetime import datetime
 from typing import Optional, Any
 from pathlib import Path
-from config import CONFIG
+from .config import CONFIG
 
 class SafeStreamHandler(logging.StreamHandler):
     """Console-safe handler to avoid UnicodeEncodeError on Windows cp949."""

@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Dict, List, Tuple
 from collections import Counter
-from config import CONFIG
+from .config import CONFIG
 
 class DataAnalyzer:
     """엑셀 데이터 분석 클래스"""

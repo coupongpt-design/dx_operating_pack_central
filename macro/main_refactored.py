@@ -5,18 +5,18 @@ import platform
 import os
 import subprocess
 import warnings
-from config import CONFIG
-from utils import setup_logging, parse_date_smart, ExecutionLogger
-from browser_manager import BrowserManager
-from browser_pool import BrowserPool  # Phase 4-1: 브라우저 풀 추가
+from .config import CONFIG
+from .utils import setup_logging, parse_date_smart, ExecutionLogger
+from .browser_manager import BrowserManager
+from .browser_pool import BrowserPool  # Phase 4-1: 브라우저 풀 추가
 from google_messages import GoogleMessagesPage
-from data_handler import DataHandler
-from job_tracker import JobTracker
-import dashboard
-from notifier import Notifier
-from data_analyzer import DataAnalyzer
-from pdf_generator import create_summary_report
-from version import get_version
+from .data_handler import DataHandler
+from .job_tracker import JobTracker
+from . import dashboard
+from .notifier import Notifier
+from .data_analyzer import DataAnalyzer
+from .pdf_generator import create_summary_report
+from .version import get_version
 
 def open_result_folder(path):
     try:

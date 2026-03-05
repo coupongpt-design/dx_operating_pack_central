@@ -4,7 +4,7 @@ from contextlib import closing
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict
-from config import CONFIG
+from .config import CONFIG
 
 class JobTracker:
     """작업 상태 추적 및 체크포인트 관리"""
