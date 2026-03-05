@@ -1,5 +1,14 @@
 # 프로젝트 상태
 
+## 최근 업데이트
+- **Monorepo Stage2 - google_messages 실제 이관 (2026-03-05)**:
+  - `google_messages.py` 및 관련 mixin 4종을 `google_messages/` 폴더로 이동해 패키지화 완료.
+  - `google_messages/__init__.py`에서 `GoogleMessagesPage`를 재노출해 기존 `from google_messages import GoogleMessagesPage` 경로 유지.
+  - 루트 `google_messages_auth/base/chat/processing.py`는 하위 패키지 재노출 래퍼로 유지해 테스트 patch 경로 호환.
+  - 검증:
+    - `python -m pytest -q tests/test_google_messages_facade.py tests/test_google_messages_login.py tests/test_google_messages_misc.py` -> `17 passed`
+    - `python tools/check_imports.py` -> `All imports OK`
+
 ## 코어 모듈
 - **MacroRunner**: 스텝 실행(OCR, 분기, 서브스크립트, 휴먼 모드 입력), 콜 스택 및 타겟 창 활성화 관리.
 - **ImageProcessor**: OCR 전처리(확대/임계/반전) 및 숫자 추출.

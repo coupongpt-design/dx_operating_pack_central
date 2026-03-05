@@ -1,3 +1,32 @@
+## Session 2026-03-05 / MONOREPO-STAGE2-GM-MIGRATION
+- Goal:
+  - `google_messages` 영역을 전용 폴더로 실제 이관하고 기존 import 호환을 유지.
+- Scope:
+  - `google_messages/__init__.py`
+  - `google_messages/google_messages*.py`
+  - `google_messages_*.py` (루트 호환 래퍼)
+  - `tests/test_google_messages_*.py` 회귀 검증
+- Mode: Precision
+
+### Changes
+- `google_messages`를 패키지로 전환(`google_messages/__init__.py`).
+- 기존 루트 `google_messages.py` 구현을 `google_messages/google_messages.py`로 이동하고 내부 import를 상대 경로로 정리.
+- `google_messages_auth.py`, `google_messages_base.py`, `google_messages_chat.py`, `google_messages_processing.py` 구현을 전용 폴더로 이동.
+- 루트 동일 이름 파일은 하위 패키지를 재노출하는 얇은 래퍼로 교체(기존 import/patch 경로 호환).
+
+### Tests
+- Targeted:
+  - `python -m pytest -q tests/test_google_messages_facade.py tests/test_google_messages_login.py tests/test_google_messages_misc.py`
+  - summary: `17 passed`
+- Tool check:
+  - `python tools/check_imports.py`
+  - summary: `All imports OK`
+
+### Docs Sync
+- [x] PROJECT_STATUS.md updated
+- [x] now_spec.md updated
+- [x] google_messages/README.md updated
+
 ## Session 2026-03-03 / DX-ALIGN-P1
 - Goal:
   - Governance/test bridge 안정화와 `google_messages.py` 예외 처리 하드닝.

@@ -1,5 +1,14 @@
 # Project Technical Specification (now_spec)
 
+## 0. Latest Update (2026-03-05)
+- `google_messages` 도메인은 Stage2 이관 완료:
+  - 구현: `google_messages/google_messages.py`, `google_messages/google_messages_auth.py`, `google_messages/google_messages_base.py`, `google_messages/google_messages_chat.py`, `google_messages/google_messages_processing.py`
+  - 패키지 진입점: `google_messages/__init__.py` (`GoogleMessagesPage` 재노출)
+  - 루트 호환 래퍼: `google_messages_auth.py`, `google_messages_base.py`, `google_messages_chat.py`, `google_messages_processing.py`
+- 기존 import 경로 호환:
+  - `from google_messages import GoogleMessagesPage` 유지
+  - 테스트의 `google_messages_auth.*` monkeypatch 경로 유지
+
 ## 1. Project Overview
 - Python 3.13 기준(PyQt5) 게임 자동화 봇: 매크로 작성·실행, 화면 인식(OCR/이미지), 인간적 입력을 제공.
 - 목표: 안티치트 회피(인간적 입력, 창 포커싱), 모듈성(Logic-UI 분리, Command 패턴), 안정성·가시성(테스트/헬스체크/메트릭).
