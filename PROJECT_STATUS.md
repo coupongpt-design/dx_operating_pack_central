@@ -1,6 +1,22 @@
 # 프로젝트 상태
 
 ## 최근 업데이트
+- **Monorepo Stage2-2 - 루트 Python 래퍼 제거 정리 (2026-03-05)**:
+  - 루트 호환 래퍼 `*.py` 제거:
+    - `main_refactored.py`, `run_health_check.py`, `run_runtime_smoke.py`, `config.py`, `utils.py`, `browser_*`, `data_*`, `job_tracker.py`, `notifier.py`, `pdf_generator.py`, `version.py`
+    - `google_messages_auth.py`, `google_messages_base.py`, `google_messages_chat.py`, `google_messages_processing.py`
+  - 코드/테스트 import를 패키지 기준으로 전환:
+    - `macro.*`, `google_messages.*` 경로로 통일
+  - 실행 경로 보정:
+    - `macro/run_health_check.py`의 런타임 스모크 호출을 `python -m macro.run_runtime_smoke`로 변경
+  - 도구 정합 보정:
+    - `dk_system/tools/check_imports.py`를 monorepo 패키지 import 기준으로 갱신
+    - `dx_operating_pack/tools/transplant_full_system.py`의 이식 소스 경로를 `macro/run_health_check.py`로 정렬
+  - 검증:
+    - `python -m pytest -q` -> `125 passed`
+    - `python tools/check_imports.py` -> `All imports OK`
+    - `python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py tests/test_git_hook_guards.py tests/test_test_selector.py tests/test_task_finish.py tests/test_post_task_gate.py tests/test_ci_governance_guard.py` -> `53 passed`
+
 - **Monorepo Stage2 - dk_system 부분 이관 (2026-03-05)**:
   - 운영 자산을 `dk_system` 폴더로 이동:
     - `.githooks/**` -> `dk_system/.githooks/**`

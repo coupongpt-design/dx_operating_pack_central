@@ -16,6 +16,9 @@
     - `.githooks/**` 실파일 -> `dk_system/.githooks/**`
     - `tools/*.py` 실파일 -> `dk_system/tools/*.py`
     - 루트 `.githooks/**`, `tools/*.py`는 호환 래퍼로 유지
+  - Stage2-2 정리 완료:
+    - `macro`/`google_messages`의 루트 Python 래퍼 삭제
+    - import 경로를 패키지 기준(`macro.*`, `google_messages.*`)으로 통일
 
 ## 운영 원칙
 1. Stage 1: 폴더/문서만 추가 (완료)

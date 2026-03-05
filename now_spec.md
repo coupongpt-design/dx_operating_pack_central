@@ -1,6 +1,10 @@
 # Project Technical Specification (now_spec)
 
 ## 0. Latest Update (2026-03-05)
+- `macro`/`google_messages` 도메인은 루트 Python 래퍼 제거 정리 완료:
+  - 루트 래퍼 파일 제거(`main_refactored.py`, `run_health_check.py`, `config.py`, `google_messages_auth.py` 등)
+  - import 경로를 `macro.*`, `google_messages.*` 패키지 경로로 통일
+  - `macro/run_health_check.py` 런타임 스모크 호출을 `python -m macro.run_runtime_smoke`로 정렬
 - `dk_system` 도메인은 Stage2 부분 이관 완료:
   - 구현 이동:
     - `dk_system/.githooks/*`
@@ -12,16 +16,13 @@
 - `macro` 도메인은 Stage2 이관 완료:
   - 구현: `macro/main_refactored.py`, `macro/run_health_check.py`, `macro/run_runtime_smoke.py`, `macro/dashboard.py`, `macro/config.py`, `macro/utils.py`, `macro/data_handler.py`, `macro/data_analyzer.py`, `macro/browser_manager.py`, `macro/browser_pool.py`, `macro/job_tracker.py`, `macro/notifier.py`, `macro/pdf_generator.py`, `macro/version.py`
   - 패키지 진입점: `macro/__init__.py`
-  - 루트 호환 래퍼: 기존 파일명(`main_refactored.py`, `run_health_check.py`, `config.py` 등)은 하위 패키지를 alias 하도록 유지
+  - 루트 래퍼 제거 후 테스트/실행 경로를 패키지 import로 전환
 - 이동 후 대시보드 템플릿 경로 고정:
   - `macro/dashboard.py`는 리소스 탐색 기준을 저장소 루트로 고정해 `templates/dashboard.html` 로드 회귀를 방지
 - `google_messages` 도메인은 Stage2 이관 완료:
   - 구현: `google_messages/google_messages.py`, `google_messages/google_messages_auth.py`, `google_messages/google_messages_base.py`, `google_messages/google_messages_chat.py`, `google_messages/google_messages_processing.py`
   - 패키지 진입점: `google_messages/__init__.py` (`GoogleMessagesPage` 재노출)
-  - 루트 호환 래퍼: `google_messages_auth.py`, `google_messages_base.py`, `google_messages_chat.py`, `google_messages_processing.py`
-- 기존 import 경로 호환:
-  - `from google_messages import GoogleMessagesPage` 유지
-  - 테스트의 `google_messages_auth.*` monkeypatch 경로 유지
+  - mixin 테스트 patch 경로는 `google_messages.google_messages_*`로 통일
 
 ## 1. Project Overview
 - Python 3.13 기준(PyQt5) 게임 자동화 봇: 매크로 작성·실행, 화면 인식(OCR/이미지), 인간적 입력을 제공.

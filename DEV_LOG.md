@@ -1,3 +1,33 @@
+## Session 2026-03-05 / MONOREPO-STAGE2-ROOT-PY-CLEANUP
+- Goal:
+  - 루트에 남아 있던 도메인 래퍼 `*.py`를 제거해 폴더 중심 구조로 정리.
+- Scope:
+  - 루트 래퍼 삭제 (`macro`/`google_messages` 관련 `*.py`)
+  - 내부 import/테스트 경로 패키지 기준 전환
+  - 관련 도구 경로 보정 (`check_imports`, `transplant_full_system`)
+- Mode: Precision
+
+### Changes
+- 루트 Python 래퍼 파일 제거:
+  - `main_refactored.py`, `run_health_check.py`, `run_runtime_smoke.py`, `config.py`, `utils.py`, `browser_*`, `data_*`, `job_tracker.py`, `notifier.py`, `pdf_generator.py`, `version.py`
+  - `google_messages_auth.py`, `google_messages_base.py`, `google_messages_chat.py`, `google_messages_processing.py`
+- 모듈 import 전환:
+  - `macro/*` 내부 import를 상대 경로(`from .config ...`)로 정리
+  - `google_messages/*`가 `macro.config`, `macro.data_handler`를 직접 참조하도록 정렬
+- 테스트 import/patch 전환:
+  - `tests/*`에서 루트 모듈 import를 `macro.*`, `google_messages.*`로 변경
+  - websocket/mock patch 경로를 새 모듈 경로로 수정
+- 실행/도구 보정:
+  - `macro/run_health_check.py`: runtime smoke 호출을 `python -m macro.run_runtime_smoke`로 변경
+  - `dk_system/tools/check_imports.py`: monorepo 패키지 import 목록 + repo root 기준으로 갱신
+  - `dx_operating_pack/tools/transplant_full_system.py`: 복제 대상 `run_health_check.py` 경로를 `macro/run_health_check.py`로 변경
+
+### Tests
+- `python -m pytest -q` -> `125 passed`
+- `python tools/check_imports.py` -> `All imports OK`
+- `python tools/check_tool_integrity.py --project-root . --strict` -> `tool integrity clean`
+- `python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py tests/test_git_hook_guards.py tests/test_test_selector.py tests/test_task_finish.py tests/test_post_task_gate.py tests/test_ci_governance_guard.py` -> `53 passed`
+
 ## Session 2026-03-05 / MONOREPO-STAGE2-DK-SYSTEM-MIGRATION
 - Goal:
   - `dk_system` 운영 자산을 실제 분리하고 루트 호환 경로를 유지.
