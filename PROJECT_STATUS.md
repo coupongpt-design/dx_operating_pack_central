@@ -1,6 +1,14 @@
 # 프로젝트 상태
 
 ## 최근 업데이트
+- **Monorepo Stage2 - macro 실제 이관 (2026-03-05)**:
+  - `main_refactored`, `run_health_check`, `run_runtime_smoke`, `dashboard`, `config/utils/data_*` 등 매크로 구현 파일을 `macro/` 폴더로 이동.
+  - 루트 동일 파일명은 `macro.*` 모듈을 가리키는 호환 래퍼로 전환해 기존 import/실행 경로 유지.
+  - `macro/dashboard.py`는 템플릿 경로를 루트 기준으로 고정해 이동 후에도 `dashboard.html`을 정상 로드.
+  - 검증:
+    - `python -m pytest -q tests/test_dashboard.py tests/test_main_relogin_policy.py tests/test_main_target_recovery_flow.py tests/test_run_health_check_runtime_smoke.py tests/test_run_runtime_smoke.py` -> `23 passed`
+    - `python -m pytest -q` -> `125 passed`
+
 - **Monorepo Stage2 - google_messages 실제 이관 (2026-03-05)**:
   - `google_messages.py` 및 관련 mixin 4종을 `google_messages/` 폴더로 이동해 패키지화 완료.
   - `google_messages/__init__.py`에서 `GoogleMessagesPage`를 재노출해 기존 `from google_messages import GoogleMessagesPage` 경로 유지.

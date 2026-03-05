@@ -1,1 +1,4 @@
-from google_messages.google_messages_chat import *  # noqa: F401,F403
+from importlib import import_module as _import_module
+import sys as _sys
+
+_sys.modules[__name__] = _import_module("google_messages.google_messages_chat")

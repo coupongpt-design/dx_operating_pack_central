@@ -12,7 +12,8 @@
 - 각 폴더 `README.md`에 담당 범위와 Stage 2 원칙 정리
 - Stage2 진행 현황:
   - `google_messages` 구현 파일 이관 완료(패키지화 + 루트 호환 래퍼 유지)
-  - `macro`, `dk_system`은 아직 Stage1 상태
+  - `macro` 구현 파일 이관 완료(패키지화 + 루트 호환 래퍼 유지)
+  - `dk_system`은 아직 Stage1 상태
 
 ## 운영 원칙
 1. Stage 1: 폴더/문서만 추가 (완료)

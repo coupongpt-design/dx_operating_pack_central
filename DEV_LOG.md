@@ -1,3 +1,33 @@
+## Session 2026-03-05 / MONOREPO-STAGE2-MACRO-MIGRATION
+- Goal:
+  - `macro` 영역 구현 파일을 전용 폴더로 실제 이관하고 기존 실행/테스트 경로를 유지.
+- Scope:
+  - `macro/*.py` (구현 이관)
+  - 루트 호환 래퍼(`main_refactored.py`, `run_health_check.py`, `config.py` 등)
+  - 문서 동기화(`PROJECT_STATUS.md`, `now_spec.md`, `MONOREPO_STAGE1_MAP.md`, `macro/README.md`)
+- Mode: Precision
+
+### Changes
+- 매크로 핵심 구현 파일을 `macro/` 폴더로 이동:
+  - `main_refactored`, `run_health_check`, `run_runtime_smoke`, `dashboard`, `config`, `utils`, `browser_*`, `data_*`, `job_tracker`, `notifier`, `pdf_generator`, `version`.
+- 루트 동일 파일명은 하위 `macro.*` 모듈을 alias 하는 호환 레이어로 전환.
+- `macro/dashboard.py` 리소스 경로 기준을 루트로 고정해 템플릿 로드 회귀를 복구.
+
+### Tests
+- Targeted:
+  - `python -m pytest -q tests/test_main_relogin_policy.py tests/test_main_target_recovery_flow.py tests/test_run_health_check_runtime_smoke.py tests/test_run_runtime_smoke.py tests/test_google_messages_login.py tests/test_google_messages_misc.py tests/test_google_messages_facade.py`
+  - summary: `36 passed`
+  - `python -m pytest -q tests/test_dashboard.py tests/test_main_relogin_policy.py tests/test_main_target_recovery_flow.py tests/test_run_health_check_runtime_smoke.py tests/test_run_runtime_smoke.py`
+  - summary: `23 passed`
+- Full suite:
+  - `python -m pytest -q`
+  - summary: `125 passed`
+
+### Docs Sync
+- [x] PROJECT_STATUS.md updated
+- [x] now_spec.md updated
+- [x] macro/README.md updated
+
 ## Session 2026-03-05 / MONOREPO-STAGE2-GM-MIGRATION
 - Goal:
   - `google_messages` 영역을 전용 폴더로 실제 이관하고 기존 import 호환을 유지.

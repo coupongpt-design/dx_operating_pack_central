@@ -1,6 +1,12 @@
 # Project Technical Specification (now_spec)
 
 ## 0. Latest Update (2026-03-05)
+- `macro` 도메인은 Stage2 이관 완료:
+  - 구현: `macro/main_refactored.py`, `macro/run_health_check.py`, `macro/run_runtime_smoke.py`, `macro/dashboard.py`, `macro/config.py`, `macro/utils.py`, `macro/data_handler.py`, `macro/data_analyzer.py`, `macro/browser_manager.py`, `macro/browser_pool.py`, `macro/job_tracker.py`, `macro/notifier.py`, `macro/pdf_generator.py`, `macro/version.py`
+  - 패키지 진입점: `macro/__init__.py`
+  - 루트 호환 래퍼: 기존 파일명(`main_refactored.py`, `run_health_check.py`, `config.py` 등)은 하위 패키지를 alias 하도록 유지
+- 이동 후 대시보드 템플릿 경로 고정:
+  - `macro/dashboard.py`는 리소스 탐색 기준을 저장소 루트로 고정해 `templates/dashboard.html` 로드 회귀를 방지
 - `google_messages` 도메인은 Stage2 이관 완료:
   - 구현: `google_messages/google_messages.py`, `google_messages/google_messages_auth.py`, `google_messages/google_messages_base.py`, `google_messages/google_messages_chat.py`, `google_messages/google_messages_processing.py`
   - 패키지 진입점: `google_messages/__init__.py` (`GoogleMessagesPage` 재노출)
