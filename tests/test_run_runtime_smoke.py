@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import run_runtime_smoke as smoke
+import macro.run_runtime_smoke as smoke
 
 
 class _FakeLocator:

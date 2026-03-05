@@ -1,6 +1,6 @@
 import unittest
 
-import version
+import macro.version as version
 
 
 class TestVersion(unittest.TestCase):

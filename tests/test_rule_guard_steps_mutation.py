@@ -94,6 +94,7 @@ class _StepsMutationGuard(ast.NodeVisitor):
 def _resolve_main_path() -> Path:
     candidates = (
         Path("app/main.py"),
+        Path("macro/main_refactored.py"),
         Path("main_refactored.py"),
     )
     for candidate in candidates:

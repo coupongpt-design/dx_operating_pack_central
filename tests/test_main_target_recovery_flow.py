@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from main_refactored import _run_target_job_with_recovery
+from macro.main_refactored import _run_target_job_with_recovery
 
 
 class _FakePage:

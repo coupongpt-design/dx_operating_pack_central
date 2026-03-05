@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from main_refactored import _attempt_same_target_recovery
+from macro.main_refactored import _attempt_same_target_recovery
 
 
 class _DummyScraper:

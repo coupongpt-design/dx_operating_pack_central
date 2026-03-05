@@ -2,8 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from config import CONFIG
-from utils import ExecutionLogger
+from macro.config import CONFIG
+from macro.utils import ExecutionLogger
 
 
 class ConfigOverride:

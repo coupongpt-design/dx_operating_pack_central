@@ -4,7 +4,7 @@ import unittest
 PLAYWRIGHT_AVAILABLE = importlib.util.find_spec("playwright") is not None
 
 if PLAYWRIGHT_AVAILABLE:
-    from config import SELECTORS
+    from macro.config import SELECTORS
     from google_messages import GoogleMessagesPage
 
 
@@ -73,7 +73,7 @@ class TestGoogleMessagesLogin(unittest.TestCase):
             }
         )
         scraper = GoogleMessagesPage(page)
-        with unittest.mock.patch("google_messages_auth.time.sleep", return_value=None):
+        with unittest.mock.patch("google_messages.google_messages_auth.time.sleep", return_value=None):
             self.assertTrue(scraper.wait_for_login())
 
     def test_wait_for_login_fails_when_qr_flickers(self):
@@ -98,6 +98,6 @@ class TestGoogleMessagesLogin(unittest.TestCase):
         with unittest.mock.patch.object(
             scraper, "_safe_is_visible", side_effect=_safe_is_visible
         ), unittest.mock.patch.object(scraper, "_has_chat_entry_ui", return_value=True), unittest.mock.patch(
-            "google_messages_auth.time.sleep", return_value=None
+            "google_messages.google_messages_auth.time.sleep", return_value=None
         ):
             self.assertFalse(scraper.wait_for_login())

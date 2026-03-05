@@ -5,8 +5,8 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
-from config import CONFIG
-from utils import ExecutionLogger, parse_date_smart, setup_logging
+from macro.config import CONFIG
+from macro.utils import ExecutionLogger, parse_date_smart, setup_logging
 
 
 class ConfigOverride:

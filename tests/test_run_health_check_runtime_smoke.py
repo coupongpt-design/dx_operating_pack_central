@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 
-import run_health_check as health_check
+import macro.run_health_check as health_check
 
 
 def test_main_skips_runtime_smoke_by_default(monkeypatch) -> None:

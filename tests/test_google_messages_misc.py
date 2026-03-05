@@ -7,7 +7,7 @@ from unittest import mock
 PLAYWRIGHT_AVAILABLE = importlib.util.find_spec("playwright") is not None
 
 if PLAYWRIGHT_AVAILABLE:
-    from config import SELECTORS
+    from macro.config import SELECTORS
     from google_messages import GoogleMessagesPage
 
 

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import google_messages
 from google_messages import GoogleMessagesPage
-from google_messages_auth import GoogleMessagesAuthMixin
-from google_messages_base import GoogleMessagesBaseMixin
-from google_messages_chat import GoogleMessagesChatMixin
-from google_messages_processing import GoogleMessagesProcessingMixin
+from google_messages.google_messages_auth import GoogleMessagesAuthMixin
+from google_messages.google_messages_base import GoogleMessagesBaseMixin
+from google_messages.google_messages_chat import GoogleMessagesChatMixin
+from google_messages.google_messages_processing import GoogleMessagesProcessingMixin
 
 
 def test_facade_composes_expected_mixins() -> None:
