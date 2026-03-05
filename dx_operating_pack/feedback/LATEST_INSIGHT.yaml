@@ -1,12 +1,12 @@
 schema_version: 1
-generated_at: "2026-03-05T12:18:27"
+generated_at: "2026-03-05T12:19:32"
 title: "Post Task Gate Harvest"
 source:
   mode: "staged"
   base: "HEAD~1"
   head: "HEAD"
 stats:
-  changed_files_count: 5
+  changed_files_count: 2
   reusable_changes_count: 0
   added_lessons_count: 0
   ai_decisions_count: 0
@@ -14,11 +14,8 @@ stats:
   ai_warnings_count: 0
   ai_sources_count: 0
 changed_files:
-  - "DEV_LOG.md"
-  - "PROJECT_STATUS.md"
   - "dx_operating_pack/docs/LESSONS_LEARNED_DRAFT.md"
   - "dx_operating_pack/feedback/LATEST_INSIGHT.yaml"
-  - "now_spec.md"
 reusable_changes:
 
 added_lessons:
