@@ -5,6 +5,63 @@
 - 작업 종료는 `python tools/task_finish.py --subject "..." --scope ...` 경로를 표준으로 사용
 - 게이트 통과 후 운영 감사 권장: `python tools/project_audit.py`
 
+## Session 109 - Priority Enforcement (P1~P3)
+- Date: 2026-03-02
+- Summary:
+  - P1: 작업 시작 증적 강제
+    - `dx_operating_pack/tools/task_start_guard.py`
+      - clean index 통과 시 `.git/task_start_guard.json` 기록(`timestamp/head/index_clean/ttl_sec`).
+    - `dx_operating_pack/tools/git_hook_guards.py`
+      - pre-commit에서 task-start 증적 누락/만료/head mismatch 시 커밋 차단.
+  - P2: 훅 설치 상태 강제
+    - `validate_hooks_setup()` 추가:
+      - `core.hooksPath=.githooks` 검증
+      - 필수 훅 파일(`commit-msg`, `pre-commit`, `pre-push`) 존재 검증
+    - `task_finish`/`post_task_gate` 시작 시 훅 상태 검증 실패하면 즉시 중단.
+  - P3: 보안 스캔 강제
+    - `dx_operating_pack/tools/post_task_gate.py`
+      - targeted/full suite/harvest 통과 후 `check_ai_security.py` 실행 필수.
+      - gate record에 `security_required`, `security_pass`, `security_summary` 추가.
+    - `dx_operating_pack/tools/git_hook_guards.py`
+      - commit `Tests` 블록에 `- security:` 라인 의무화.
+      - gate security 결과와 커밋 메시지 불일치 시 차단.
+    - `dx_operating_pack/tools/task_finish.py`
+      - 커밋 템플릿에 `- security: PASS/FAIL (...)` 자동 포함.
+    - `dx_operating_pack/tools/ci_governance_guard.py`
+      - security 라인 존재 및 PASS/FAIL prefix 검증 추가.
+  - 테스트 갱신:
+    - `tests/test_task_start_guard.py`
+    - `tests/test_post_task_gate.py`
+    - `tests/test_git_hook_guards.py`
+    - `tests/test_task_finish.py`
+    - `tests/test_ci_governance_guard.py`
+- Validation:
+  - `python -m pytest -q tests/test_task_start_guard.py tests/test_post_task_gate.py tests/test_git_hook_guards.py tests/test_task_finish.py tests/test_ci_governance_guard.py` -> `51 passed in 0.34s`
+  - `python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py tests/test_git_hook_guards.py tests/test_test_selector.py tests/test_task_finish.py tests/test_post_task_gate.py tests/test_ci_governance_guard.py tests/test_task_start_guard.py` -> `58 passed in 0.34s`
+
+## Session 108 - Harvest Hard Gate (누락/우회 차단)
+- Date: 2026-03-02
+- Summary:
+  - `dx_operating_pack/tools/post_task_gate.py`
+    - harvest를 best-effort에서 hard gate로 승격.
+    - capture 스크립트 실패/insight 미갱신을 모두 FAIL로 처리.
+    - gate record에 harvest 증적 필드 추가:
+      - `harvest_feedback_requested`, `harvest_required`, `harvest_pass`, `harvest_summary`
+      - `harvest_insight_path`, `harvest_insight_mtime`
+    - 기본 정책에서 `--skip-harvest` 차단, `DX_ALLOW_SKIP_HARVEST=1`일 때만 긴급 허용.
+  - `dx_operating_pack/tools/git_hook_guards.py`
+    - commit `Tests` 블록에 `- harvest:` 라인 의무화.
+    - harvest 증적(`pass/summary/path/mtime`) 미충족 시 pre-commit 차단.
+    - commit 메시지의 harvest 라인이 gate record와 불일치하면 commit-msg 차단.
+  - `dx_operating_pack/tools/task_finish.py`
+    - 커밋 템플릿 `Tests`에 `- harvest: PASS/FAIL (...)` 자동 포함.
+  - 테스트 갱신:
+    - `tests/test_post_task_gate.py`, `tests/test_git_hook_guards.py`, `tests/test_task_finish.py`
+    - harvest 강제/우회 차단/증적 검증 경로 반영.
+- Validation:
+  - `python -m pytest -q tests/test_post_task_gate.py tests/test_task_finish.py tests/test_git_hook_guards.py` -> `43 passed in 0.46s`
+  - `python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py tests/test_git_hook_guards.py tests/test_test_selector.py tests/test_task_finish.py tests/test_post_task_gate.py tests/test_ci_governance_guard.py` -> `52 passed in 0.27s`
+
 ## Session 106 - Stage 4 PR-4-2 Self-Healing 강화(기본값/승격/게이트 텔레메트리)
 - Date: 2026-02-26
 - Summary:
@@ -21,6 +78,21 @@
 - Validation:
   - Targeted: `python -m pytest -q tests/test_self_healing.py tests/test_exceptions.py tests/test_post_task_gate.py` -> `16 passed in 4.93s`
   - Full: `python -m pytest -q` -> `547 passed, 1 skipped in 22.43s`
+
+## Session 107 - DX OS v2.2 중앙 배포 시도(보류)
+- Date: 2026-02-26
+- Summary:
+  - 중앙 원격 설정 완료:
+    - `origin = git@github.com:coupongpt-design/dx_operating_pack_central.git`
+  - 배포 시도 결과:
+    - HTTPS push: `403 Permission denied (계정 권한/PAT 필요)`
+    - SSH push: `Host key verification failed` (로컬 SSH 환경 준비 필요)
+  - 현재 상태:
+    - 로컬 워킹트리 clean 유지
+    - 배포는 인증/호스트키 정비 후 재시도 예정
+- Follow-up:
+  - GitHub write 권한 확인(PAT 또는 collaborator 권한 부여)
+  - SSH 클라이언트 + known_hosts 초기화 후 `git push -u origin feature/ui-modernization-v1` 재실행
 
 ## Session 105 - DX Ecosystem Integrity Patch(86 -> 93+)
 - Date: 2026-02-26

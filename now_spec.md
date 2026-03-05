@@ -417,6 +417,10 @@
     - current staged hash match
     - targeted PASS
     - full-suite PASS when risk trigger active
+  - require `.git/task_start_guard.json` proof file with:
+    - current `HEAD` match
+    - fresh timestamp within TTL
+    - `index_clean=True`
 - `post-task gate` tool:
   - command: `python tools/post_task_gate.py --targeted "<targeted pytest command>"`
   - computes staged hash from `git diff --cached --name-status`
@@ -427,10 +431,11 @@
     - `tests/test_rule_docs_sync.py`
     - `tests/test_rule_guard_steps_mutation.py`
     - `tests/test_git_hook_guards.py`
+    - `tests/test_task_start_guard.py`
 
 ## Git Governance P0 Backstop (Session 94)
 - `commit-msg` + gate proof coupling:
-  - commit message `Tests` lines are parsed (`targeted`, `full suite`)
+  - commit message `Tests` lines are parsed (`targeted`, `full suite`, `harvest`, `security`)
   - values must include summaries from `.git/post_task_gate.json`
   - mismatch => commit rejected
 - CI server-side governance:
@@ -454,7 +459,7 @@
     - `thread`, `signal`, `runner`, `StepData`, `serialization`, `BaseCommand`, `UndoStack`
 - Standard task finish:
   - `tools/task_finish.py --subject "<commit subject>"`
-  - runs post-task gate and writes `.git/TASK_COMMIT_TEMPLATE.md`
+  - validates git hooks setup (`core.hooksPath=.githooks` + required hook files), runs post-task gate, and writes `.git/TASK_COMMIT_TEMPLATE.md`
 - Atomic scope enforcement:
   - `pre-commit` blocks over-threshold staged scope (files/changed-lines) to force split commits
 - Repo artifact cleanup:
@@ -468,13 +473,14 @@
  
 ## DX Guard Phase  
 - New tool: tools/task_start_guard.py (clean-index preflight). 
+- task_start_guard pass 시 `.git/task_start_guard.json` 증적을 생성하고, pre-commit에서 증적 신선도/HEAD 일치 여부를 강제 검증한다.
 - Governance rule: cleanup artifact deletions  require dedicated cleanup commit. 
 - Gate rule: post_task_gate auto selection returns zero tests + app code changes =
  
 ## DX Guard Phase Two
 - post_task_gate record schema includes timestamp and ttl_sec (30 minutes).
 - git hook commit-msg contract includes mandatory Scope line.
-- task_finish unifies gate execution and outputs Scope-guided commit template.
+- task_finish unifies gate execution and outputs Scope-guided commit template (targeted/full suite/harvest/security).
 - is_risk_triggered skips blocked artifact paths before high-risk keyword scan.
 - Current verification baseline: 510 passed, 1 skipped.
 
@@ -557,7 +563,10 @@
   - insight payload에는 변경 파일 수, reusable 변경 목록, lessons 추가 라인을 포함.
 - `tools/post_task_gate.py` / `dx_operating_pack/tools/post_task_gate.py`
   - 게이트 성공 시 지식 수확 단계를 자동 실행.
-  - 필요 시 `--skip-harvest`로 생략 가능.
+  - targeted/full suite 통과 후 harvest를 기본 강제한다.
+  - gate record에 harvest 증적(`harvest_pass`, `harvest_summary`, `harvest_insight_path`, `harvest_insight_mtime`)을 저장한다.
+  - `check_ai_security.py` 보안 스캔을 기본 강제하고, gate record에 `security_required/security_pass/security_summary`를 저장한다.
+  - `--skip-harvest`는 기본 차단되며, 긴급 디버깅에서만 `DX_ALLOW_SKIP_HARVEST=1` 설정 시 허용된다.
 - `dx_operating_pack/tools/push_dx_feedback.py`
   - 로컬 outbox 번들을 생성(`feedback/outbox/<timestamp>_<head>/...`).
   - 포함 자산:

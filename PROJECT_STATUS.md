@@ -1,6 +1,44 @@
 # 프로젝트 상태
 
 ## 최근 업데이트
+- 우선순위 강제 적용(P1~P3) 완료:
+  - P1 작업 시작 증적 강제:
+    - `dx_operating_pack/tools/task_start_guard.py`가 clean index 통과 시 `.git/task_start_guard.json` 증적을 기록.
+    - `dx_operating_pack/tools/git_hook_guards.py` pre-commit에서 시작 증적(head/ttl/index_clean) 검증 실패 시 커밋 차단.
+  - P2 훅 설치 상태 강제:
+    - `validate_hooks_setup()` 추가.
+    - `task_finish`/`post_task_gate` 실행 시 `core.hooksPath=.githooks` 및 필수 훅 파일(`commit-msg`, `pre-commit`, `pre-push`) 검증.
+  - P3 보안 스캔 강제:
+    - `post_task_gate` 성공 경로에 `check_ai_security.py` 실행을 기본 강제.
+    - gate record에 `security_required`, `security_pass`, `security_summary` 저장.
+    - 커밋 템플릿/메시지 검증에 `- security: ...` 라인 의무화.
+  - 검증:
+    - `python -m pytest -q tests/test_task_start_guard.py tests/test_post_task_gate.py tests/test_git_hook_guards.py tests/test_task_finish.py tests/test_ci_governance_guard.py` -> `51 passed`
+    - `python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py tests/test_git_hook_guards.py tests/test_test_selector.py tests/test_task_finish.py tests/test_post_task_gate.py tests/test_ci_governance_guard.py tests/test_task_start_guard.py` -> `58 passed`
+- 지식 수확(Harvest) 누락 방지 하드닝:
+  - `dx_operating_pack/tools/post_task_gate.py`
+    - targeted/full suite PASS 이후 harvest 단계를 기본 강제.
+    - harvest 실패 시 gate 전체를 FAIL 처리.
+    - gate record에 증적 필드 추가:
+      - `harvest_required`, `harvest_pass`, `harvest_summary`
+      - `harvest_insight_path`, `harvest_insight_mtime`
+    - `--skip-harvest`는 기본 차단, `DX_ALLOW_SKIP_HARVEST=1`에서만 긴급 허용.
+  - `dx_operating_pack/tools/git_hook_guards.py`
+    - commit message `Tests` 블록에 `- harvest: ...` 의무화.
+    - gate record의 harvest 증적 누락/불일치 시 커밋 차단.
+  - `dx_operating_pack/tools/task_finish.py`
+    - 커밋 템플릿 `Tests`에 `- harvest: PASS/FAIL (...)` 자동 출력.
+  - 검증:
+    - `python -m pytest -q tests/test_post_task_gate.py tests/test_task_finish.py tests/test_git_hook_guards.py` -> `43 passed`
+    - `python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py tests/test_git_hook_guards.py tests/test_test_selector.py tests/test_task_finish.py tests/test_post_task_gate.py tests/test_ci_governance_guard.py` -> `52 passed`
+- DX OS v2.2 중앙 배포 상태 업데이트:
+  - 중앙 레포 URL 설정 완료: `git@github.com:coupongpt-design/dx_operating_pack_central.git`
+  - 현재 배포 보류 사유:
+    - HTTPS push: `403 (Permission denied)`
+    - SSH push: `Host key verification failed`
+  - 조치 필요:
+    - GitHub write 권한(PAT/계정 권한) 또는
+    - SSH 클라이언트/known_hosts 초기화 후 재시도
 - DX Ecosystem Integrity Patch(86 -> 93+) 반영:
   - `dx_operating_pack/tools/capture_lesson_draft.py`:
     - `logs/ai_sessions/` 최신 JSON/Markdown 로그 자동 파싱 추가
