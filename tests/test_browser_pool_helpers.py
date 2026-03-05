@@ -9,7 +9,7 @@ PLAYWRIGHT_AVAILABLE = importlib.util.find_spec("playwright") is not None
 @unittest.skipUnless(PLAYWRIGHT_AVAILABLE, "playwright not installed")
 class TestBrowserPoolHelpers(unittest.TestCase):
     def test_clone_profile_removes_locks(self):
-        from browser_pool import BrowserPool
+        from macro.browser_pool import BrowserPool
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -26,7 +26,7 @@ class TestBrowserPoolHelpers(unittest.TestCase):
             self.assertFalse((dst / "SingletonLock").exists())
 
     def test_get_pool_profile_dir_name(self):
-        from browser_pool import BrowserPool
+        from macro.browser_pool import BrowserPool
 
         pool = BrowserPool(pool_size=2)
         path = pool._get_pool_profile_dir(1)

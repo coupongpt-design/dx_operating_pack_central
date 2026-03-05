@@ -7,7 +7,7 @@ FLASK_AVAILABLE = (
 )
 
 if FLASK_AVAILABLE:
-    import dashboard
+    import macro.dashboard as dashboard
 
 
 class StubTracker:

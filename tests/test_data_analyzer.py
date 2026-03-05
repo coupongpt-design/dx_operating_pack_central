@@ -3,13 +3,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from config import CONFIG
+from macro.config import CONFIG
 
 PANDAS_AVAILABLE = importlib.util.find_spec("pandas") is not None
 
 if PANDAS_AVAILABLE:
     import pandas as pd
-    from data_analyzer import DataAnalyzer
+    from macro.data_analyzer import DataAnalyzer
 
 
 class ConfigOverride:

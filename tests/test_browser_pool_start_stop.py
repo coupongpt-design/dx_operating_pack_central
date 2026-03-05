@@ -4,12 +4,12 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from config import CONFIG
+from macro.config import CONFIG
 
 PLAYWRIGHT_AVAILABLE = importlib.util.find_spec("playwright") is not None
 
 if PLAYWRIGHT_AVAILABLE:
-    from browser_pool import BrowserPool
+    from macro.browser_pool import BrowserPool
 
 
 class ConfigOverride:
@@ -90,7 +90,7 @@ class TestBrowserPoolStartStop(unittest.TestCase):
 
             with ConfigOverride(USER_DATA_DIR=base_dir):
                 pool = BrowserPool(pool_size=2)
-                with mock.patch("browser_pool.sync_playwright", return_value=sync), mock.patch.object(
+                with mock.patch("macro.browser_pool.sync_playwright", return_value=sync), mock.patch.object(
                     BrowserPool, "_ensure_base_login", return_value=True
                 ), mock.patch.object(
                     BrowserPool,

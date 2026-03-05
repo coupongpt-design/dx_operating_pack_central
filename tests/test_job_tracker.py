@@ -4,7 +4,7 @@ import time
 import unittest
 from pathlib import Path
 
-from job_tracker import JobTracker
+from macro.job_tracker import JobTracker
 
 
 class TestJobTracker(unittest.TestCase):

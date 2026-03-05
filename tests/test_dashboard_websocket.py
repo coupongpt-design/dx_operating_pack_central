@@ -9,7 +9,7 @@ FLASK_AVAILABLE = (
 )
 
 if FLASK_AVAILABLE:
-    import dashboard
+    import macro.dashboard as dashboard
 
 
 @unittest.skipUnless(FLASK_AVAILABLE, "flask not installed")
@@ -27,13 +27,13 @@ class TestDashboardWebsocket(unittest.TestCase):
             emit_mock.assert_called_with("progress_update", dashboard.current_progress)
 
     def test_handle_connect_emits(self):
-        with mock.patch("dashboard.emit") as emit_mock:
+        with mock.patch("macro.dashboard.emit") as emit_mock:
             dashboard.handle_connect()
             emit_mock.assert_called_with("connection_response", {"data": "Connected to dashboard"})
 
     def test_handle_progress_request_emits(self):
         dashboard.current_progress = {"current": 1, "total": 2, "customer_name": "A", "percentage": 50}
-        with mock.patch("dashboard.emit") as emit_mock:
+        with mock.patch("macro.dashboard.emit") as emit_mock:
             dashboard.handle_progress_request()
             emit_mock.assert_called_with("progress_update", dashboard.current_progress)
 

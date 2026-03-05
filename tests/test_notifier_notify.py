@@ -1,8 +1,8 @@
 import unittest
 from unittest import mock
 
-from config import CONFIG
-from notifier import Notifier
+from macro.config import CONFIG
+from macro.notifier import Notifier
 
 
 class ConfigOverride:

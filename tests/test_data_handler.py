@@ -4,14 +4,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from config import CONFIG
+from macro.config import CONFIG
 
 PANDAS_AVAILABLE = importlib.util.find_spec("pandas") is not None
 OPENPYXL_AVAILABLE = importlib.util.find_spec("openpyxl") is not None
 PIL_AVAILABLE = importlib.util.find_spec("PIL") is not None
 
 if PANDAS_AVAILABLE:
-    from data_handler import DataHandler
+    from macro.data_handler import DataHandler
 
 
 class ConfigOverride:

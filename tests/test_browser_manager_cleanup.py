@@ -3,12 +3,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from config import CONFIG
+from macro.config import CONFIG
 
 PLAYWRIGHT_AVAILABLE = importlib.util.find_spec("playwright") is not None
 
 if PLAYWRIGHT_AVAILABLE:
-    from browser_manager import BrowserManager
+    from macro.browser_manager import BrowserManager
 
 
 class ConfigOverride:

@@ -6,7 +6,7 @@ from pathlib import Path
 REPORTLAB_AVAILABLE = importlib.util.find_spec("reportlab") is not None
 
 if REPORTLAB_AVAILABLE:
-    from pdf_generator import create_summary_report
+    from macro.pdf_generator import create_summary_report
 
 
 @unittest.skipUnless(REPORTLAB_AVAILABLE, "reportlab not installed")

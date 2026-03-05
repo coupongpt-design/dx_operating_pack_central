@@ -4,12 +4,12 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from config import CONFIG
+from macro.config import CONFIG
 
 PLAYWRIGHT_AVAILABLE = importlib.util.find_spec("playwright") is not None
 
 if PLAYWRIGHT_AVAILABLE:
-    from browser_manager import BrowserManager
+    from macro.browser_manager import BrowserManager
 
 
 class ConfigOverride:
@@ -86,7 +86,7 @@ class TestBrowserManagerStartStop(unittest.TestCase):
             sync = FakeSyncPlaywright(playwright)
 
             with ConfigOverride(USER_DATA_DIR=base_dir), mock.patch(
-                "browser_manager.sync_playwright", return_value=sync
+                "macro.browser_manager.sync_playwright", return_value=sync
             ):
                 manager = BrowserManager()
                 page = manager.start()
