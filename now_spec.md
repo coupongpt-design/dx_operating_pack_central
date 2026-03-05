@@ -1,6 +1,14 @@
 # Project Technical Specification (now_spec)
 
 ## 0. Latest Update (2026-03-05)
+- `dk_system` 도메인은 Stage2 부분 이관 완료:
+  - 구현 이동:
+    - `dk_system/.githooks/*`
+    - `dk_system/tools/*.py`
+  - 루트 호환:
+    - `.githooks/*`는 `dk_system/.githooks/*`를 호출하는 브리지로 유지
+    - `tools/*.py`는 `dk_system/tools/*.py`를 로드/재노출하는 브리지로 유지
+  - `dx_operating_pack/tools/check_tool_integrity.py`는 `dk_system/tools` 브리지도 wrapper로 인식하도록 확장
 - `macro` 도메인은 Stage2 이관 완료:
   - 구현: `macro/main_refactored.py`, `macro/run_health_check.py`, `macro/run_runtime_smoke.py`, `macro/dashboard.py`, `macro/config.py`, `macro/utils.py`, `macro/data_handler.py`, `macro/data_analyzer.py`, `macro/browser_manager.py`, `macro/browser_pool.py`, `macro/job_tracker.py`, `macro/notifier.py`, `macro/pdf_generator.py`, `macro/version.py`
   - 패키지 진입점: `macro/__init__.py`

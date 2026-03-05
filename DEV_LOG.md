@@ -1,3 +1,35 @@
+## Session 2026-03-05 / MONOREPO-STAGE2-DK-SYSTEM-MIGRATION
+- Goal:
+  - `dk_system` 운영 자산을 실제 분리하고 루트 호환 경로를 유지.
+- Scope:
+  - `.githooks/*`, `tools/*.py` -> `dk_system/*` 이동
+  - 루트 브리지 재생성
+  - 무결성/거버넌스 테스트
+- Mode: Precision
+
+### Changes
+- 실파일 이동:
+  - `.githooks/*` -> `dk_system/.githooks/*`
+  - `tools/*.py` -> `dk_system/tools/*.py`
+- 루트 호환 레이어 추가:
+  - 루트 `.githooks/*` 브리지 스크립트 생성
+  - 루트 `tools/*.py` 브리지 모듈 자동 생성
+- 이관 경로 보정:
+  - `dk_system/tools/*.py` 내 `dx_operating_pack` 로더 기준 경로를 `parents[2]`로 조정
+- 무결성 보강:
+  - `dx_operating_pack/tools/check_tool_integrity.py`에서 `dk_system/tools` 브리지 판별 허용
+- 이관 상태 문서화:
+  - `dk_system/README.md`, `MONOREPO_STAGE1_MAP.md` 업데이트
+
+### Tests
+- Targeted:
+  - `python tools/check_tool_integrity.py --project-root . --strict`
+  - summary: `tool integrity clean`
+  - `python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py tests/test_git_hook_guards.py tests/test_test_selector.py tests/test_task_finish.py tests/test_post_task_gate.py tests/test_ci_governance_guard.py`
+  - summary: `53 passed`
+- Note:
+  - `python tools/task_start_guard.py`는 작업 중 staged 변경 감지로 `BLOCKED` (정상 차단 동작 확인)
+
 ## Session 2026-03-05 / MONOREPO-STAGE2-MACRO-MIGRATION
 - Goal:
   - `macro` 영역 구현 파일을 전용 폴더로 실제 이관하고 기존 실행/테스트 경로를 유지.

@@ -1,6 +1,18 @@
 # 프로젝트 상태
 
 ## 최근 업데이트
+- **Monorepo Stage2 - dk_system 부분 이관 (2026-03-05)**:
+  - 운영 자산을 `dk_system` 폴더로 이동:
+    - `.githooks/**` -> `dk_system/.githooks/**`
+    - `tools/*.py` -> `dk_system/tools/*.py`
+  - 루트 호환 브리지 유지:
+    - 루트 `.githooks/**`는 `dk_system/.githooks/**`를 호출
+    - 루트 `tools/*.py`는 `dk_system/tools/*.py`를 로드/재노출
+  - `check_tool_integrity`의 wrapper 판별을 다중 경로(`dx_operating_pack`, `dk_system/tools`) 지원으로 보강.
+  - 검증:
+    - `python tools/check_tool_integrity.py --project-root . --strict` -> `tool integrity clean`
+    - `python -m pytest -q tests/test_rule_docs_sync.py tests/test_rule_guard_steps_mutation.py tests/test_git_hook_guards.py tests/test_test_selector.py tests/test_task_finish.py tests/test_post_task_gate.py tests/test_ci_governance_guard.py` -> `53 passed`
+
 - **Monorepo Stage2 - macro 실제 이관 (2026-03-05)**:
   - `main_refactored`, `run_health_check`, `run_runtime_smoke`, `dashboard`, `config/utils/data_*` 등 매크로 구현 파일을 `macro/` 폴더로 이동.
   - 루트 동일 파일명은 `macro.*` 모듈을 가리키는 호환 래퍼로 전환해 기존 import/실행 경로 유지.
