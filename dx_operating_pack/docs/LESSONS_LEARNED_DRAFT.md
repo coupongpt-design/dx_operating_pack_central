@@ -693,3 +693,173 @@
 ### Human Review Notes
 - [ ] 실제 실패 원인 요약
 - [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-03-03T12:15:53
+- changed_files: 6
+  - `dx_operating_pack/tests/test_coordinate_overlay_mapping.py`
+  - `dx_operating_pack/tests/test_data_orchestration_v2.py`
+  - `dx_operating_pack/tests/test_git_hook_guards.py`
+  - `dx_operating_pack/tests/test_input_lock_runner.py`
+  - `dx_operating_pack/tests/test_logic_path_simulator.py`
+  - `dx_operating_pack/tests/test_multi_role_ai.py`
+
+### Suggested Lessons
+- 동시 입력 경합 테스트 필요
+- retry/inflight 무결성 테스트 필요
+- 실행 경로 회귀 위험: full pytest 권장
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-03-03T12:15:53
+- changed_files: 6
+  - `dx_operating_pack/tests/test_coordinate_overlay_mapping.py`
+  - `dx_operating_pack/tests/test_data_orchestration_v2.py`
+  - `dx_operating_pack/tests/test_git_hook_guards.py`
+  - `dx_operating_pack/tests/test_input_lock_runner.py`
+  - `dx_operating_pack/tests/test_logic_path_simulator.py`
+  - `dx_operating_pack/tests/test_multi_role_ai.py`
+
+### Suggested Lessons
+- 동시 입력 경합 테스트 필요
+- retry/inflight 무결성 테스트 필요
+- 실행 경로 회귀 위험: full pytest 권장
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-03-03T16:32:38
+- changed_files: 0
+
+### Suggested Lessons
+- 변경 범위 기반으로 핵심 회귀 포인트를 수동 추가하세요.
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-03-03T16:32:38
+- changed_files: 0
+
+### Suggested Lessons
+- 변경 범위 기반으로 핵심 회귀 포인트를 수동 추가하세요.
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-03-03T17:03:27
+- changed_files: 0
+
+### Suggested Lessons
+- 변경 범위 기반으로 핵심 회귀 포인트를 수동 추가하세요.
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-03-03T17:03:27
+- changed_files: 0
+
+### Suggested Lessons
+- 변경 범위 기반으로 핵심 회귀 포인트를 수동 추가하세요.
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-03-03T17:04:00
+- changed_files: 0
+
+### Suggested Lessons
+- 변경 범위 기반으로 핵심 회귀 포인트를 수동 추가하세요.
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-03-03T17:04:00
+- changed_files: 0
+
+### Suggested Lessons
+- 변경 범위 기반으로 핵심 회귀 포인트를 수동 추가하세요.
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-03-03T17:06:30
+- changed_files: 0
+
+### Suggested Lessons
+- 변경 범위 기반으로 핵심 회귀 포인트를 수동 추가하세요.
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-03-03T17:06:30
+- changed_files: 0
+
+### Suggested Lessons
+- 변경 범위 기반으로 핵심 회귀 포인트를 수동 추가하세요.
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-03-04T20:46:41
+- changed_files: 0
+
+### Suggested Lessons
+- 변경 범위 기반으로 핵심 회귀 포인트를 수동 추가하세요.
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-03-04T20:46:41
+- changed_files: 0
+
+### Suggested Lessons
+- 변경 범위 기반으로 핵심 회귀 포인트를 수동 추가하세요.
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-03-05T11:06:54
+- changed_files: 0
+
+### Suggested Lessons
+- 변경 범위 기반으로 핵심 회귀 포인트를 수동 추가하세요.
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부
+
+## Post Task Gate Harvest
+- generated_at: 2026-03-05T11:06:54
+- changed_files: 0
+
+### Suggested Lessons
+- 변경 범위 기반으로 핵심 회귀 포인트를 수동 추가하세요.
+
+### Human Review Notes
+- [ ] 실제 실패 원인 요약
+- [ ] 재발 방지 룰/테스트 추가 여부

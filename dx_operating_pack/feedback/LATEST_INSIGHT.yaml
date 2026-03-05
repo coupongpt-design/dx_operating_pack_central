@@ -1,12 +1,12 @@
 schema_version: 1
-generated_at: "2026-03-03T12:01:26"
+generated_at: "2026-03-05T11:06:54"
 title: "Post Task Gate Harvest"
 source:
   mode: "staged"
   base: "HEAD~1"
   head: "HEAD"
 stats:
-  changed_files_count: 17
+  changed_files_count: 0
   reusable_changes_count: 0
   added_lessons_count: 0
   ai_decisions_count: 0
@@ -14,23 +14,7 @@ stats:
   ai_warnings_count: 0
   ai_sources_count: 0
 changed_files:
-  - ".githooks/commit-msg"
-  - ".githooks/pre-commit"
-  - ".githooks/pre-push"
-  - "tests/test_ci_governance_guard.py"
-  - "tests/test_git_hook_guards.py"
-  - "tests/test_post_task_gate.py"
-  - "tests/test_task_finish.py"
-  - "tests/test_test_selector.py"
-  - "tools/check_tool_integrity.py"
-  - "tools/ci_governance_guard.py"
-  - "tools/git_hook_guards.py"
-  - "tools/install_git_hooks.py"
-  - "tools/post_task_gate.py"
-  - "tools/preflight_env.py"
-  - "tools/task_finish.py"
-  - "tools/task_start_guard.py"
-  - "tools/test_selector.py"
+
 reusable_changes:
 
 added_lessons:
