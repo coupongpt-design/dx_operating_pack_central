@@ -14,6 +14,54 @@ from macro.data_handler import DataHandler
 
 
 class GoogleMessagesProcessingMixin:
+    @staticmethod
+    def _collect_blob_image_candidates(thumbnails, msg_index_counter: int):
+        image_candidates = []
+        for thumb in thumbnails:
+            try:
+                src = thumb.get_attribute("src")
+            except Exception as exc:
+                logging.debug(
+                    "이미지 src 추출 실패(index=%d): %s",
+                    msg_index_counter,
+                    exc,
+                )
+                continue
+            if src and "blob:" in src:
+                image_candidates.append((thumb, src))
+        return image_candidates
+
+    @staticmethod
+    def _prepare_blob_image_for_save(page, thumb, msg_index_counter: int, image_index: int):
+        try:
+            is_visible = thumb.is_visible()
+        except Exception:
+            is_visible = False
+
+        if is_visible:
+            try:
+                thumb.scroll_into_view_if_needed(timeout=1500)
+            except Exception as exc:
+                logging.debug(
+                    "이미지 스크롤 실패(index=%d, image=%d): %s",
+                    msg_index_counter,
+                    image_index,
+                    exc,
+                )
+            for _ in range(10):
+                try:
+                    if thumb.evaluate("el => el.naturalWidth > 0"):
+                        break
+                except Exception:
+                    break
+                page.wait_for_timeout(100)
+        else:
+            logging.debug(
+                "숨김 이미지 direct-save 시도(index=%d, image=%d)",
+                msg_index_counter,
+                image_index,
+            )
+
     def process_messages(
         self, save_path: Path, start_date: Optional[datetime], end_date: Optional[datetime]
     ) -> Tuple[int, int]:
@@ -192,25 +240,27 @@ class GoogleMessagesProcessingMixin:
                 saved_img_count = 0
 
                 thumbnails = element.locator("img").all()
-                detected_img_count = len(thumbnails)
-                for i, thumb in enumerate(thumbnails):
+                image_candidates = self._collect_blob_image_candidates(
+                    thumbnails,
+                    msg_index_counter,
+                )
+                detected_img_count = len(image_candidates)
+                for i, (thumb, src) in enumerate(image_candidates):
                     try:
-                        thumb.scroll_into_view_if_needed()
-                        for _ in range(30):
-                            if thumb.evaluate("el => el.naturalWidth > 0"):
-                                break
-                            self.page.wait_for_timeout(100)
-
-                        src = thumb.get_attribute("src")
-                        if src and "blob:" in src:
-                            fname = DataHandler.build_attachment_filename(
-                                msg_date, msg_index_counter, f"img_{i+1}", src, ".jpg"
-                            )
-                            fpath = save_path / fname
-                            if DataHandler.save_blob_to_file(self.page, src, fpath):
-                                attachment_info_parts.append(f"[{fname}]")
-                                saved_image_files.append(fname)
-                                saved_img_count += 1
+                        self._prepare_blob_image_for_save(
+                            self.page,
+                            thumb,
+                            msg_index_counter,
+                            i + 1,
+                        )
+                        fname = DataHandler.build_attachment_filename(
+                            msg_date, msg_index_counter, f"img_{i+1}", src, ".jpg"
+                        )
+                        fpath = save_path / fname
+                        if DataHandler.save_blob_to_file(self.page, src, fpath):
+                            attachment_info_parts.append(f"[{fname}]")
+                            saved_image_files.append(fname)
+                            saved_img_count += 1
                     except Exception as e:
                         logging.warning(f"이미지 저장 실패: {e}")
 
