@@ -3,6 +3,7 @@
 실시간 진행 상황 모니터링 및 로그 스트리밍
 """
 import logging
+import socket
 import threading
 import sys
 from flask import Flask, render_template, jsonify, cli
@@ -128,6 +129,16 @@ def run_dashboard(port=5000):
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
     logging.info(f"🌐 웹 대시보드 실행 중: http://localhost:{port}")
     socketio.run(app, host='0.0.0.0', port=port, debug=False, use_reloader=False, allow_unsafe_werkzeug=True)
+
+def is_port_available(port: int) -> bool:
+    """로컬 포트 사용 가능 여부 확인"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind(("127.0.0.1", port))
+            return True
+        except OSError:
+            return False
 
 def start_dashboard_thread(port=5000):
     """대시보드를 별도 스레드로 시작"""

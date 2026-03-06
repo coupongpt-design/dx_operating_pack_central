@@ -5,6 +5,7 @@ import platform
 import os
 import subprocess
 import warnings
+from pathlib import Path
 from .config import CONFIG
 from .utils import setup_logging, parse_date_smart, ExecutionLogger
 from .browser_manager import BrowserManager
@@ -181,6 +182,84 @@ def _confirm_reset():
         return False
     return confirm.strip().upper() == "YES"
 
+
+def _dashboard_port_file() -> Path:
+    return CONFIG["LOG_DIR"] / "dashboard_port.txt"
+
+
+def _load_dashboard_port(default_port: int = 5000) -> int:
+    port_file = _dashboard_port_file()
+    try:
+        raw = port_file.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return default_port
+    except Exception as exc:
+        logging.warning("대시보드 포트 설정을 읽지 못해 기본값(%d)을 사용합니다: %s", default_port, exc)
+        return default_port
+
+    if raw.isdigit():
+        port = int(raw)
+        if 1024 <= port <= 65535:
+            return port
+
+    logging.warning("대시보드 포트 설정값이 잘못되어 기본값(%d)을 사용합니다: %r", default_port, raw)
+    return default_port
+
+
+def _save_dashboard_port(port: int) -> None:
+    port_file = _dashboard_port_file()
+    port_file.parent.mkdir(parents=True, exist_ok=True)
+    port_file.write_text(str(port), encoding="utf-8")
+
+
+def _configure_dashboard_port(current_port: int = 5000):
+    print("\n" + "-" * 50)
+    print(" [웹 대시보드 포트 설정]")
+    print(f" 현재 포트: {current_port}")
+    print(" - 프로그램 2개를 동시에 실행할 때는 동일 포트를 사용할 수 없습니다.")
+    print(" - 예: 첫 번째 5000, 두 번째 5001")
+    print("-" * 50)
+    raw = safe_input(f">> 사용할 포트 입력 (엔터=기본 {current_port}): ")
+    if raw is None:
+        return None
+    raw = raw.strip()
+    if not raw:
+        return current_port
+    if not raw.isdigit():
+        print("포트는 숫자만 입력하세요.")
+        return current_port
+    port = int(raw)
+    if port < 1024 or port > 65535:
+        print("포트는 1024~65535 범위에서 입력하세요.")
+        return current_port
+    return port
+
+
+def _resolve_dashboard_port(current_port: int = 5000, auto_mode: bool = False):
+    port = current_port
+    while True:
+        if dashboard.is_port_available(port):
+            return port
+
+        print("\n[안내] 웹 대시보드 포트가 이미 사용 중입니다.")
+        print("       프로그램 2개를 동시에 실행할 때는 동일 포트를 사용할 수 없습니다.")
+        print(f"       현재 포트: {port}")
+
+        if auto_mode:
+            port += 1
+            while port <= 65535 and not dashboard.is_port_available(port):
+                port += 1
+            if port <= 65535:
+                logging.warning("대시보드 포트 충돌로 사용 가능한 포트 %d 로 변경합니다.", port)
+                return port
+            logging.error("사용 가능한 대시보드 포트를 찾지 못했습니다.")
+            return None
+
+        changed_port = _configure_dashboard_port(port + 1 if port == current_port else port)
+        if changed_port is None:
+            return None
+        port = changed_port
+
 def _reset_menu(tracker):
     print("\n" + "-" * 50)
     print(" [재작업 초기화 메뉴]")
@@ -248,6 +327,7 @@ def main():
     browser_mgr = BrowserManager()
     tracker = JobTracker()  # 체크포인트 시스템
     notifier = Notifier()  # 알림 시스템
+    dashboard_port = _load_dashboard_port()
     
     while True:
         print("\n" + "="*50)
@@ -258,6 +338,7 @@ def main():
         print(" 3. 엑셀 양식 생성 (Create Template)")
         print(" 4. 종료 (Exit)")
         print(" 5. 재작업 초기화 (DB/작업완료)")
+        print(f" 6. 웹 대시보드 포트 설정 (현재: {dashboard_port})")
         print("="*50)
         
         if len(sys.argv) > 1 and sys.argv[1] == '--auto':
@@ -289,14 +370,28 @@ def main():
             if not _reset_menu(tracker):
                 return
             continue
+        elif choice == '6':
+            changed_port = _configure_dashboard_port(dashboard_port)
+            if changed_port is None:
+                return
+            dashboard_port = changed_port
+            _save_dashboard_port(dashboard_port)
+            continue
         else:
             print("잘못된 입력입니다.")
             continue
     
+    auto_mode = len(sys.argv) > 1 and sys.argv[1] == '--auto'
+    dashboard_port = _resolve_dashboard_port(dashboard_port, auto_mode=auto_mode)
+    if dashboard_port is None:
+        logging.error("대시보드 포트 설정에 실패해 프로그램을 종료합니다.")
+        return
+    _save_dashboard_port(dashboard_port)
+
     # 웹 대시보드 시작 (별도 스레드)
     print("\n🌐 웹 대시보드를 시작합니다...")
-    dashboard.start_dashboard_thread(port=5000)
-    print("   ✅ 브라우저에서 http://localhost:5000 접속하여 진행 상황을 확인할 수 있습니다.\n")
+    dashboard.start_dashboard_thread(port=dashboard_port)
+    print(f"   ✅ 브라우저에서 http://localhost:{dashboard_port} 접속하여 진행 상황을 확인할 수 있습니다.\n")
     time.sleep(2)  # 서버 시작 대기
     
     # Phase 4-1 (M1): 브라우저 풀 사용

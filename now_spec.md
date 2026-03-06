@@ -23,6 +23,9 @@
   - 루트 래퍼 제거 후 테스트/실행 경로를 패키지 import로 전환
 - 이동 후 대시보드 템플릿 경로 고정:
   - `macro/dashboard.py`는 리소스 탐색 기준을 저장소 루트로 고정해 `templates/dashboard.html` 로드 회귀를 방지
+  - 메인 메뉴에서 웹 대시보드 포트를 설정할 수 있으며 기본값은 `5000`
+  - 프로그램 2개 동시 실행 시 동일 포트는 허용하지 않고, 시작 직전 점유 검사 후 다른 포트로 변경/자동 보정
+  - 선택된 포트는 `system_logs/dashboard_port.txt`에 저장되어 다음 실행에도 유지
 - `google_messages` 도메인은 Stage2 이관 완료:
   - 구현: `google_messages/google_messages.py`, `google_messages/google_messages_auth.py`, `google_messages/google_messages_base.py`, `google_messages/google_messages_chat.py`, `google_messages/google_messages_processing.py`
   - 패키지 진입점: `google_messages/__init__.py` (`GoogleMessagesPage` 재노출)

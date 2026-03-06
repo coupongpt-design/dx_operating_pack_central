@@ -8,6 +8,15 @@
     - `README.md`, `AGENTS.md`, `DEV_LOG.md`, `PROJECT_STATUS.md`, `now_spec.md`
   - 문서 내 링크를 새 경로 기준으로 갱신(`README.md`, `docs/project/walkthrough.md`).
 
+- **Dashboard Port Menu For Concurrent Runs (2026-03-06)**:
+  - 메인 메뉴에 `웹 대시보드 포트 설정` 추가(기본 `5000`).
+  - 프로그램 2개 동시 실행 시 동일 포트 사용 불가 안내 후 다른 포트(예: `5001`)로 변경 가능.
+  - 작업 시작 직전에 포트 점유 여부를 검사하고, `--auto` 실행은 다음 사용 가능 포트로 자동 보정.
+  - 선택된 포트는 `system_logs/dashboard_port.txt`에 저장되어 다음 실행에도 유지.
+  - 검증:
+    - `python -m pytest -q tests/test_main_dashboard_port.py tests/test_dashboard_websocket.py tests/test_main_relogin_policy.py tests/test_main_target_recovery_flow.py`
+    - `python -m macro.run_health_check`
+
 - **Monorepo Stage2-2 - 루트 Python 래퍼 제거 정리 (2026-03-05)**:
   - 루트 호환 래퍼 `*.py` 제거:
     - `main_refactored.py`, `run_health_check.py`, `run_runtime_smoke.py`, `config.py`, `utils.py`, `browser_*`, `data_*`, `job_tracker.py`, `notifier.py`, `pdf_generator.py`, `version.py`

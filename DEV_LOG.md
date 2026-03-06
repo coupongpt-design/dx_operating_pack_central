@@ -1,3 +1,19 @@
+## Session 2026-03-06 / DASHBOARD-PORT-MENU
+- Goal:
+  - 프로그램 2개 동시 실행 시 웹 대시보드 포트 충돌을 사용자 메뉴로 제어.
+- Changes:
+  - `macro/main_refactored.py`
+    - 메인 메뉴에 `웹 대시보드 포트 설정` 추가(기본 `5000`).
+    - 시작 직전 포트 점유를 검사하고, 수동 실행은 안내 후 재입력, `--auto`는 다음 사용 가능 포트로 자동 보정.
+    - 선택된 포트를 `system_logs/dashboard_port.txt`에 저장하고 다음 실행 시 재사용.
+  - `macro/dashboard.py`
+    - 로컬 포트 사용 가능 여부 검사 `is_port_available(...)` 추가.
+  - `tests/test_main_dashboard_port.py`
+    - 기본 포트 유지, 저장/복원, 사용자 변경, 포트 재입력, auto fallback 회귀 테스트 추가.
+- Validation:
+  - `python -m pytest -q tests/test_main_dashboard_port.py tests/test_dashboard_websocket.py tests/test_main_relogin_policy.py tests/test_main_target_recovery_flow.py`
+  - `python -m macro.run_health_check`
+
 ## Session 2026-03-05 / ROOT-DOCS-CLEANUP
 - Goal:
   - 프로젝트 루트 문서 노출을 줄이고 문서를 `docs/project/`로 정리.
