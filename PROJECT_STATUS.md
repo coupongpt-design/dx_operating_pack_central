@@ -443,3 +443,7 @@
   - 표준 `Record` 경로는 더 이상 `SmartTransformer`/proposal state를 소유하지 않음.
   - `raw_event_received`는 HUD ripple/stop-hotkey 보조 처리만 수행.
   - Smart 기능은 수동 `Smart Capture` 경로로만 남아 표준 녹화와 섞이지 않음.
+- **Add Step 단축키 글로벌 등록 (2026-03-09)**:
+  - Windows 글로벌 hotkey 엔진이 `Add Image`, `Add Action`까지 등록하도록 확장됨.
+  - 매크로 창이 비활성화된 상태에서도 `Add Image`/`Add Action` 단축키가 동작함.
+  - 단일 키(`\`` 포함)는 Windows 글로벌 등록 가능 여부에 따라 동작하며, 앱 레벨에서는 등록/dispatch 경로를 제공함.

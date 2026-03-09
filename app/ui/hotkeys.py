@@ -45,6 +45,8 @@ class SystemHotkeys(QAbstractNativeEventFilter):
         self._reg(getattr(self.mw, "_hk_record", ""), 3)
         self._reg(getattr(self.mw, "_hk_pause", ""), 4)
         self._reg(getattr(self.mw, "_hk_kill", ""), 5)
+        self._reg(getattr(self.mw, "_hk_add_img", ""), 6)
+        self._reg(getattr(self.mw, "_hk_add_notimg", ""), 7)
 
     def _unregister_all(self):
         for hk_id in list(self.registered.keys()):
@@ -79,6 +81,10 @@ class SystemHotkeys(QAbstractNativeEventFilter):
                     self.mw._act_pause_resume_from_hotkey()
                 elif hk_id == 5 and hasattr(self.mw, "_act_kill_from_hotkey"):
                     self.mw._act_kill_from_hotkey()
+                elif hk_id == 6 and hasattr(self.mw, "add_image_step"):
+                    self.mw.add_image_step()
+                elif hk_id == 7 and hasattr(self.mw, "add_not_image_step"):
+                    self.mw.add_not_image_step()
                 return True, 0
         return False, 0
 

@@ -6,12 +6,15 @@
 ## Shutdown Cleanup Update (2026-03-09)
 - Effective `MainWindow.closeEvent` now disables scheduler/timer state during shutdown.
 - Window close no longer leaves scheduled run callbacks armed after the UI is gone.
-
 ## Record / Smart Capture Boundary (2026-03-09)
 - Standard `Record` owns only `InputRecorder` output and recorder live-signal HUD updates.
 - Standard `Record` does not instantiate or materialize `SmartTransformer` / smart proposals.
 - `Smart Capture` remains a separate manual image-capture workflow for `image_click` / `wait_for_image`.
 
+## Global Add-Step Hotkeys (2026-03-09)
+- Windows `SystemHotkeys` now registers `Add Image` and `Add Action` in addition to `Run/Stop/Record/Pause/Kill`.
+- When the macro window is inactive, `Add Image` / `Add Action` can still dispatch through `WM_HOTKEY`.
+- Local `QShortcut` wiring remains for focused-window use; global registration covers inactive-window capture workflows.
 # Project Technical Specification (now_spec)
 
 ## 1. Project Overview

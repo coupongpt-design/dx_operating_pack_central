@@ -2131,3 +2131,11 @@
 - Validation:
   - `set PYTEST_ALLOW_NORMAL_EXIT=1&& set QT_QPA_PLATFORM=offscreen&& python -m pytest -q tests/test_recording_integration.py tests/test_ui_integration.py tests/test_final_cleanup_guard.py tests/test_main_trigger_scheduler_integration.py::test_close_event_disables_scheduler_timer` -> `33 passed in 4.79s`
   - `set PYTEST_ALLOW_NORMAL_EXIT=1&& python -m pytest -q` -> `510 passed, 1 skipped in 29.42s`
+## Session 116 - Add Step 단축키 글로벌 등록
+- Date: 2026-03-09
+- Summary:
+  - `app/ui/hotkeys.py`: Windows 글로벌 hotkey 등록 대상에 `Add Image`, `Add Action`을 추가.
+  - 비활성 창 상태에서도 `Add Image`/`Add Action` 단축키가 동작하도록 `WM_HOTKEY` dispatch를 연결.
+  - `tests/test_global_hotkeys.py`: 등록 ID(6/7)와 dispatch 경로 회귀 테스트 추가.
+- Validation:
+  - `set QT_QPA_PLATFORM=offscreen&& python -m pytest -q tests/test_global_hotkeys.py` -> `2 passed`
