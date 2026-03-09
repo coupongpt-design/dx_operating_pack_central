@@ -2421,10 +2421,11 @@ class NotImageDialog(BaseDialog):
     def _on_pick_click(self):
         self.hide()
         try:
-            pt = safe_select_point()
-            if pt:
-                self.spClickX.setValue(pt.x())
-                self.spClickY.setValue(pt.y())
+            coords = self._normalize_picked_point(safe_select_point())
+            if coords:
+                x, y = coords
+                self.spClickX.setValue(x)
+                self.spClickY.setValue(y)
         finally:
             self._robust_restore_self()
 
@@ -2451,22 +2452,35 @@ class NotImageDialog(BaseDialog):
     def _on_pick_drag_from(self):
         self.hide()
         try:
-            pt = safe_select_point()
-            if pt:
-                self.spDragFromX.setValue(pt.x())
-                self.spDragFromY.setValue(pt.y())
+            coords = self._normalize_picked_point(safe_select_point())
+            if coords:
+                x, y = coords
+                self.spDragFromX.setValue(x)
+                self.spDragFromY.setValue(y)
         finally:
             self._robust_restore_self()
 
     def _on_pick_drag_to(self):
         self.hide()
         try:
-            pt = safe_select_point()
-            if pt:
-                self.spDragToX.setValue(pt.x())
-                self.spDragToY.setValue(pt.y())
+            coords = self._normalize_picked_point(safe_select_point())
+            if coords:
+                x, y = coords
+                self.spDragToX.setValue(x)
+                self.spDragToY.setValue(y)
         finally:
             self._robust_restore_self()
+
+    def _normalize_picked_point(self, picked):
+        if not picked:
+            return None
+        if isinstance(picked, tuple) and len(picked) >= 2:
+            return int(picked[0]), int(picked[1])
+        if hasattr(picked, "x") and hasattr(picked, "y"):
+            x = picked.x() if callable(picked.x) else picked.x
+            y = picked.y() if callable(picked.y) else picked.y
+            return int(x), int(y)
+        return None
 
     def _on_pick_shot_roi(self):
         self.hide()

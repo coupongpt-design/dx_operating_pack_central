@@ -54,6 +54,23 @@ def test_action_dialog_pick_click_updates_coordinates(monkeypatch, qapp, qtbot):
     dlg.close()
 
 
+def test_action_dialog_pick_click_accepts_tuple_coordinates(monkeypatch, qapp, qtbot):
+    import app.ui.dialogs as dialogs
+
+    def fake_select_point(*_args, **_kwargs):
+        return (56, 78)
+
+    monkeypatch.setattr(dialogs, "safe_select_point", fake_select_point)
+    dlg = _make_dialog(qtbot)
+    _set_action_type(dlg, "click_point")
+
+    dlg._on_pick_click()
+
+    assert dlg.spClickX.value() == 56
+    assert dlg.spClickY.value() == 78
+    dlg.close()
+
+
 def test_action_dialog_keyboard_mode_saved(qapp, qtbot):
     dlg = _make_dialog(qtbot)
     _set_action_type(dlg, "keyboard")
