@@ -23,7 +23,7 @@ from ..utils.common import (
     hk_normalize, hk_pretty, warn, err
 )
 from ..utils.matcher import Matcher
-from .selectors import ROISelector, safe_select_point
+from .selectors import ROISelector, normalize_picked_point, safe_select_point
 
 SETTINGS_ORG = "ImageMacro"
 SETTINGS_APP = "MVP"
@@ -317,8 +317,9 @@ class ConditionalActionWizardDialog(QDialog):
         self.cbFailTarget.setVisible(show_fail_target)
 
     def _on_pick_click(self):
-        x, y = safe_select_point(self)
-        if x is not None and y is not None:
+        coords = normalize_picked_point(safe_select_point(self))
+        if coords:
+            x, y = coords
             self.spClickX.setValue(int(x))
             self.spClickY.setValue(int(y))
 
@@ -2472,15 +2473,7 @@ class NotImageDialog(BaseDialog):
             self._robust_restore_self()
 
     def _normalize_picked_point(self, picked):
-        if not picked:
-            return None
-        if isinstance(picked, tuple) and len(picked) >= 2:
-            return int(picked[0]), int(picked[1])
-        if hasattr(picked, "x") and hasattr(picked, "y"):
-            x = picked.x() if callable(picked.x) else picked.x
-            y = picked.y() if callable(picked.y) else picked.y
-            return int(x), int(y)
-        return None
+        return normalize_picked_point(picked)
 
     def _on_pick_shot_roi(self):
         self.hide()

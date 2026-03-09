@@ -15,6 +15,11 @@
 - Windows `SystemHotkeys` now registers `Add Image` and `Add Action` in addition to `Run/Stop/Record/Pause/Kill`.
 - When the macro window is inactive, `Add Image` / `Add Action` can still dispatch through `WM_HOTKEY`.
 - Local `QShortcut` wiring remains for focused-window use; global registration covers inactive-window capture workflows.
+
+## Action Step Picker Normalization (2026-03-10)
+- `safe_select_point()` returns normalized `(x, y)` integer coordinates.
+- `NotImageDialog` click/drag pickers accept both tuple and `QPoint` style values without losing the selected coordinates.
+- `ConditionalActionWizardDialog` uses the same normalization path for click target picking.
 # Project Technical Specification (now_spec)
 
 ## 1. Project Overview

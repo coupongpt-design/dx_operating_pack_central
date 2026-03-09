@@ -5,7 +5,7 @@ import pytest
 
 pytest.importorskip("pytestqt")
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import QPoint, Qt
 from PyQt5.QtWidgets import QApplication, QDialog
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -150,6 +150,22 @@ def test_conditional_wizard_generates_image_check_flow(tmp_path, qapp, qtbot):
     assert check.timeout_ms == 3200
     assert click.click_x == 64
     assert click.click_y == 128
+
+
+def test_conditional_wizard_pick_click_accepts_qpoint(monkeypatch, qapp, qtbot):
+    import app.ui.dialogs as dialogs
+
+    def fake_select_point(*_args, **_kwargs):
+        return QPoint(41, 52)
+
+    monkeypatch.setattr(dialogs, "safe_select_point", fake_select_point)
+    dlg = dialogs.ConditionalActionWizardDialog([])
+    qtbot.addWidget(dlg)
+
+    dlg._on_pick_click()
+
+    assert dlg.spClickX.value() == 41
+    assert dlg.spClickY.value() == 52
 
 
 def test_main_conditional_wizard_button_inserts_steps(monkeypatch, qapp, qtbot):

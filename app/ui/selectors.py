@@ -298,6 +298,18 @@ class _InlinePointOverlay(QDialog):
         dlg.deleteLater()
         return getattr(dlg, '_pt', None)
 
+def normalize_picked_point(pt):
+    if not pt:
+        return None
+    if isinstance(pt, tuple) and len(pt) >= 2:
+        return int(pt[0]), int(pt[1])
+    if hasattr(pt, "x") and hasattr(pt, "y"):
+        x = pt.x() if callable(pt.x) else pt.x
+        y = pt.y() if callable(pt.y) else pt.y
+        return int(x), int(y)
+    return None
+
+
 def safe_select_point(parent=None):
     try:
         pt = PointSelector.select_point(None)
@@ -318,7 +330,7 @@ def safe_select_point(parent=None):
             parent.activateWindow()
         except Exception as e: err(f"Failed to restore parent window: {e}")
         
-    return pt
+    return normalize_picked_point(pt)
 
 class CrosshairOverlay(QWidget):
     def __init__(self, virt_left, virt_top, virt_w, virt_h, x, y, duration_ms=300):

@@ -325,6 +325,28 @@ def test_action_dialog_pick_drag_updates_coordinates(monkeypatch, qapp, qtbot):
     dlg.close()
 
 
+def test_action_dialog_pick_drag_accepts_tuple_coordinates(monkeypatch, qapp, qtbot):
+    import app.ui.dialogs as dialogs
+
+    points = [(10, 20), (30, 40)]
+
+    def fake_select_point(*_args, **_kwargs):
+        return points.pop(0)
+
+    monkeypatch.setattr(dialogs, "safe_select_point", fake_select_point)
+    dlg = _make_dialog(qtbot)
+    _set_action_type(dlg, "drag")
+
+    dlg._on_pick_drag_from()
+    dlg._on_pick_drag_to()
+
+    assert dlg.spDragFromX.value() == 10
+    assert dlg.spDragFromY.value() == 20
+    assert dlg.spDragToX.value() == 30
+    assert dlg.spDragToY.value() == 40
+    dlg.close()
+
+
 def test_action_dialog_pick_ocr_roi_updates_display(monkeypatch, qapp, qtbot):
     import app.ui.dialogs as dialogs
 

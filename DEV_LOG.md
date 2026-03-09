@@ -5,6 +5,15 @@
 - 작업 종료는 `python tools/task_finish.py --subject "..." --scope ...` 경로를 표준으로 사용
 - गे이트 통과 후 운영 감사 권장: `python tools/project_audit.py`
 
+## Session 117 - Action Step 좌표 선택 정규화
+- Date: 2026-03-10
+- Summary:
+  - `app/ui/selectors.py`: `safe_select_point()` 반환값을 `(x, y)` 정수 tuple 기준으로 정규화.
+  - `app/ui/dialogs.py`: `NotImageDialog`와 `ConditionalActionWizardDialog`가 tuple/QPoint 혼용 반환을 모두 허용하도록 정리.
+  - `tests/test_action_dialog_flows.py`, `tests/test_conditional_wizard_generation.py`: click/drag/wizard click 회귀 테스트 추가.
+- Validation:
+  - `set QT_QPA_PLATFORM=offscreen&& python -m pytest -q tests/test_action_dialog_flows.py tests/test_conditional_wizard_generation.py tests/test_main_trigger_scheduler_integration.py` -> PASS
+
 ## Session 113 - run_health_check 강제종료/우회 안정화
 - Date: 2026-03-04
 - Summary:
