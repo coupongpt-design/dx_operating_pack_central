@@ -13,6 +13,7 @@ BASE_ITEMS: tuple[tuple[str, str], ...] = (
     ("dx_operating_pack/hooks", ".githooks"),
     ("tools", "tools"),
     ("AGENTS.md", "AGENTS.md"),
+    (".cursorrules", ".cursorrules"),
     ("docs_for_ai", "docs_for_ai"),
     ("pytest.ini", "pytest.ini"),
     ("requirements-dev.txt", "requirements-dev.txt"),
@@ -55,6 +56,9 @@ HOOK_FILES: tuple[str, ...] = (
     ".githooks/commit-msg",
     ".githooks/pre-push",
 )
+
+SYNC_BLOCK_START = "<!-- SYNC_BLOCK_START -->"
+SYNC_BLOCK_END = "<!-- SYNC_BLOCK_END -->"
 
 
 def _safe_remove(path: Path) -> None:
@@ -139,6 +143,25 @@ def _write_text(path: Path, text: str, *, dry_run: bool, label: str) -> None:
     print(f"[ok] write: {label} -> {path.as_posix()}")
 
 
+def _extract_sync_block_from_text(text: str) -> str | None:
+    start = text.find(SYNC_BLOCK_START)
+    end = text.find(SYNC_BLOCK_END)
+    if start == -1 or end == -1 or end < start:
+        return None
+    end += len(SYNC_BLOCK_END)
+    return text[start:end].strip()
+
+
+def _replace_sync_block(text: str, new_block: str) -> str:
+    start = text.find(SYNC_BLOCK_START)
+    end = text.find(SYNC_BLOCK_END)
+    if start == -1 or end == -1 or end < start:
+        tail = "" if text.endswith("\n") else "\n"
+        return f"{text}{tail}\n{new_block}\n"
+    end += len(SYNC_BLOCK_END)
+    return f"{text[:start]}{new_block}{text[end:]}"
+
+
 def _ensure_governance_bridges(target_root: Path, *, archive_stamp: str, dry_run: bool) -> list[str]:
     errors: list[str] = []
     for dst_rel, module in GOVERNANCE_BRIDGES:
@@ -185,41 +208,60 @@ def _bootstrap_state_docs(target_root: Path, *, dry_run: bool) -> None:
 
 def _normalize_rule_files(target_root: Path, *, archive_stamp: str, dry_run: bool) -> list[str]:
     errors: list[str] = []
-    canonical_cursorrules = target_root / "dx_operating_pack" / "rules" / ".cursorrules"
+    root_agents = target_root / "AGENTS.md"
+    if not root_agents.exists():
+        errors.append(f"missing AGENTS.md for bridge creation: {root_agents}")
+        return errors
+
+    agents_text = root_agents.read_text(encoding="utf-8", errors="ignore")
+    agents_sync_block = _extract_sync_block_from_text(agents_text)
+
     root_cursorrules = target_root / ".cursorrules"
-    if not canonical_cursorrules.exists():
-        errors.append(f"missing canonical rule file: {canonical_cursorrules}")
-    else:
-        canonical_text = canonical_cursorrules.read_text(encoding="utf-8", errors="ignore")
-        if root_cursorrules.exists():
-            current_text = root_cursorrules.read_text(encoding="utf-8", errors="ignore")
-            if current_text != canonical_text:
-                _archive_path(target_root, root_cursorrules, archive_stamp, dry_run=dry_run)
-                _write_text(root_cursorrules, canonical_text, dry_run=dry_run, label=".cursorrules normalize")
-            else:
-                print("[ok] .cursorrules already normalized")
+    if not root_cursorrules.exists():
+        fallback = target_root / "dx_operating_pack" / "rules" / ".cursorrules"
+        if fallback.exists():
+            _write_text(
+                root_cursorrules,
+                fallback.read_text(encoding="utf-8", errors="ignore"),
+                dry_run=dry_run,
+                label=".cursorrules bootstrap",
+            )
         else:
-            _write_text(root_cursorrules, canonical_text, dry_run=dry_run, label=".cursorrules bootstrap")
+            errors.append(f"missing .cursorrules and fallback canonical file: {fallback}")
+            return errors
+
+    cursor_text = root_cursorrules.read_text(encoding="utf-8", errors="ignore")
+    if agents_sync_block is not None:
+        cursor_sync_block = _extract_sync_block_from_text(cursor_text)
+        if cursor_sync_block != agents_sync_block:
+            normalized = _replace_sync_block(cursor_text, agents_sync_block)
+            _archive_path(target_root, root_cursorrules, archive_stamp, dry_run=dry_run)
+            _write_text(
+                root_cursorrules,
+                normalized,
+                dry_run=dry_run,
+                label=".cursorrules sync-block normalize",
+            )
+        else:
+            print("[ok] .cursorrules sync block already aligned")
+    else:
+        print("[warn] AGENTS.md sync block missing; .cursorrules sync-block normalization skipped")
 
     legacy_rule_md = target_root / "rule.md"
     if legacy_rule_md.exists():
         _archive_path(target_root, legacy_rule_md, archive_stamp, dry_run=dry_run)
 
-    root_agents = target_root / "AGENTS.md"
-    if not root_agents.exists():
-        errors.append(f"missing AGENTS.md for bridge creation: {root_agents}")
-    else:
-        bridge_dst = target_root / "rules" / "AGENTS.md"
-        bridge_text = root_agents.read_text(encoding="utf-8", errors="ignore")
-        if bridge_dst.exists():
-            existing = bridge_dst.read_text(encoding="utf-8", errors="ignore")
-            if existing != bridge_text:
-                _archive_path(target_root, bridge_dst, archive_stamp, dry_run=dry_run)
-                _write_text(bridge_dst, bridge_text, dry_run=dry_run, label="rules/AGENTS.md bridge")
-            else:
-                print("[ok] rules/AGENTS.md bridge already synced")
-        else:
+    bridge_dst = target_root / "rules" / "AGENTS.md"
+    bridge_text = agents_text
+    if bridge_dst.exists():
+        existing = bridge_dst.read_text(encoding="utf-8", errors="ignore")
+        if existing != bridge_text:
+            _archive_path(target_root, bridge_dst, archive_stamp, dry_run=dry_run)
             _write_text(bridge_dst, bridge_text, dry_run=dry_run, label="rules/AGENTS.md bridge")
+        else:
+            print("[ok] rules/AGENTS.md bridge already synced")
+    else:
+        _write_text(bridge_dst, bridge_text, dry_run=dry_run, label="rules/AGENTS.md bridge")
 
     return errors
 
@@ -265,13 +307,17 @@ def _run_doctor(target_root: Path) -> tuple[int, list[str]]:
     else:
         errors.append("[doctor-fail] missing pre-push hook")
 
-    canonical = target_root / "dx_operating_pack" / "rules" / ".cursorrules"
+    agents = target_root / "AGENTS.md"
     root_cur = target_root / ".cursorrules"
-    if canonical.exists() and root_cur.exists():
-        canonical_text = canonical.read_text(encoding="utf-8", errors="ignore")
-        root_text = root_cur.read_text(encoding="utf-8", errors="ignore")
-        if canonical_text != root_text:
-            errors.append("[doctor-fail] .cursorrules mismatch vs dx_operating_pack/rules/.cursorrules")
+    if agents.exists() and root_cur.exists():
+        agents_block = _extract_sync_block_from_text(agents.read_text(encoding="utf-8", errors="ignore"))
+        cursor_block = _extract_sync_block_from_text(root_cur.read_text(encoding="utf-8", errors="ignore"))
+        if agents_block is None:
+            errors.append("[doctor-fail] AGENTS.md missing sync block markers")
+        elif cursor_block is None:
+            errors.append("[doctor-fail] .cursorrules missing sync block markers")
+        elif agents_block != cursor_block:
+            errors.append("[doctor-fail] .cursorrules sync block mismatch vs AGENTS.md")
         else:
             logs.append("[doctor-ok] .cursorrules sync")
 

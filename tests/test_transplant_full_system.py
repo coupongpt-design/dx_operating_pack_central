@@ -6,6 +6,9 @@ from pathlib import Path
 
 
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "tools" / "transplant_full_system.py"
+SYNC_BLOCK = "<!-- SYNC_BLOCK_START -->\nSYNC-LINE\n<!-- SYNC_BLOCK_END -->\n"
+AGENTS_TEXT = f"# AGENTS\n\n{SYNC_BLOCK}"
+CURSOR_TEXT = f"# .cursorrules\n\n{SYNC_BLOCK}"
 
 
 def _write(path: Path, content: str = "x\n") -> None:
@@ -21,7 +24,8 @@ def _prepare_min_source(source_root: Path) -> None:
     (source_root / "dx_operating_pack" / "tests").mkdir(parents=True, exist_ok=True)
     (source_root / "tools").mkdir(parents=True, exist_ok=True)
     (source_root / "docs_for_ai").mkdir(parents=True, exist_ok=True)
-    _write(source_root / "AGENTS.md", "agents\n")
+    _write(source_root / "AGENTS.md", AGENTS_TEXT)
+    _write(source_root / ".cursorrules", CURSOR_TEXT)
     _write(source_root / "pytest.ini", "[pytest]\n")
     _write(source_root / "requirements-dev.txt", "pytest\n")
     _write(source_root / "run_health_check.py", "print('ok')\n")
@@ -43,7 +47,7 @@ def _prepare_min_source(source_root: Path) -> None:
             "tests/test_ci_governance_guard.py\n"
         ),
     )
-    _write(source_root / "dx_operating_pack" / "rules" / ".cursorrules", "canonical-rules\n")
+    _write(source_root / "dx_operating_pack" / "rules" / ".cursorrules", CURSOR_TEXT)
     _write(source_root / "dx_operating_pack" / "templates" / "DEV_LOG.template.md", "# devlog\n")
     _write(
         source_root / "dx_operating_pack" / "templates" / "PROJECT_STATUS.template.md",
@@ -98,7 +102,8 @@ def test_overwrite_creates_backup_and_replaces_files(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     target_root = tmp_path / "target"
     _prepare_min_source(source_root)
-    _write(source_root / "AGENTS.md", "new-agents\n")
+    new_agents = "# NEW AGENTS\n\n" + SYNC_BLOCK
+    _write(source_root / "AGENTS.md", new_agents)
 
     _write(target_root / "AGENTS.md", "old-agents\n")
     _write(target_root / "pytest.ini", "old\n")
@@ -113,7 +118,7 @@ def test_overwrite_creates_backup_and_replaces_files(tmp_path: Path) -> None:
     )
 
     assert completed.returncode == 0, completed.stdout + completed.stderr
-    assert (target_root / "AGENTS.md").read_text(encoding="utf-8") == "new-agents\n"
+    assert (target_root / "AGENTS.md").read_text(encoding="utf-8") == new_agents
 
     backup_parent = target_root / ".dx_cache" / "transplant_backup"
     backups = [p for p in backup_parent.iterdir() if p.is_dir()]
@@ -145,12 +150,14 @@ def test_transplant_bootstraps_state_docs_and_governance_bridges(tmp_path: Path)
     assert (target_root / "PROJECT_STATUS.md").exists()
     assert (target_root / "now_spec.md").exists()
     assert (target_root / "DEV_LOG.md").exists()
-    assert (target_root / ".cursorrules").read_text(encoding="utf-8") == "canonical-rules\n"
+    cursor_text = (target_root / ".cursorrules").read_text(encoding="utf-8")
+    assert "<!-- SYNC_BLOCK_START -->" in cursor_text
+    assert "SYNC-LINE" in cursor_text
     assert not (target_root / "rule.md").exists()
 
     bridge = (target_root / "tests" / "test_rule_docs_sync.py").read_text(encoding="utf-8")
     assert "dx_operating_pack.tests.test_rule_docs_sync" in bridge
-    assert (target_root / "rules" / "AGENTS.md").read_text(encoding="utf-8") == "agents\n"
+    assert (target_root / "rules" / "AGENTS.md").read_text(encoding="utf-8") == AGENTS_TEXT
 
     archived = list((target_root / "archive" / "legacy_rules").rglob("*.md"))
     assert archived, "legacy rule files must be archived"
