@@ -1,6 +1,15 @@
 # 프로젝트 상태
 
 ## 최근 업데이트
+- **run_health_check 안정화 (2026-03-04)**:
+  - `run_health_check.py` 실행 방식을 인프로세스 `pytest.main()`에서 서브프로세스 실행으로 전환.
+  - 기본 헬스체크를 전체 테스트가 아닌 런타임 스모크 테스트 세트로 조정해 access violation 재발 가능성을 낮춤.
+  - 출력 정체 감시를 추가해 무응답 시 강제 종료(`terminate` 후 필요 시 `kill`) 경로를 제공.
+  - 운영 토글:
+    - `HEALTHCHECK_FULL=1` -> 전체 suite 실행
+    - `HEALTHCHECK_TEST_ARGS` -> 커스텀 pytest 인자
+  - 검증: `tests/test_run_health_check_runtime_smoke.py` 신규 추가 및 통과.
+
 - **pytest full suite Qt Crash 우회** (2026-03-02):
   - `tests/conftest.py`: `QT_QPA_PLATFORM=offscreen` + `pytest_sessionfinish`에서 `os._exit()` 강제 종료로 C-레벨 crash 우회.
   - `pytest.ini`: `-p no:qt` + UI 테스트 4종 `--ignore` 처리 (`test_ui_integration`, `test_excel_toolbar_responsive`, `test_coordinate_overlay_mapping`, `test_manager_tab_integration`).

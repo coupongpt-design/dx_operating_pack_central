@@ -5,6 +5,23 @@
 - 작업 종료는 `python tools/task_finish.py --subject "..." --scope ...` 경로를 표준으로 사용
 - गे이트 통과 후 운영 감사 권장: `python tools/project_audit.py`
 
+## Session 113 - run_health_check 강제종료/우회 안정화
+- Date: 2026-03-04
+- Summary:
+  - `run_health_check.py`를 `pytest.main()` 인프로세스 실행에서 **서브프로세스 실행**으로 전환.
+  - 기본 검사 대상을 전체 `tests`가 아닌 런타임 스모크 셋으로 축소:
+    - `test_e2e_runtime_orchestration`, `test_scheduler_core`, `test_trigger_engine_core`
+    - `test_image_dialog_presets`, `test_matcher_quality`, `test_stepdata_serialization`
+  - 출력 정체(stall) 감시를 추가해 무응답 시 `terminate -> kill` 순으로 강제 종료.
+  - 환경변수 제어 추가:
+    - `HEALTHCHECK_FULL=1` -> 전체 `tests -q` 실행
+    - `HEALTHCHECK_TEST_ARGS` -> 커스텀 pytest 인자 지정
+  - 회귀 테스트 추가:
+    - `tests/test_run_health_check_runtime_smoke.py`
+- Validation:
+  - `python -m pytest -q tests/test_run_health_check_runtime_smoke.py tests/test_main_trigger_scheduler_integration.py tests/test_main_scenario_wizard_integration.py` -> PASS
+  - `python run_health_check.py` -> `SYSTEM HEALTHY`
+
 ## Session 112 - pytest full suite Qt Crash 우회 완료
 - Date: 2026-03-02
 - Summary:

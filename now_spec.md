@@ -528,6 +528,21 @@
   - `tools/task_finish.py` blocks partial update of the core docs trio (`PROJECT_STATUS.md`, `now_spec.md`, `DEV_LOG.md`).
   - `tools/task_finish.py` blocks docs modified-time drift over 5 minutes.
   - `tools/task_finish.py` always runs `python tools/project_audit.py` after gate success.
+
+## Health Check Runtime Profile (2026-03-04)
+- `run_health_check.py`는 기본적으로 런타임 스모크 테스트 세트만 실행한다.
+  - `tests/test_e2e_runtime_orchestration.py`
+  - `tests/test_scheduler_core.py`
+  - `tests/test_trigger_engine_core.py`
+  - `tests/test_image_dialog_presets.py`
+  - `tests/test_matcher_quality.py`
+  - `tests/test_stepdata_serialization.py`
+- 실행 구조:
+  - 부모 프로세스가 pytest 서브프로세스를 실행/출력 모니터링
+  - 출력 정체가 `HEALTHCHECK_STALL_SEC`를 초과하면 강제 종료(`terminate` 후 필요 시 `kill`)
+- 운영 토글:
+  - `HEALTHCHECK_FULL=1`: 전체 `tests -q` 실행
+  - `HEALTHCHECK_TEST_ARGS`: 커스텀 pytest 인자 우선 적용
 # now_spec (Current Behavior Snapshot)
 
 ## UI Modernization - Stage 3-5 PR-3-5-2
