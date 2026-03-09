@@ -548,7 +548,7 @@ def test_toggle_record_start_stop_flow_minimize_restore(monkeypatch, qapp, qtbot
     win.close()
 
 
-def test_record_done_inserts_smart_steps_with_addstepscommand(monkeypatch, qapp, qtbot, tmp_path):
+def test_record_done_inserts_legacy_steps_with_addstepscommand(monkeypatch, qapp, qtbot, tmp_path):
     from app.main import MainWindow
     from app.core.models import StepData
     from app.core.smart_recorder import SmartStep, SmartProposal
@@ -595,9 +595,14 @@ def test_record_done_inserts_smart_steps_with_addstepscommand(monkeypatch, qapp,
     )
     win._record_smart_events = [SmartStep(step_type="type_text", text="Hello"), proposal]
     win._smart_transformer = None
-    win._choose_record_proposal_mode = lambda _n: "coord"
+    win._choose_record_proposal_mode = lambda _n: (_ for _ in ()).throw(AssertionError("smart chooser should not run"))
 
-    win._on_record_done([])
+    legacy_steps = [
+        StepData(id="k1", name="typed", type="key", keyboard_mode="text", key_string="Hello"),
+        StepData(id="c3", name="click", type="click_point", click_x=10, click_y=20),
+    ]
+
+    win._on_record_done(legacy_steps)
 
     assert called["ok"] is True
     assert called["index"] == 1
@@ -606,7 +611,7 @@ def test_record_done_inserts_smart_steps_with_addstepscommand(monkeypatch, qapp,
     win.close()
 
 
-def test_record_done_applies_image_choice_to_final_steps(monkeypatch, qapp, qtbot, tmp_path):
+def test_record_done_prefers_legacy_steps_over_smart_choices(monkeypatch, qapp, qtbot, tmp_path):
     from app.main import MainWindow
     from app.core.models import StepData
     from app.core.smart_recorder import SmartProposal
@@ -638,14 +643,27 @@ def test_record_done_applies_image_choice_to_final_steps(monkeypatch, qapp, qtbo
         image_path=image_path,
     )
 
+    called = {"proposal": 0}
+
     win._record_smart_events = [proposal]
     win._smart_transformer = None
-    win._choose_record_proposal_mode = lambda _n: "image"
 
-    win._on_record_done([])
+    def _unexpected_choice(_count):
+        called["proposal"] += 1
+        return "image"
 
+    win._choose_record_proposal_mode = _unexpected_choice
+
+    legacy_steps = [
+        StepData(id="k2", name="typed", type="key", keyboard_mode="text", key_string="legacy"),
+    ]
+
+    win._on_record_done(legacy_steps)
+
+    assert called["proposal"] == 0
     assert len(win.steps) == 1
-    assert win.steps[0].type == "image_click"
+    assert win.steps[0].type == "key"
+    assert win.steps[0].key_string == "legacy"
     win.close()
 
 

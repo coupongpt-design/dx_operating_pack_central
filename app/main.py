@@ -38,7 +38,6 @@ from .core.commands import (
     UndoStack,
     AddStepCommand,
     AddStepsCommand,
-    AddRecordedStepsCommand,
     RemoveStepCommand,
     EditStepCommand,
     MoveStepCommand,
@@ -3132,18 +3131,8 @@ class MainWindow(QMainWindow):
     def _start_record(self):
         g = self.geometry()
         ignore_rect = QRect(g.x(), g.y(), g.width(), g.height())
-        try:
-            typed_gap_sec = max(0.3, float(self.rec_typed_gap_ms) / 1000.0)
-        except Exception:
-            typed_gap_sec = 1.5
-        try:
-            self._smart_transformer = SmartTransformer(
-                typed_gap=typed_gap_sec,
-                image_dir=self._resolve_visual_capture_image_dir(),
-            )
-        except Exception as e:
-            self._smart_transformer = None
-            self._warn_once("smart_transformer_init", f"SmartTransformer init failed: {e}")
+        # Exact replay recording uses the recorder's raw step output as the source of truth.
+        self._smart_transformer = None
         self._record_smart_events = []
         self._record_temp_image_paths = []
         self._set_recording_overlay_visible(True)
@@ -3340,14 +3329,7 @@ class MainWindow(QMainWindow):
                 stats = {}
         show_summary = bool(getattr(self, "_record_show_summary", False))
         self._record_show_summary = False
-        smart_events = list(getattr(self, "_record_smart_events", []) or [])
-        tf = getattr(self, "_smart_transformer", None)
-        if tf is not None:
-            try:
-                smart_events.extend(tf.finalize() or [])
-            except Exception as e:
-                self._warn_once("smart_record_finalize", f"SmartTransformer finalize failed: {e}")
-        self._update_recording_overlay_count(len(smart_events))
+        self._update_recording_overlay_count(0)
         self._smart_transformer = None
         self._record_smart_events = []
         if recorder:
@@ -3355,27 +3337,15 @@ class MainWindow(QMainWindow):
         self._set_recording_overlay_visible(False)
 
         final_steps = list(new_steps or [])
-        keep_paths: set[str] = set()
-        if smart_events:
-            try:
-                final_steps, keep_paths = self._materialize_recorded_steps(smart_events)
-            except Exception as e:
-                self._warn_once("smart_record_materialize", f"Smart proposal materialization failed: {e}")
-        self._cleanup_record_temp_images(keep_paths)
+        self._cleanup_record_temp_images(set())
 
         if not final_steps:
             self.info("No steps recorded.")
         else:
             insert_index = self._record_insert_index()
             focus_index = insert_index + len(final_steps) - 1
-            managed_paths = sorted(keep_paths) if keep_paths else []
-            cmd = (
-                AddRecordedStepsCommand(self.steps, final_steps, index=insert_index, managed_image_paths=managed_paths)
-                if managed_paths
-                else AddStepsCommand(self.steps, final_steps, index=insert_index)
-            )
             self._push_command(
-                cmd,
+                AddStepsCommand(self.steps, final_steps, index=insert_index),
                 focus_index=focus_index
             )
             self._highlight_inserted_steps(insert_index, len(final_steps))
@@ -4516,25 +4486,57 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Clean up background processes before closing."""
-        try:
-            if getattr(self, "runner", None) and self.runner.isRunning():
-                self.runner.stop()
-                self.runner.wait(1000)
-            if getattr(self, "recorder", None) and self.recorder.isRunning():
-                self.recorder.stop()
-                self.recorder.wait(1000)
-            if hasattr(self, "trigger_watcher"):
-                self.trigger_watcher.stop()
-            if hasattr(self, "scheduler"):
-                # MacroScheduler may expose requestStop or stop depending on version
-                stop_fn = getattr(self.scheduler, "stop", None) or getattr(self.scheduler, "requestStop", None)
-                if callable(stop_fn):
-                    stop_fn()
-            if hasattr(self, "_excel_job_manager") and self._excel_job_manager:
-                self._excel_stop_event.set()
-        except Exception as e:
-            print(f"Error during close: {e}")
-        event.accept()
+        def _shutdown_safe(label: str, fn):
+            try:
+                fn()
+            except Exception as ex:
+                try:
+                    self.err(f"Shutdown cleanup failed ({label}): {ex}")
+                except Exception:
+                    print(f"[WARN] Shutdown cleanup failed ({label}): {ex}")
+
+        _shutdown_safe("coordinate_preview", self._clear_coordinate_preview)
+        _shutdown_safe("recording_overlay", lambda: self._set_recording_overlay_visible(False))
+        _shutdown_safe(
+            "runner",
+            lambda: (
+                self.runner.stop(),
+                self.runner.wait(2000),
+            ) if self.runner and self.runner.isRunning() else None,
+        )
+        _shutdown_safe("excel_orchestration", lambda: self._request_stop_excel_orchestration("window_close"))
+        _shutdown_safe("excel_runtime_cleanup", self._cleanup_excel_runtime)
+        _shutdown_safe(
+            "recorder",
+            lambda: self._stop_record(show_summary=False) if self.recorder else None,
+        )
+        _shutdown_safe(
+            "trigger_watcher",
+            lambda: self.trigger_watcher.stop()
+            if getattr(self, "trigger_watcher", None) and self.trigger_watcher.isRunning()
+            else None,
+        )
+        _shutdown_safe(
+            "trigger_runner",
+            lambda: (
+                self.trigger_runner.stop(),
+                self.trigger_runner.wait(2000),
+            )
+            if getattr(self, "trigger_runner", None) and self.trigger_runner.isRunning()
+            else None,
+        )
+        _shutdown_safe(
+            "scheduler",
+            lambda: (
+                self.scheduler.set_enabled(False),
+                self.scheduler.timer.stop(),
+            )
+            if getattr(self, "scheduler", None)
+            else None,
+        )
+        _shutdown_safe("hotkeys", lambda: self._system_hotkeys.uninstall())
+        _shutdown_safe("save_general_settings", lambda: self._save_general_settings())
+        super().closeEvent(event)
 
     # --- Floating "Open Panel" button ----------------------------------
     def _init_open_panel_button(self):

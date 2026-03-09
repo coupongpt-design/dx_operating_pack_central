@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from PyQt5.QtCore import QSettings, Qt
+from PyQt5.QtGui import QCloseEvent
 from PyQt5.QtWidgets import QApplication, QDialog
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -348,6 +349,19 @@ def test_scheduler_status_signal_updates_scheduler_label(window):
     window.scheduler.statusChanged.emit(status_text)
 
     assert window.sched_status_label.text() == status_text
+
+
+def test_close_event_disables_scheduler_timer(window):
+    window.scheduler.set_enabled(True)
+    assert window.scheduler.running is True
+    assert window.scheduler.timer.isActive() is True
+
+    event = QCloseEvent()
+    window.closeEvent(event)
+
+    assert window.scheduler.running is False
+    assert window.scheduler.timer.isActive() is False
+    assert event.isAccepted() is True
 
 
 def test_sync_order_reorders_steps_with_undo_redo(window):

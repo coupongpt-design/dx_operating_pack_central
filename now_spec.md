@@ -1,3 +1,12 @@
+## Recording Behavior Update (2026-03-09)
+- Standard `Record` mode is exact-replay oriented.
+- Final recorded steps are taken from `InputRecorder` output directly, preserving recorded click/drag/scroll behavior and `pre_delay_ms`.
+- Smart proposal flow no longer overrides standard `Record` results.
+
+## Shutdown Cleanup Update (2026-03-09)
+- Effective `MainWindow.closeEvent` now disables scheduler/timer state during shutdown.
+- Window close no longer leaves scheduled run callbacks armed after the UI is gone.
+
 # Project Technical Specification (now_spec)
 
 ## 1. Project Overview
@@ -266,14 +275,15 @@
 
 ### Smart Recorder MainWindow Integration (Stage 3-3 PR-3-3-3)
 - `MainWindow` 녹화 파이프라인 통합:
-  - 녹화 시작 시 `SmartTransformer` 생성 및 `InputRecorder.raw_event_received` 연결
-  - 녹화 종료 시 `transformer.finalize()` 포함 결과를 최종 스텝으로 확정
+  - `InputRecorder.raw_event_received`는 HUD/보조 처리용 raw stream으로 연결됨
+  - 표준 `Record` 종료 시 최종 스텝은 `InputRecorder` 결과를 그대로 사용해 정확 재현형 동작을 유지
+  - Smart proposal 결과는 현재 표준 `Record` 결과를 덮어쓰지 않음
 - 제안 선택 UI:
   - 일괄 선택: `모두 좌표`, `모두 이미지`
   - 혼합 선택: `개별 선택`(proposal 단위 yes/no)
   - 취소: smart 제안 삽입 생략
 - 삽입/가시성:
-  - 확정된 `StepData`를 `AddStepsCommand`로 현재 선택 위치 다음에 batch 삽입
+  - 이 경로는 표준 재현형 녹화와 분리된 보조 흐름으로 유지
   - 삽입 구간 자동 선택/하이라이트
 - 정리:
   - 미채택 임시 이미지 파일 자동 삭제(선택된 proposal 이미지는 유지)

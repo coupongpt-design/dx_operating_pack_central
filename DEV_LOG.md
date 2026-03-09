@@ -2109,3 +2109,16 @@
 ## Session Note - DX Feedback Path Normalization 
 - Normalized `capture_lesson_draft` defaults to write drafts under `dx_operating_pack/docs/*` first. 
 - Added regression test for default-path preference (`tests/test_dx_capture_lesson_draft.py`).
+## Session 114 - 정확 재현형 녹화 복구
+- Date: 2026-03-09
+- Summary:
+  - `app/main.py`: `Record` 종료 시 smart proposal 결과가 legacy recorder 결과를 덮어쓰지 않도록 정리.
+  - 표준 녹화 결과를 `InputRecorder` 원본 스텝(`click_point`, `drag_path`, `scroll`, `pre_delay_ms` 포함) 기준으로 복구.
+  - 유효 `closeEvent`가 scheduler/timer 정리를 놓치던 경로를 정리해 창 종료 후 예약 실행 누수가 남지 않도록 수정.
+  - `tests/test_ui_integration.py`: smart 제안이 존재해도 legacy recorder 결과가 우선되는지 회귀 검증으로 고정.
+- Validation:
+  - `set QT_QPA_PLATFORM=offscreen&& python -m pytest -q tests/test_ui_integration.py::test_record_done_inserts_legacy_steps_with_addstepscommand tests/test_ui_integration.py::test_record_done_prefers_legacy_steps_over_smart_choices tests/test_final_cleanup_guard.py::test_record_cancel_cleans_record_prop_images tests/test_final_cleanup_guard.py::test_add_recorded_steps_command_undo_redo_restores_image_file` -> `4 passed`
+  - `set QT_QPA_PLATFORM=offscreen&& python -m pytest -q tests/test_recording_integration.py` -> `2 passed`
+  - `set QT_QPA_PLATFORM=offscreen&& python -m pytest -q tests/test_e2e_basic.py -k record_done` -> `1 passed`
+  - `set PYTEST_ALLOW_NORMAL_EXIT=1&& set QT_QPA_PLATFORM=offscreen&& python -m pytest -q tests/test_main_trigger_scheduler_integration.py::test_close_event_disables_scheduler_timer tests/test_session_adapter_v2.py tests/test_recording_integration.py tests/test_ui_integration.py::test_record_done_inserts_legacy_steps_with_addstepscommand tests/test_ui_integration.py::test_record_done_prefers_legacy_steps_over_smart_choices tests/test_final_cleanup_guard.py::test_record_cancel_cleans_record_prop_images tests/test_final_cleanup_guard.py::test_add_recorded_steps_command_undo_redo_restores_image_file tests/test_e2e_basic.py::test_e2e_5_record_done_appends` -> `13 passed in 2.83s`
+  - `set PYTEST_ALLOW_NORMAL_EXIT=1&& python -m pytest -q` -> `511 passed, 1 skipped in 23.02s`

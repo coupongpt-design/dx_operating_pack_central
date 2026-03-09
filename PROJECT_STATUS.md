@@ -434,3 +434,8 @@
 ## DX Feedback Loop Path Policy 
 - `capture_lesson_draft` default draft/lessons paths now prefer `dx_operating_pack/docs/*` before root `docs/*`. 
 - Root `docs/LESSONS_LEARNED_DRAFT.md` is treated as legacy fallback path only.
+- **정확 재현형 녹화 복구 (2026-03-09)**:
+  - `Record` 종료 시 최종 스텝은 `InputRecorder`가 만든 원본 결과를 그대로 사용하도록 복구.
+  - Smart proposal 경로가 표준 녹화 결과를 덮어쓰지 않도록 정리.
+  - 드래그/스크롤/`pre_delay_ms` 보존이 다시 기본 녹화 동작이 됨.
+  - `closeEvent` 종료 정리에서 scheduler timer를 확실히 비활성화해 종료 후 예약 실행 누수를 차단.

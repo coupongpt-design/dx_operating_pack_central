@@ -22,8 +22,18 @@ import sys
 _exit_code: list[int] = [0]
 
 
+def _force_exit_enabled() -> bool:
+    return os.environ.get("PYTEST_ALLOW_NORMAL_EXIT", "").strip().lower() not in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def _force_exit():
-    os._exit(_exit_code[0])
+    if _force_exit_enabled():
+        os._exit(_exit_code[0])
 
 
 atexit.register(_force_exit)
@@ -73,5 +83,6 @@ def pytest_sessionfinish(session, exitstatus):
         sys.stderr.flush()
     except Exception:
         pass
-    os._exit(code)
+    if _force_exit_enabled():
+        os._exit(code)
 
