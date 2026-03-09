@@ -78,7 +78,6 @@ def test_recording_hud_visibility_on_start_stop(monkeypatch, qapp, qtbot):
 
 def test_recording_click_event_triggers_overlay_ripple(monkeypatch, qapp, qtbot):
     from app.main import MainWindow
-    from app.core.smart_recorder import SmartTransformer
 
     monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
     monkeypatch.setattr("app.main.InputRecorder", _DummyRecorder)
@@ -89,8 +88,6 @@ def test_recording_click_event_triggers_overlay_ripple(monkeypatch, qapp, qtbot)
     qtbot.addWidget(win)
     win.hide()
     monkeypatch.setattr(win, "_get_recording_overlay", lambda: fake_overlay)
-    win._smart_transformer = SmartTransformer()
-    win._record_smart_events = []
     win._set_recording_overlay_visible(True)
 
     win._on_record_raw_event(

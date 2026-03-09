@@ -548,10 +548,9 @@ def test_toggle_record_start_stop_flow_minimize_restore(monkeypatch, qapp, qtbot
     win.close()
 
 
-def test_record_done_inserts_legacy_steps_with_addstepscommand(monkeypatch, qapp, qtbot, tmp_path):
+def test_record_done_inserts_recorded_steps_with_addstepscommand(monkeypatch, qapp, qtbot):
     from app.main import MainWindow
     from app.core.models import StepData
-    from app.core.smart_recorder import SmartStep, SmartProposal
     from app.core.commands import AddStepsCommand as RealAddStepsCommand
 
     monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
@@ -575,28 +574,6 @@ def test_record_done_inserts_legacy_steps_with_addstepscommand(monkeypatch, qapp
     win.list.setCurrentRow(0)
     win._record_show_summary = False
 
-    click_step = StepData(id="c1", name="click", type="click_point", click_x=10, click_y=20)
-    image_step = StepData(
-        id="i1",
-        name="image",
-        type="image_click",
-        image_path=str(tmp_path / "record_prop_dummy.png"),
-        anchor_image_path=str(tmp_path / "record_prop_dummy.png"),
-        click_x=10,
-        click_y=20,
-    )
-    proposal = SmartProposal(
-        event_timestamp=1.0,
-        x=10,
-        y=20,
-        click_step=click_step,
-        image_step=image_step,
-        image_path=str(tmp_path / "record_prop_dummy.png"),
-    )
-    win._record_smart_events = [SmartStep(step_type="type_text", text="Hello"), proposal]
-    win._smart_transformer = None
-    win._choose_record_proposal_mode = lambda _n: (_ for _ in ()).throw(AssertionError("smart chooser should not run"))
-
     legacy_steps = [
         StepData(id="k1", name="typed", type="key", keyboard_mode="text", key_string="Hello"),
         StepData(id="c3", name="click", type="click_point", click_x=10, click_y=20),
@@ -611,59 +588,17 @@ def test_record_done_inserts_legacy_steps_with_addstepscommand(monkeypatch, qapp
     win.close()
 
 
-def test_record_done_prefers_legacy_steps_over_smart_choices(monkeypatch, qapp, qtbot, tmp_path):
+def test_mainwindow_record_path_has_no_smart_record_state(monkeypatch, qapp, qtbot):
     from app.main import MainWindow
-    from app.core.models import StepData
-    from app.core.smart_recorder import SmartProposal
 
     monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
 
     win = MainWindow()
     qtbot.addWidget(win)
     win.hide()
-    win._record_show_summary = False
-
-    click_step = StepData(id="c2", name="click", type="click_point", click_x=11, click_y=22)
-    image_path = str(tmp_path / "record_prop_img.png")
-    image_step = StepData(
-        id="i2",
-        name="image",
-        type="image_click",
-        image_path=image_path,
-        anchor_image_path=image_path,
-        click_x=11,
-        click_y=22,
-    )
-    proposal = SmartProposal(
-        event_timestamp=2.0,
-        x=11,
-        y=22,
-        click_step=click_step,
-        image_step=image_step,
-        image_path=image_path,
-    )
-
-    called = {"proposal": 0}
-
-    win._record_smart_events = [proposal]
-    win._smart_transformer = None
-
-    def _unexpected_choice(_count):
-        called["proposal"] += 1
-        return "image"
-
-    win._choose_record_proposal_mode = _unexpected_choice
-
-    legacy_steps = [
-        StepData(id="k2", name="typed", type="key", keyboard_mode="text", key_string="legacy"),
-    ]
-
-    win._on_record_done(legacy_steps)
-
-    assert called["proposal"] == 0
-    assert len(win.steps) == 1
-    assert win.steps[0].type == "key"
-    assert win.steps[0].key_string == "legacy"
+    assert hasattr(win, "_smart_transformer") is False
+    assert hasattr(win, "_record_smart_events") is False
+    assert hasattr(win, "_record_temp_image_paths") is False
     win.close()
 
 

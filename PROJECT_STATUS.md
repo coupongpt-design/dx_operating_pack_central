@@ -439,3 +439,7 @@
   - Smart proposal 경로가 표준 녹화 결과를 덮어쓰지 않도록 정리.
   - 드래그/스크롤/`pre_delay_ms` 보존이 다시 기본 녹화 동작이 됨.
   - `closeEvent` 종료 정리에서 scheduler timer를 확실히 비활성화해 종료 후 예약 실행 누수를 차단.
+- **Record / Smart Capture 경계 고정 (2026-03-09)**:
+  - 표준 `Record` 경로는 더 이상 `SmartTransformer`/proposal state를 소유하지 않음.
+  - `raw_event_received`는 HUD ripple/stop-hotkey 보조 처리만 수행.
+  - Smart 기능은 수동 `Smart Capture` 경로로만 남아 표준 녹화와 섞이지 않음.

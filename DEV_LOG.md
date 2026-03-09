@@ -2122,3 +2122,12 @@
   - `set QT_QPA_PLATFORM=offscreen&& python -m pytest -q tests/test_e2e_basic.py -k record_done` -> `1 passed`
   - `set PYTEST_ALLOW_NORMAL_EXIT=1&& set QT_QPA_PLATFORM=offscreen&& python -m pytest -q tests/test_main_trigger_scheduler_integration.py::test_close_event_disables_scheduler_timer tests/test_session_adapter_v2.py tests/test_recording_integration.py tests/test_ui_integration.py::test_record_done_inserts_legacy_steps_with_addstepscommand tests/test_ui_integration.py::test_record_done_prefers_legacy_steps_over_smart_choices tests/test_final_cleanup_guard.py::test_record_cancel_cleans_record_prop_images tests/test_final_cleanup_guard.py::test_add_recorded_steps_command_undo_redo_restores_image_file tests/test_e2e_basic.py::test_e2e_5_record_done_appends` -> `13 passed in 2.83s`
   - `set PYTEST_ALLOW_NORMAL_EXIT=1&& python -m pytest -q` -> `511 passed, 1 skipped in 23.02s`
+## Session 115 - Record / Smart Capture 경계 고정
+- Date: 2026-03-09
+- Summary:
+  - `app/main.py`: 표준 `Record` 경로에서 `SmartTransformer`, smart proposal state, proposal 선택 UI를 제거.
+  - `raw_event_received`는 녹화 HUD ripple과 stop-hotkey 로그만 담당하고, smart step 생성과는 완전히 분리.
+  - `Smart Capture`는 수동 이미지 캡처 기능으로만 유지하고 표준 녹화 경로와 결합되지 않도록 정리.
+- Validation:
+  - `set PYTEST_ALLOW_NORMAL_EXIT=1&& set QT_QPA_PLATFORM=offscreen&& python -m pytest -q tests/test_recording_integration.py tests/test_ui_integration.py tests/test_final_cleanup_guard.py tests/test_main_trigger_scheduler_integration.py::test_close_event_disables_scheduler_timer` -> `33 passed in 4.79s`
+  - `set PYTEST_ALLOW_NORMAL_EXIT=1&& python -m pytest -q` -> `510 passed, 1 skipped in 29.42s`

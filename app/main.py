@@ -65,7 +65,6 @@ from .core.template_processor import TemplateProcessor
 from .core.input_lock import get_global_input_manager
 from .core.evaluator import ConditionEvaluator
 from .core.logic_path_simulator import LogicPathSimulator
-from .core.smart_recorder import SmartTransformer, SmartStep, SmartProposal
 
 def _excepthook(type, value, tback):
     sys.__excepthook__(type, value, tback)
@@ -129,9 +128,6 @@ class MainWindow(QMainWindow):
         self._last_failed_step_uuid: str | None = None
         self.runner: MacroRunner | None = None
         self.recorder: InputRecorder | None = None
-        self._smart_transformer: SmartTransformer | None = None
-        self._record_smart_events: list[SmartStep | SmartProposal] = []
-        self._record_temp_image_paths: list[str] = []
         self._recording_overlay = None
         self._current_macro_path: str | None = None
         self._resume_state: dict | None = None
@@ -3131,10 +3127,6 @@ class MainWindow(QMainWindow):
     def _start_record(self):
         g = self.geometry()
         ignore_rect = QRect(g.x(), g.y(), g.width(), g.height())
-        # Exact replay recording uses the recorder's raw step output as the source of truth.
-        self._smart_transformer = None
-        self._record_smart_events = []
-        self._record_temp_image_paths = []
         self._set_recording_overlay_visible(True)
         self._update_recording_overlay_count(0)
         perf_recording = False
@@ -3174,7 +3166,7 @@ class MainWindow(QMainWindow):
             self.recorder.raw_event_received.connect(self._on_record_raw_event)
             self.recorder.control_event_received.connect(self._on_record_control_event)
         except Exception as e:
-            self._warn_once("smart_record_connect", f"Failed to connect smart recorder signals: {e}")
+            self._warn_once("record_live_signal_connect", f"Failed to connect recorder live signals: {e}")
         self.recorder.pausedChanged.connect(lambda p: self.info(f"[Record] {'Paused' if p else 'Resumed'}"))
         self.recorder.start()
 
@@ -3189,9 +3181,6 @@ class MainWindow(QMainWindow):
             self.warn(f"Recorder stop error: {e}")
             self._record_show_summary = False
             self.recorder = None
-            self._smart_transformer = None
-            self._record_smart_events = []
-            self._cleanup_record_temp_images(set())
         self._set_recording_overlay_visible(False)
 
     def _on_record_raw_event(self, payload: dict):
@@ -3200,101 +3189,10 @@ class MainWindow(QMainWindow):
             y = payload.get("y")
             if x is not None and y is not None:
                 self._trigger_recording_overlay_ripple(int(x), int(y))
-        tf = getattr(self, "_smart_transformer", None)
-        if tf is None:
-            return
-        try:
-            outputs = tf.process_event(payload) or []
-        except Exception as e:
-            self._warn_once("smart_record_process", f"SmartTransformer event processing failed: {e}")
-            return
-        if not outputs:
-            return
-        self._record_smart_events.extend(outputs)
-        for event in outputs:
-            if isinstance(event, SmartProposal) and event.image_path:
-                self._record_temp_image_paths.append(event.image_path)
-        self._update_recording_overlay_count(len(self._record_smart_events))
 
     def _on_record_control_event(self, event_name: str):
         if event_name == "stop_hotkey":
             self.info("[Record] Stop hotkey detected")
-
-    def _choose_record_proposal_mode(self, proposal_count: int) -> str:
-        if proposal_count <= 0:
-            return "coord"
-        box = QMessageBox(self)
-        box.setWindowTitle("Smart Recording Proposal")
-        box.setText(f"클릭 제안 {proposal_count}건을 어떤 방식으로 저장할까요?")
-        btn_coord = box.addButton("모두 좌표로 저장", QMessageBox.AcceptRole)
-        btn_image = box.addButton("모두 이미지로 저장", QMessageBox.AcceptRole)
-        btn_each = box.addButton("개별 선택", QMessageBox.ActionRole)
-        box.addButton("취소", QMessageBox.RejectRole)
-        box.exec_()
-        clicked = box.clickedButton()
-        if clicked == btn_coord:
-            return "coord"
-        if clicked == btn_image:
-            return "image"
-        if clicked == btn_each:
-            return "individual"
-        return "cancel"
-
-    def _choose_individual_proposal_step(self, proposal: SmartProposal, idx: int) -> StepData:
-        if proposal.image_step is None:
-            return proposal.click_step
-        ret = QMessageBox.question(
-            self,
-            "Smart Proposal",
-            f"#{idx+1} 클릭 제안 ({proposal.x}, {proposal.y})\n이미지 기반으로 저장할까요?\n"
-            "Yes=이미지, No=좌표, Cancel=좌표",
-            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
-            QMessageBox.Yes,
-        )
-        if ret == QMessageBox.Yes:
-            return proposal.image_step
-        return proposal.click_step
-
-    def _materialize_recorded_steps(
-        self, smart_events: list[SmartStep | SmartProposal]
-    ) -> tuple[list[StepData], set[str]]:
-        final_steps: list[StepData] = []
-        keep_paths: set[str] = set()
-        proposals = [e for e in smart_events if isinstance(e, SmartProposal)]
-        mode = self._choose_record_proposal_mode(len(proposals)) if proposals else "coord"
-        if mode == "cancel":
-            return [], keep_paths
-        proposal_idx = 0
-        for event in smart_events:
-            if isinstance(event, SmartStep):
-                final_steps.append(event.to_step_data())
-                continue
-            if not isinstance(event, SmartProposal):
-                continue
-            if mode == "image" and event.image_step is not None:
-                selected = event.image_step
-            elif mode == "individual":
-                selected = self._choose_individual_proposal_step(event, proposal_idx)
-            else:
-                selected = event.click_step
-            if selected is event.image_step and event.image_path:
-                keep_paths.add(os.path.abspath(event.image_path))
-            final_steps.append(selected)
-            proposal_idx += 1
-        return final_steps, keep_paths
-
-    def _cleanup_record_temp_images(self, keep_paths: set[str] | None = None):
-        keep_paths = {os.path.abspath(p) for p in (keep_paths or set())}
-        for p in list(getattr(self, "_record_temp_image_paths", []) or []):
-            ap = os.path.abspath(p)
-            if ap in keep_paths:
-                continue
-            try:
-                if os.path.exists(ap):
-                    os.remove(ap)
-            except Exception:
-                continue
-        self._record_temp_image_paths = []
 
     def _record_insert_index(self) -> int:
         try:
@@ -3330,14 +3228,11 @@ class MainWindow(QMainWindow):
         show_summary = bool(getattr(self, "_record_show_summary", False))
         self._record_show_summary = False
         self._update_recording_overlay_count(0)
-        self._smart_transformer = None
-        self._record_smart_events = []
         if recorder:
             self.recorder = None
         self._set_recording_overlay_visible(False)
 
         final_steps = list(new_steps or [])
-        self._cleanup_record_temp_images(set())
 
         if not final_steps:
             self.info("No steps recorded.")

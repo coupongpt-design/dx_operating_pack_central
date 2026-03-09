@@ -7,6 +7,11 @@
 - Effective `MainWindow.closeEvent` now disables scheduler/timer state during shutdown.
 - Window close no longer leaves scheduled run callbacks armed after the UI is gone.
 
+## Record / Smart Capture Boundary (2026-03-09)
+- Standard `Record` owns only `InputRecorder` output and recorder live-signal HUD updates.
+- Standard `Record` does not instantiate or materialize `SmartTransformer` / smart proposals.
+- `Smart Capture` remains a separate manual image-capture workflow for `image_click` / `wait_for_image`.
+
 # Project Technical Specification (now_spec)
 
 ## 1. Project Overview
@@ -287,6 +292,11 @@
   - 삽입 구간 자동 선택/하이라이트
 - 정리:
   - 미채택 임시 이미지 파일 자동 삭제(선택된 proposal 이미지는 유지)
+
+### Smart Recorder MainWindow Integration Override (2026-03-09)
+- Current standard `Record` path uses `InputRecorder` output only.
+- `raw_event_received` is limited to HUD ripple / stop-hotkey assistance.
+- Smart proposal materialization and proposal choice UI are no longer part of standard `Record`.
 
 ### Recording Overlay/HUD (Stage 3-3 PR-3-3-4)
 - 신규 오버레이: `RecordingStatusOverlay` (`app/ui/overlay.py`)
