@@ -4893,15 +4893,36 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 self._warn_once("record_dynamic_set_text", f"Failed to apply dynamic recording label: {e}")
 
+    def _sync_record_toggle_state(self, checked: bool) -> None:
+        for attr_name, warn_key in (
+            ("act_record", "record_toggle_sync_action"),
+            ("btnRecord", "record_toggle_sync_button"),
+        ):
+            obj = getattr(self, attr_name, None)
+            if not obj:
+                continue
+            try:
+                obj.blockSignals(True)
+                obj.setChecked(bool(checked))
+            except Exception as e:
+                self._warn_once(warn_key, f"Failed to sync recording toggle state for {attr_name}: {e}")
+            finally:
+                try:
+                    obj.blockSignals(False)
+                except Exception:
+                    pass
+
     def toggle_record(self, checked):
+        checked = bool(checked)
+        self._sync_record_toggle_state(checked)
         if checked:
             if self.runner and self.runner.isRunning():
                 self.warn("Cannot record while running.")
-                try:
-                    self.act_record.setChecked(False)
-                    self.btnRecord.setChecked(False)
-                except Exception as e:
-                    self._warn_once("toggle_record_reset_checked", f"Failed to reset recording toggle state: {e}")
+                self._sync_record_toggle_state(False)
+                return
+            if getattr(self, "recorder", None):
+                self.info("Recording already active.")
+                self._sync_record_toggle_state(True)
                 return
             self.info("Start Recording...")
             if getattr(self, "chkAutoMin", None) and self.chkAutoMin.isChecked():

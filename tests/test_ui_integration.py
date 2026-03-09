@@ -548,6 +548,34 @@ def test_toggle_record_start_stop_flow_minimize_restore(monkeypatch, qapp, qtbot
     win.close()
 
 
+def test_record_hotkey_stops_session_started_from_button(monkeypatch, qapp, qtbot):
+    from app.main import MainWindow
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+
+    calls = {"start": 0, "stop": 0}
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.hide()
+
+    win._start_record = lambda: calls.__setitem__("start", calls["start"] + 1)
+    win._stop_record = lambda show_summary=True: calls.__setitem__("stop", calls["stop"] + 1)
+
+    win.btnRecord.click()
+
+    assert calls["start"] == 1
+    assert win.btnRecord.isChecked() is True
+    assert win.act_record.isChecked() is True
+
+    win._act_record_from_hotkey()
+
+    assert calls["start"] == 1
+    assert calls["stop"] == 1
+    assert win.btnRecord.isChecked() is False
+    assert win.act_record.isChecked() is False
+    win.close()
+
+
 def test_record_done_inserts_recorded_steps_with_addstepscommand(monkeypatch, qapp, qtbot):
     from app.main import MainWindow
     from app.core.models import StepData
