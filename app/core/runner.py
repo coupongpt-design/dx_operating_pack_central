@@ -1267,10 +1267,21 @@ class MacroRunner(QThread):
 
         anchor_left = int(anchor_center_x) - int(w // 2)
         anchor_top = int(anchor_center_y) - int(h // 2)
-        search_left = anchor_left - int(getattr(step, "relative_search_left", 0) or 0)
-        search_top = anchor_top - int(getattr(step, "relative_search_top", 0) or 0)
-        search_right = anchor_left + w + int(getattr(step, "relative_search_right", 0) or 0)
-        search_bottom = anchor_top + h + int(getattr(step, "relative_search_bottom", 0) or 0)
+        mode = str(getattr(step, "relative_search_mode", "px") or "px").strip().lower()
+        if mode == "ratio":
+            left_margin = max(0, int(round(w * float(getattr(step, "relative_search_left_ratio", 0.0) or 0.0))))
+            top_margin = max(0, int(round(h * float(getattr(step, "relative_search_top_ratio", 0.0) or 0.0))))
+            right_margin = max(0, int(round(w * float(getattr(step, "relative_search_right_ratio", 0.0) or 0.0))))
+            bottom_margin = max(0, int(round(h * float(getattr(step, "relative_search_bottom_ratio", 0.0) or 0.0))))
+        else:
+            left_margin = max(0, int(getattr(step, "relative_search_left", 0) or 0))
+            top_margin = max(0, int(getattr(step, "relative_search_top", 0) or 0))
+            right_margin = max(0, int(getattr(step, "relative_search_right", 0) or 0))
+            bottom_margin = max(0, int(getattr(step, "relative_search_bottom", 0) or 0))
+        search_left = anchor_left - left_margin
+        search_top = anchor_top - top_margin
+        search_right = anchor_left + w + right_margin
+        search_bottom = anchor_top + h + bottom_margin
 
         cap_left = int(capture_region["left"])
         cap_top = int(capture_region["top"])

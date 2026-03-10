@@ -181,6 +181,28 @@ def test_relative_target_settings_persist_on_accept(qapp, qtbot):
     assert saved.relative_search_bottom == 8
 
 
+def test_relative_target_ratio_settings_persist_on_accept(qapp, qtbot):
+    from app.core.models import StepData
+
+    step = StepData(id="img-rel-ratio", name="Image", type="image_click")
+    dlg = _make_dialog(qtbot, step=step)
+
+    dlg.chkRelativeTarget.setChecked(True)
+    dlg.cbRelativeSearchMode.setCurrentIndex(dlg.cbRelativeSearchMode.findData("ratio"))
+    dlg.spRelativeLeftRatio.setValue(1.5)
+    dlg.spRelativeTopRatio.setValue(0.25)
+    dlg.spRelativeRightRatio.setValue(2.5)
+    dlg.spRelativeBottomRatio.setValue(0.75)
+    dlg.accept()
+    saved = dlg.get_step_data()
+
+    assert saved.relative_search_mode == "ratio"
+    assert saved.relative_search_left_ratio == pytest.approx(1.5, abs=1e-6)
+    assert saved.relative_search_top_ratio == pytest.approx(0.25, abs=1e-6)
+    assert saved.relative_search_right_ratio == pytest.approx(2.5, abs=1e-6)
+    assert saved.relative_search_bottom_ratio == pytest.approx(0.75, abs=1e-6)
+
+
 def test_matching_tab_is_scrollable_and_keeps_button_box_visible(qapp, qtbot):
     dlg = _make_dialog(qtbot)
 
@@ -256,6 +278,7 @@ def test_pick_relative_search_area_updates_margins_from_selection(qapp, qtbot, m
     dlg = _make_dialog(qtbot)
     dlg._step.png_bytes = b"anchor"
     dlg._step._tpl_bgr = np.zeros((6, 10, 3), dtype=np.uint8)
+    dlg.cbRelativeSearchMode.setCurrentIndex(dlg.cbRelativeSearchMode.findData("px"))
 
     class _DummyMSS:
         def __enter__(self):
@@ -287,4 +310,45 @@ def test_pick_relative_search_area_updates_margins_from_selection(qapp, qtbot, m
     assert dlg.spRelativeRight.value() == 25
     assert dlg.spRelativeBottom.value() == 7
     assert "L 15" in dlg.lblRelativeSearchSummary.text()
+    dlg.close()
+
+
+def test_pick_relative_search_area_updates_ratio_from_selection(qapp, qtbot, monkeypatch):
+    import app.ui.dialogs as dialogs
+
+    dlg = _make_dialog(qtbot)
+    dlg._step.png_bytes = b"anchor"
+    dlg._step._tpl_bgr = np.zeros((6, 10, 3), dtype=np.uint8)
+    dlg.cbRelativeSearchMode.setCurrentIndex(dlg.cbRelativeSearchMode.findData("ratio"))
+
+    class _DummyMSS:
+        def __enter__(self):
+            self.monitors = [{"left": 0, "top": 0, "width": 100, "height": 80}]
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def grab(self, region):
+            return np.zeros((80, 100, 4), dtype=np.uint8)
+
+    monkeypatch.setattr(dialogs.mss, "mss", lambda: _DummyMSS())
+    monkeypatch.setattr(
+        dialogs.Matcher,
+        "find_best_optimized",
+        lambda self, frame, step: SimpleNamespace(ok=True, x=30, y=30, score=0.99, w=10, h=6),
+    )
+    monkeypatch.setattr(
+        dialogs.ROISelector,
+        "select_from_screen",
+        staticmethod(lambda parent=None: (QRect(10, 15, 50, 25), None, (0, 0, 100, 80))),
+    )
+
+    dlg._on_pick_relative_search_area()
+
+    assert dlg.spRelativeLeftRatio.value() == pytest.approx(1.5, abs=1e-3)
+    assert dlg.spRelativeTopRatio.value() == pytest.approx(2.0, abs=1e-3)
+    assert dlg.spRelativeRightRatio.value() == pytest.approx(2.5, abs=1e-3)
+    assert dlg.spRelativeBottomRatio.value() == pytest.approx(7 / 6, abs=1e-3)
+    assert "1.500w" in dlg.lblRelativeSearchSummary.text()
     dlg.close()

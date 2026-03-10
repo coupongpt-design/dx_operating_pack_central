@@ -72,8 +72,11 @@ def test_save_json_roundtrip_preserves_captured_relative_target(monkeypatch, tmp
             type="image_click",
             relative_target_enabled=True,
             relative_target_png_bytes=b"target-bytes",
+            relative_search_mode="ratio",
             relative_search_right=50,
             relative_search_bottom=20,
+            relative_search_right_ratio=2.5,
+            relative_search_bottom_ratio=1.25,
         )
     ]
     mw.save_macro()
@@ -87,6 +90,9 @@ def test_save_json_roundtrip_preserves_captured_relative_target(monkeypatch, tmp
     assert mw2.steps[0].relative_target_enabled is True
     assert mw2.steps[0].relative_target_png_bytes == b"target-bytes"
     assert mw2.steps[0].relative_target_image_path in {None, ""}
+    assert mw2.steps[0].relative_search_mode == "ratio"
+    assert mw2.steps[0].relative_search_right_ratio == pytest.approx(2.5, abs=1e-6)
+    assert mw2.steps[0].relative_search_bottom_ratio == pytest.approx(1.25, abs=1e-6)
 
 
 @pytest.mark.usefixtures("qtbot")

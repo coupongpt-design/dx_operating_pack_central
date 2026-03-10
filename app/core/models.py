@@ -40,10 +40,15 @@ class StepData:
     relative_target_enabled: bool = False
     relative_target_png_bytes: bytes | None = None
     relative_target_image_path: str | None = None
+    relative_search_mode: str = "px"
     relative_search_left: int = 0
     relative_search_top: int = 0
     relative_search_right: int = 0
     relative_search_bottom: int = 0
+    relative_search_left_ratio: float = 0.0
+    relative_search_top_ratio: float = 0.0
+    relative_search_right_ratio: float = 0.0
+    relative_search_bottom_ratio: float = 0.0
     find_all_targets: bool = False
     find_all_sub_steps: int = 0     # <<< '모두 찾기' 시 반복할 하위 스텝 개수
     hold_until_next: bool = False   # <<< 다음 이미지가 나타날 때까지 현재 동작 반복
@@ -228,6 +233,8 @@ class StepData:
     screenshot_filepath: str | None = None
 
     def __post_init__(self):
+        mode = str(getattr(self, "relative_search_mode", "px") or "px").strip().lower()
+        self.relative_search_mode = mode if mode in {"px", "ratio"} else "px"
         if self.click_button is not None:
             self.click_btn = self.click_button
         if self.repeat_count is not None:

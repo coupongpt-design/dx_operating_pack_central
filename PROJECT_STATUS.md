@@ -483,3 +483,9 @@
 
 - Fixed plain `.json` save so captured image bytes, including relative target captures, remain embedded instead of being rewritten to missing sidecar asset paths.
 - Added roundtrip coverage for captured relative targets and runner coverage for bytes-only relative target clicks.
+
+## 2026-03-11 - Relative Search Ratio Mode
+
+- Added `relative_search_mode` with `ratio` and `px` support for target-near-anchor image steps.
+- New image-step dialogs default fresh relative-search setups to ratio mode, while existing px-configured macros remain on legacy pixel mode.
+- `Pick Search Area` now stores both pixel margins and anchor-size ratios so runner can resolve search regions against scaled anchor matches.

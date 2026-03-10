@@ -667,3 +667,9 @@
 
 - For plain `.json` saves, captured anchor/relative-target images must stay embedded in the JSON payload via byte encoding; they must not be rewritten to generated `images/...` paths unless packaging as `.macro`.
 - Runner relative-target matching must work when the target exists only as embedded bytes with no file path.
+
+## 2026-03-11 - Relative Search Mode Contract
+
+- Relative target search areas support `relative_search_mode = "px" | "ratio"`.
+- In `ratio` mode, left/right margins are multiplied by matched anchor width and top/bottom margins are multiplied by matched anchor height at runtime.
+- `Pick Search Area` must populate both px and ratio representations; runner uses the active mode while old macros without ratio config stay backward-safe on `px`.

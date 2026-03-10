@@ -718,6 +718,48 @@ class ImageStepDialog(BaseDialog):
         relativeAreaLayout.addWidget(self.lblRelativeSearchSummary, 1)
         formLayout2.addRow("Search Area", relativeAreaRow)
 
+        initial_relative_mode = str(getattr(step, "relative_search_mode", "px") or "px").strip().lower()
+        if initial_relative_mode not in {"px", "ratio"}:
+            initial_relative_mode = "px"
+        if (
+            initial_relative_mode == "px"
+            and not any(
+                (
+                    _ival(getattr(step, "relative_search_left", 0), 0),
+                    _ival(getattr(step, "relative_search_top", 0), 0),
+                    _ival(getattr(step, "relative_search_right", 0), 0),
+                    _ival(getattr(step, "relative_search_bottom", 0), 0),
+                )
+            )
+            and not any(
+                (
+                    abs(_fval(getattr(step, "relative_search_left_ratio", 0.0), 0.0)),
+                    abs(_fval(getattr(step, "relative_search_top_ratio", 0.0), 0.0)),
+                    abs(_fval(getattr(step, "relative_search_right_ratio", 0.0), 0.0)),
+                    abs(_fval(getattr(step, "relative_search_bottom_ratio", 0.0), 0.0)),
+                )
+            )
+        ):
+            initial_relative_mode = "ratio"
+        self.cbRelativeSearchMode = QComboBox()
+        self.cbRelativeSearchMode.addItem("Ratio (Recommended)", "ratio")
+        self.cbRelativeSearchMode.addItem("Pixels (Legacy)", "px")
+        self.cbRelativeSearchMode.setCurrentIndex(0 if initial_relative_mode == "ratio" else 1)
+        formLayout2.addRow("Search Mode", self.cbRelativeSearchMode)
+
+        self.spRelativeLeftRatio = QDoubleSpinBox(); self.spRelativeLeftRatio.setRange(0.0, 20.0); self.spRelativeLeftRatio.setDecimals(3); self.spRelativeLeftRatio.setSingleStep(0.05); self.spRelativeLeftRatio.setValue(_fval(getattr(step, "relative_search_left_ratio", 0.0), 0.0, 0.0, 20.0))
+        self.spRelativeTopRatio = QDoubleSpinBox(); self.spRelativeTopRatio.setRange(0.0, 20.0); self.spRelativeTopRatio.setDecimals(3); self.spRelativeTopRatio.setSingleStep(0.05); self.spRelativeTopRatio.setValue(_fval(getattr(step, "relative_search_top_ratio", 0.0), 0.0, 0.0, 20.0))
+        self.spRelativeRightRatio = QDoubleSpinBox(); self.spRelativeRightRatio.setRange(0.0, 20.0); self.spRelativeRightRatio.setDecimals(3); self.spRelativeRightRatio.setSingleStep(0.05); self.spRelativeRightRatio.setValue(_fval(getattr(step, "relative_search_right_ratio", 0.0), 0.0, 0.0, 20.0))
+        self.spRelativeBottomRatio = QDoubleSpinBox(); self.spRelativeBottomRatio.setRange(0.0, 20.0); self.spRelativeBottomRatio.setDecimals(3); self.spRelativeBottomRatio.setSingleStep(0.05); self.spRelativeBottomRatio.setValue(_fval(getattr(step, "relative_search_bottom_ratio", 0.0), 0.0, 0.0, 20.0))
+        relativeRatioRow1 = QHBoxLayout()
+        relativeRatioRow1.addWidget(QLabel("Left")); relativeRatioRow1.addWidget(self.spRelativeLeftRatio)
+        relativeRatioRow1.addWidget(QLabel("Top")); relativeRatioRow1.addWidget(self.spRelativeTopRatio)
+        formLayout2.addRow("Search Ratio", relativeRatioRow1)
+        relativeRatioRow2 = QHBoxLayout()
+        relativeRatioRow2.addWidget(QLabel("Right")); relativeRatioRow2.addWidget(self.spRelativeRightRatio)
+        relativeRatioRow2.addWidget(QLabel("Bottom")); relativeRatioRow2.addWidget(self.spRelativeBottomRatio)
+        formLayout2.addRow("", relativeRatioRow2)
+
         self.spRelativeLeft = QSpinBox(); self.spRelativeLeft.setRange(0, 5000); self.spRelativeLeft.setValue(_ival(getattr(step, "relative_search_left", 0), 0))
         self.spRelativeTop = QSpinBox(); self.spRelativeTop.setRange(0, 5000); self.spRelativeTop.setValue(_ival(getattr(step, "relative_search_top", 0), 0))
         self.spRelativeRight = QSpinBox(); self.spRelativeRight.setRange(0, 5000); self.spRelativeRight.setValue(_ival(getattr(step, "relative_search_right", 0), 0))
@@ -957,6 +999,7 @@ class ImageStepDialog(BaseDialog):
         self.btnPickRelativeSearchArea.clicked.connect(self._on_pick_relative_search_area)
         self.edRelativeTargetPath.textChanged.connect(self._update_relative_target_source_label)
         self.chkRelativeTarget.toggled.connect(self._update_relative_target_controls)
+        self.cbRelativeSearchMode.currentIndexChanged.connect(self._on_relative_search_mode_changed)
         self.btnTest.clicked.connect(self._on_test_match)
         self.cbQuality.currentIndexChanged.connect(self._on_quality_changed)
         self.chkEnableScale.stateChanged.connect(self._on_matching_toggle_changed)
@@ -975,6 +1018,10 @@ class ImageStepDialog(BaseDialog):
         self.spRelativeTop.valueChanged.connect(self._update_relative_search_summary)
         self.spRelativeRight.valueChanged.connect(self._update_relative_search_summary)
         self.spRelativeBottom.valueChanged.connect(self._update_relative_search_summary)
+        self.spRelativeLeftRatio.valueChanged.connect(self._update_relative_search_summary)
+        self.spRelativeTopRatio.valueChanged.connect(self._update_relative_search_summary)
+        self.spRelativeRightRatio.valueChanged.connect(self._update_relative_search_summary)
+        self.spRelativeBottomRatio.valueChanged.connect(self._update_relative_search_summary)
         self.btnSuggestAutoFg.clicked.connect(self._on_suggest_auto_fg_preset)
         self._update_relative_target_source_label()
         self._update_relative_search_summary()
@@ -1311,8 +1358,13 @@ class ImageStepDialog(BaseDialog):
             self.btnCaptureRelativeTarget,
             self.btnClearRelativeTarget,
             self.btnPickRelativeSearchArea,
+            self.cbRelativeSearchMode,
             self.lblRelativeTargetSource,
             self.lblRelativeSearchSummary,
+            self.spRelativeLeftRatio,
+            self.spRelativeTopRatio,
+            self.spRelativeRightRatio,
+            self.spRelativeBottomRatio,
             self.spRelativeLeft,
             self.spRelativeTop,
             self.spRelativeRight,
@@ -1334,6 +1386,16 @@ class ImageStepDialog(BaseDialog):
             self.lblRelativeTargetSource.setText("Target source: not selected")
 
     def _update_relative_search_summary(self):
+        mode = self.cbRelativeSearchMode.currentData() or "px"
+        if mode == "ratio":
+            self.lblRelativeSearchSummary.setText(
+                "Around anchor: "
+                f"L {self.spRelativeLeftRatio.value():.3f}w / "
+                f"T {self.spRelativeTopRatio.value():.3f}h / "
+                f"R {self.spRelativeRightRatio.value():.3f}w / "
+                f"B {self.spRelativeBottomRatio.value():.3f}h"
+            )
+            return
         self.lblRelativeSearchSummary.setText(
             "Around anchor: "
             f"L {self.spRelativeLeft.value()} / "
@@ -1341,6 +1403,42 @@ class ImageStepDialog(BaseDialog):
             f"R {self.spRelativeRight.value()} / "
             f"B {self.spRelativeBottom.value()} px"
         )
+
+    def _get_relative_anchor_size(self) -> tuple[int, int] | None:
+        tpl = getattr(self._step, "_tpl_bgr", None)
+        if tpl is None:
+            try:
+                tpl = self._step.ensure_tpl()
+            except Exception:
+                tpl = None
+        if tpl is None or getattr(tpl, "shape", None) is None or len(tpl.shape) < 2:
+            return None
+        h, w = tpl.shape[:2]
+        if w <= 0 or h <= 0:
+            return None
+        return (int(w), int(h))
+
+    def _sync_relative_search_values_for_mode(self, mode: str):
+        anchor_size = self._get_relative_anchor_size()
+        if anchor_size is None:
+            return
+        anchor_w, anchor_h = anchor_size
+        if mode == "ratio":
+            if any((self.spRelativeLeft.value(), self.spRelativeTop.value(), self.spRelativeRight.value(), self.spRelativeBottom.value())):
+                self.spRelativeLeftRatio.setValue(self.spRelativeLeft.value() / max(anchor_w, 1))
+                self.spRelativeTopRatio.setValue(self.spRelativeTop.value() / max(anchor_h, 1))
+                self.spRelativeRightRatio.setValue(self.spRelativeRight.value() / max(anchor_w, 1))
+                self.spRelativeBottomRatio.setValue(self.spRelativeBottom.value() / max(anchor_h, 1))
+            return
+        if any((self.spRelativeLeftRatio.value(), self.spRelativeTopRatio.value(), self.spRelativeRightRatio.value(), self.spRelativeBottomRatio.value())):
+            self.spRelativeLeft.setValue(int(round(self.spRelativeLeftRatio.value() * anchor_w)))
+            self.spRelativeTop.setValue(int(round(self.spRelativeTopRatio.value() * anchor_h)))
+            self.spRelativeRight.setValue(int(round(self.spRelativeRightRatio.value() * anchor_w)))
+            self.spRelativeBottom.setValue(int(round(self.spRelativeBottomRatio.value() * anchor_h)))
+
+    def _on_relative_search_mode_changed(self):
+        self._sync_relative_search_values_for_mode(str(self.cbRelativeSearchMode.currentData() or "px"))
+        self._update_relative_search_summary()
 
     def _build_preview_match_step(self) -> StepData:
         fake = StepData(**asdict(self._step))
@@ -1430,10 +1528,20 @@ class ImageStepDialog(BaseDialog):
         sel_top = int(virt_top) + int(rect.y())
         sel_right = sel_left + int(rect.width())
         sel_bottom = sel_top + int(rect.height())
-        self.spRelativeLeft.setValue(max(0, int(anchor["left"]) - sel_left))
-        self.spRelativeTop.setValue(max(0, int(anchor["top"]) - sel_top))
-        self.spRelativeRight.setValue(max(0, sel_right - int(anchor["right"])))
-        self.spRelativeBottom.setValue(max(0, sel_bottom - int(anchor["bottom"])))
+        left_margin = max(0, int(anchor["left"]) - sel_left)
+        top_margin = max(0, int(anchor["top"]) - sel_top)
+        right_margin = max(0, sel_right - int(anchor["right"]))
+        bottom_margin = max(0, sel_bottom - int(anchor["bottom"]))
+        self.spRelativeLeft.setValue(left_margin)
+        self.spRelativeTop.setValue(top_margin)
+        self.spRelativeRight.setValue(right_margin)
+        self.spRelativeBottom.setValue(bottom_margin)
+        anchor_w = max(1, int(anchor["right"]) - int(anchor["left"]))
+        anchor_h = max(1, int(anchor["bottom"]) - int(anchor["top"]))
+        self.spRelativeLeftRatio.setValue(left_margin / anchor_w)
+        self.spRelativeTopRatio.setValue(top_margin / anchor_h)
+        self.spRelativeRightRatio.setValue(right_margin / anchor_w)
+        self.spRelativeBottomRatio.setValue(bottom_margin / anchor_h)
         self.chkRelativeTarget.setChecked(True)
         self._update_relative_search_summary()
 
@@ -1507,10 +1615,15 @@ class ImageStepDialog(BaseDialog):
             self._step.relative_target_png_bytes = None
         self._step.relative_target_enabled = self.chkRelativeTarget.isChecked()
         self._step.relative_target_image_path = relative_path or None
+        self._step.relative_search_mode = str(self.cbRelativeSearchMode.currentData() or "px")
         self._step.relative_search_left = self.spRelativeLeft.value()
         self._step.relative_search_top = self.spRelativeTop.value()
         self._step.relative_search_right = self.spRelativeRight.value()
         self._step.relative_search_bottom = self.spRelativeBottom.value()
+        self._step.relative_search_left_ratio = self.spRelativeLeftRatio.value()
+        self._step.relative_search_top_ratio = self.spRelativeTopRatio.value()
+        self._step.relative_search_right_ratio = self.spRelativeRightRatio.value()
+        self._step.relative_search_bottom_ratio = self.spRelativeBottomRatio.value()
         if not self._step.relative_target_image_path and not getattr(self._step, "relative_target_png_bytes", None):
             self._step.relative_target_enabled = False
         self._step.pre_move_sleep_ms = self.spPreMoveSleep.value()

@@ -2209,3 +2209,9 @@
 - Symptom: captured relative targets looked configured in-session, but plain `.json` save rewrote them to generated asset paths and dropped the embedded bytes, so later loads/runs could miss the target image.
 - Fix: added a dedicated plain-JSON step serializer in `MainWindow.save_macro()` that preserves captured `png_bytes` and `relative_target_png_bytes` inline while leaving `.macro` packaging unchanged.
 - Validation: `tests/test_macro_load_formats.py`, `tests/test_runner_logic.py`
+
+## 2026-03-11 03:10 KST - Relative Search Ratio Mode
+
+- Added StepData fields for `relative_search_mode` and ratio margins so target-near-anchor searches can scale with the matched anchor size instead of relying only on absolute pixels.
+- Updated the image-step dialog to expose `Ratio (Recommended)` vs `Pixels (Legacy)`, keep fresh setups on ratio mode, and let `Pick Search Area` backfill both px and ratio values from the selected band.
+- Updated runner resolution so ratio mode expands search bounds by matched anchor width/height multipliers; validated with dialog persistence, JSON roundtrip, and runtime click tests.
