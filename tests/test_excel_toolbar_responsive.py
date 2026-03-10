@@ -85,8 +85,15 @@ def test_option_toolbar_is_split_into_core_and_advanced_rows(monkeypatch, qapp, 
     assert hasattr(win, "_opt_core_layout")
     assert hasattr(win, "_opt_adv_layout")
     assert win.chkExcelDataMode.parentWidget().isVisible() is True
-    assert win.chkDry.parentWidget().isVisible() is True
     assert win.chkExcelDataMode.isVisible() is True
+    assert win._opt_adv_row.isVisible() is False
+    assert win.chkDry.isVisible() is False
+
+    win.btnToggleAdvancedOptions.click()
+    qapp.processEvents()
+
+    assert win._opt_adv_row.isVisible() is True
+    assert win.chkDry.parentWidget().isVisible() is True
     assert win.chkDry.isVisible() is True
 
     win.close()
@@ -141,6 +148,25 @@ def test_left_panel_run_stop_smart_capture_visible_on_narrow_width(monkeypatch, 
     assert win.btnRun.minimumHeight() >= 26
     assert win.btnStop.minimumHeight() >= 26
     assert win.btnSmartCapture.minimumHeight() >= 26
+
+    win.close()
+
+
+def test_left_panel_beginner_labels_are_descriptive(monkeypatch, qapp, qtbot):
+    from app.main import MainWindow
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.show()
+    qapp.processEvents()
+
+    assert win.btnAddImg.text().startswith("이미지 클릭")
+    assert win.btnAddAction.text().startswith("키/마우스")
+    assert win.btnSmartCapture.text() == "화면 캡처"
+    assert win.btnScenarioWizard.text() == "예제 시작"
+    assert win.btnConditionalWizard.text() == "조건 분기"
+    assert win.btnSimulate.text() == "경로 확인"
 
     win.close()
 
@@ -320,7 +346,7 @@ def test_toolbar_height_and_margins_fit_two_rows_without_clipping(monkeypatch, q
     assert win._opt_root_layout.spacing() == 2
     assert win._opt_scroll.minimumHeight() >= 75
     assert win._opt_core_row.isVisible() is True
-    assert win._opt_adv_row.isVisible() is True
+    assert win._opt_adv_row.isVisible() is False
     assert win._opt_scroll.horizontalScrollBarPolicy() == Qt.ScrollBarAlwaysOff
     assert win.edTargetTitle.sizePolicy().horizontalPolicy() == QSizePolicy.Expanding
     assert win.edExcelDataPath.sizePolicy().horizontalPolicy() == QSizePolicy.Expanding

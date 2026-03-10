@@ -270,6 +270,73 @@ class MainWindow(QMainWindow):
         scenario_widget = QWidget()
         scenario_layout = QVBoxLayout(scenario_widget)
         scenario_layout.setContentsMargins(0,0,0,0)
+
+        self._label_add_img = "이미지 클릭"
+        self._label_add_action = "키/마우스"
+        self._label_capture = "화면 캡처"
+        self._label_wizard = "예제 시작"
+        self._label_condition = "조건 분기"
+        self._label_simulate = "경로 확인"
+
+        self.quick_start_card = QFrame()
+        self.quick_start_card.setObjectName("quickStartCard")
+        self.quick_start_card.setStyleSheet(
+            "QFrame#quickStartCard {"
+            "background-color: #172024;"
+            "border: 1px solid #304249;"
+            "border-radius: 8px;"
+            "padding: 6px;"
+            "}"
+        )
+        quick_layout = QVBoxLayout(self.quick_start_card)
+        quick_layout.setContentsMargins(12, 12, 12, 12)
+        quick_layout.setSpacing(8)
+
+        lbl_quick_title = QLabel("무엇부터 만들까요?")
+        lbl_quick_title.setStyleSheet("font-size: 15px; font-weight: 600; color: #f1f5f9;")
+        quick_layout.addWidget(lbl_quick_title)
+
+        lbl_quick_hint = QLabel(
+            "처음이라면 아래 4가지 중 하나로 바로 시작할 수 있습니다.\n"
+            "스텝이 하나라도 생기면 이 안내는 자동으로 사라집니다."
+        )
+        lbl_quick_hint.setWordWrap(True)
+        lbl_quick_hint.setStyleSheet("color: #cbd5e1;")
+        quick_layout.addWidget(lbl_quick_hint)
+
+        quick_buttons = QGridLayout()
+        quick_buttons.setContentsMargins(0, 4, 0, 0)
+        quick_buttons.setHorizontalSpacing(6)
+        quick_buttons.setVerticalSpacing(6)
+
+        self.btnQuickStartRecord = QPushButton("녹화 시작")
+        self.btnQuickStartRecord.setToolTip("내 움직임을 그대로 기록하는 방식으로 시작합니다.")
+        self.btnQuickStartRecord.clicked.connect(lambda: self.btnRecord.click())
+        self.btnQuickStartCapture = QPushButton("화면 보고 클릭 추가")
+        self.btnQuickStartCapture.setToolTip("화면을 드래그해 이미지 기반 클릭 스텝을 바로 만듭니다.")
+        self.btnQuickStartCapture.clicked.connect(lambda: self._run_visual_capture("image_click"))
+        self.btnQuickStartAction = QPushButton("키/마우스 동작 추가")
+        self.btnQuickStartAction.setToolTip("키 입력, 좌표 클릭, 드래그 같은 직접 동작을 추가합니다.")
+        self.btnQuickStartAction.clicked.connect(self.add_not_image_step)
+        self.btnQuickStartWizard = QPushButton("예제로 시작")
+        self.btnQuickStartWizard.setToolTip("예제 템플릿을 골라 스텝을 자동으로 만듭니다.")
+        self.btnQuickStartWizard.clicked.connect(self.open_scenario_wizard)
+        for quick_btn in (
+            self.btnQuickStartRecord,
+            self.btnQuickStartCapture,
+            self.btnQuickStartAction,
+            self.btnQuickStartWizard,
+        ):
+            quick_btn.setMinimumHeight(30)
+            quick_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        quick_buttons.addWidget(self.btnQuickStartRecord, 0, 0)
+        quick_buttons.addWidget(self.btnQuickStartCapture, 0, 1)
+        quick_buttons.addWidget(self.btnQuickStartAction, 1, 0)
+        quick_buttons.addWidget(self.btnQuickStartWizard, 1, 1)
+        quick_layout.addLayout(quick_buttons)
+
+        scenario_layout.addWidget(self.quick_start_card)
         scenario_layout.addWidget(self.list)
         
         # Scenario action buttons
@@ -293,13 +360,13 @@ class MainWindow(QMainWindow):
                 return f"{label} ({hk})" if hk else label
 
         # Row 1: Add buttons
-        self.btnAddImg = QPushButton("이미지+")
-        self.btnAddImg.setToolTip(btn_text("이미지+", self._hk_add_img))
+        self.btnAddImg = QPushButton(self._label_add_img)
+        self.btnAddImg.setToolTip(btn_text(self._label_add_img, self._hk_add_img))
         self.btnAddImg.clicked.connect(self.add_image_step)
         _slim_left_btn(self.btnAddImg, "left-primary")
         
-        self.btnAddAction = QPushButton("동작+")
-        self.btnAddAction.setToolTip(btn_text("동작+", self._hk_add_notimg))
+        self.btnAddAction = QPushButton(self._label_add_action)
+        self.btnAddAction.setToolTip(btn_text(self._label_add_action, self._hk_add_notimg))
         self.btnAddAction.clicked.connect(self.add_not_image_step)
         _slim_left_btn(self.btnAddAction, "left-secondary")
         
@@ -307,8 +374,8 @@ class MainWindow(QMainWindow):
         btn_layout.addWidget(self.btnAddAction, 0, 1)
 
         # Row 1: Smart Capture
-        self.btnSmartCapture = QPushButton("캡처")
-        self.btnSmartCapture.setToolTip("화면에서 드래그 캡처 후 이미지 기반 스텝을 즉시 생성합니다.")
+        self.btnSmartCapture = QPushButton(self._label_capture)
+        self.btnSmartCapture.setToolTip("화면을 드래그해서 이미지 기반 클릭/대기 스텝을 바로 만듭니다.")
         self.btnSmartCapture.clicked.connect(self._open_smart_capture_menu)
         _slim_left_btn(self.btnSmartCapture, "left-capture")
         btn_layout.addWidget(self.btnSmartCapture, 0, 2)
@@ -350,22 +417,22 @@ class MainWindow(QMainWindow):
         _slim_left_btn(self.btnRecord, "left-record")
         btn_layout.addWidget(self.btnRecord, 1, 2)
 
-        self.btnScenarioWizard = QPushButton("마법사")
+        self.btnScenarioWizard = QPushButton(self._label_wizard)
         self.btnScenarioWizard.clicked.connect(self.open_scenario_wizard)
         _slim_left_btn(self.btnScenarioWizard, "left-wizard")
-        self.btnScenarioWizard.setToolTip("고급 활용 예시 템플릿을 선택해 스텝을 자동 생성합니다.")
+        self.btnScenarioWizard.setToolTip("예제 템플릿을 골라 기본 스텝을 빠르게 만듭니다.")
         btn_layout.addWidget(self.btnScenarioWizard, 3, 0)
 
-        self.btnConditionalWizard = QPushButton("조건")
+        self.btnConditionalWizard = QPushButton(self._label_condition)
         self.btnConditionalWizard.clicked.connect(self.open_conditional_action_wizard)
         _slim_left_btn(self.btnConditionalWizard, "left-wizard")
-        self.btnConditionalWizard.setToolTip("질문형 입력으로 OCR/분기 스텝을 자동 생성합니다.")
+        self.btnConditionalWizard.setToolTip("질문형 입력으로 OCR 확인과 조건 분기 스텝을 자동 생성합니다.")
         btn_layout.addWidget(self.btnConditionalWizard, 3, 1)
 
-        self.btnSimulate = QPushButton("시뮬")
+        self.btnSimulate = QPushButton(self._label_simulate)
         self.btnSimulate.clicked.connect(self.run_logic_simulation)
         _slim_left_btn(self.btnSimulate, "left-sim")
-        self.btnSimulate.setToolTip("실행 없이 현재 데이터 기준 예상 경로를 하이라이트합니다.")
+        self.btnSimulate.setToolTip("실행 없이 현재 스텝 흐름이 어디로 갈지 미리 확인합니다.")
         btn_layout.addWidget(self.btnSimulate, 3, 2)
 
         self.chkSensorAssume = QCheckBox("센서 성공 가정")
@@ -455,15 +522,20 @@ class MainWindow(QMainWindow):
         # We already connected actions above.
         
         # Toolbar options grouped by role: Targeting / Flags / Excel.
-        self.chkAlwaysOnTop = QCheckBox("Pin(항상위)")
+        self.chkAlwaysOnTop = QCheckBox("항상 위")
         self.chkAlwaysOnTop.setToolTip("창을 항상 위로 고정합니다.")
         self.chkAlwaysOnTop.toggled.connect(self._toggle_always_on_top)
         
-        self.chkDry = QCheckBox("Dry")
-        self.chkAutoMin = QCheckBox("Mini")
-        self.chkCaptureFail = QCheckBox("CapFail")
-        self.chkHumanMode = QCheckBox("Human")
-        self.chkDebugOverlay = QCheckBox("Debug")
+        self.chkDry = QCheckBox("테스트 실행")
+        self.chkDry.setToolTip("실제로 입력하지 않고 동작 로그만 확인합니다.")
+        self.chkAutoMin = QCheckBox("녹화 시 최소화")
+        self.chkAutoMin.setToolTip("녹화를 시작하면 창을 최소화해 가림을 줄입니다.")
+        self.chkCaptureFail = QCheckBox("실패 화면 저장")
+        self.chkCaptureFail.setToolTip("실패가 나면 화면 캡처를 남깁니다.")
+        self.chkHumanMode = QCheckBox("사람처럼 이동")
+        self.chkHumanMode.setToolTip("마우스 이동을 더 자연스럽게 만듭니다.")
+        self.chkDebugOverlay = QCheckBox("디버그 표시")
+        self.chkDebugOverlay.setToolTip("좌표/디버그 오버레이를 화면에 표시합니다.")
 
         self.opt_toolbar = self.addToolBar("Options")
         self.opt_toolbar.setMovable(False)
@@ -493,8 +565,8 @@ class MainWindow(QMainWindow):
         self._opt_adv_row = QWidget()
         self._opt_adv_layout = QHBoxLayout(self._opt_adv_row)
         self._opt_adv_layout.setContentsMargins(0, 0, 0, 0)
-        self._opt_adv_layout.setSpacing(0)
-        self._opt_adv_row.setVisible(True)
+        self._opt_adv_layout.setSpacing(4)
+        self._opt_adv_row.setVisible(False)
         self._opt_adv_layout.addStretch(1)
         self._opt_root_layout.addWidget(self._opt_adv_row)
 
@@ -539,24 +611,32 @@ class MainWindow(QMainWindow):
         flags_widget = QWidget()
         flags_layout = QHBoxLayout(flags_widget)
         flags_layout.setContentsMargins(0,0,0,0)
-        self.chkAutoEnterAfterText = QCheckBox("Auto Enter")
+        self.chkAutoEnterAfterText = QCheckBox("입력 후 Enter")
         self.chkAutoEnterAfterText.setToolTip("텍스트 입력 액션 뒤에 Enter 키를 자동 입력합니다.")
-        self.chkSmartSnap = QCheckBox("Snap")
+        self.chkSmartSnap = QCheckBox("그룹 이동 보호")
         self.chkSmartSnap.setToolTip("WZ 세트 스텝 이동 시 내부 흐름이 깨지지 않도록 그룹 이동/보정을 수행합니다.")
         self.chkSmartSnap.setChecked(True)
+        self.btnToggleAdvancedOptions = QPushButton("고급 옵션")
+        self.btnToggleAdvancedOptions.setCheckable(True)
+        self.btnToggleAdvancedOptions.setFixedHeight(24)
+        self.btnToggleAdvancedOptions.setToolTip("테스트/디버그/고급 동작 설정을 펼칩니다.")
+        self.btnToggleAdvancedOptions.toggled.connect(self._toggle_advanced_options)
         for cb in (
             self.chkAlwaysOnTop,
             self.chkAutoEnterAfterText,
-            self.chkSmartSnap,
-            self.chkDry,
-            self.chkAutoMin,
-            self.chkCaptureFail,
-            self.chkHumanMode,
-            self.chkDebugOverlay,
         ):
             cb.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
             flags_layout.addWidget(cb)
+        flags_layout.addWidget(self.btnToggleAdvancedOptions)
+        flags_layout.addStretch(1)
         self._opt_core_layout.addWidget(flags_widget, 1, 0, 1, 2)
+
+        self._opt_adv_layout.insertWidget(0, self.chkSmartSnap)
+        self._opt_adv_layout.insertWidget(1, self.chkDry)
+        self._opt_adv_layout.insertWidget(2, self.chkAutoMin)
+        self._opt_adv_layout.insertWidget(3, self.chkCaptureFail)
+        self._opt_adv_layout.insertWidget(4, self.chkHumanMode)
+        self._opt_adv_layout.insertWidget(5, self.chkDebugOverlay)
 
         # Group 3: Excel
         excel_widget = QWidget()
@@ -666,6 +746,8 @@ class MainWindow(QMainWindow):
         
         self._init_status_bar()
         self._update_hotkey_labels()
+        self._update_empty_state_visibility()
+        self._sync_advanced_options_ui(False)
         self._install_qshortcuts()
         self._setup_global_hotkey_engine()
         self._load_general_settings()
@@ -1429,7 +1511,28 @@ class MainWindow(QMainWindow):
         if focus_index is not None and 0 <= focus_index < self.list.count():
             self.list.setCurrentRow(focus_index)
             self.list.scrollToItem(self.list.item(focus_index))
+        self._update_empty_state_visibility()
         self._apply_active_step_highlight()
+
+    def _update_empty_state_visibility(self) -> None:
+        has_steps = bool(getattr(self, "steps", []))
+        if hasattr(self, "quick_start_card"):
+            self.quick_start_card.setVisible(not has_steps)
+        if hasattr(self, "list"):
+            self.list.setVisible(has_steps)
+
+    def _sync_advanced_options_ui(self, checked: bool) -> None:
+        expanded = bool(checked)
+        if hasattr(self, "_opt_adv_row"):
+            self._opt_adv_row.setVisible(expanded)
+        if hasattr(self, "_opt_scroll"):
+            self._opt_scroll.setMinimumHeight(102 if expanded else 75)
+            self._opt_scroll.setMaximumHeight(102 if expanded else 75)
+        if hasattr(self, "btnToggleAdvancedOptions"):
+            self.btnToggleAdvancedOptions.setText("고급 옵션 숨기기" if expanded else "고급 옵션")
+
+    def _toggle_advanced_options(self, checked: bool) -> None:
+        self._sync_advanced_options_ui(checked)
 
     def _apply_active_step_highlight(self, scroll: bool = False):
         idx = getattr(self, "_active_step_index", None)
@@ -4840,16 +4943,22 @@ class MainWindow(QMainWindow):
 
     def _update_hotkey_labels(self):
         if hasattr(self, "btnAddImg"):
-            self.btnAddImg.setText(self._format_hotkey_hint("이미지+", self._hk_add_img))
+            self.btnAddImg.setText(self._format_hotkey_hint(self._label_add_img, self._hk_add_img))
             self.btnAddImg.setToolTip(f"Shortcut: {hk_pretty(self._hk_add_img)}" if self._hk_add_img else "")
         if hasattr(self, "btnAddAction"):
-            self.btnAddAction.setText(self._format_hotkey_hint("동작+", self._hk_add_notimg))
+            self.btnAddAction.setText(self._format_hotkey_hint(self._label_add_action, self._hk_add_notimg))
             self.btnAddAction.setToolTip(f"Shortcut: {hk_pretty(self._hk_add_notimg)}" if self._hk_add_notimg else "")
         if hasattr(self, "btnStop"):
             self.btnStop.setText(self._format_hotkey_hint("정지", self._hk_stop))
         if hasattr(self, "btnSmartCapture"):
-            self.btnSmartCapture.setText("캡처")
+            self.btnSmartCapture.setText(self._label_capture)
             self.btnSmartCapture.setToolTip("Shortcut: Ctrl+Alt+S")
+        if hasattr(self, "btnScenarioWizard"):
+            self.btnScenarioWizard.setText(self._label_wizard)
+        if hasattr(self, "btnConditionalWizard"):
+            self.btnConditionalWizard.setText(self._label_condition)
+        if hasattr(self, "btnSimulate"):
+            self.btnSimulate.setText(self._label_simulate)
 
         self.act_run.setText(self._format_hotkey_hint("Run", self._hk_run))
         self.act_stop.setText(self._format_hotkey_hint("Stop", self._hk_stop))

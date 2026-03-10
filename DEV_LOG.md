@@ -5,6 +5,15 @@
 - 작업 종료는 `python tools/task_finish.py --subject "..." --scope ...` 경로를 표준으로 사용
 - गे이트 통과 후 운영 감사 권장: `python tools/project_audit.py`
 
+## Session 118 - 초보자 첫 진입 UX 정리
+- Date: 2026-03-10
+- Summary:
+  - `app/main.py`: 스텝이 비어 있을 때 `무엇부터 만들까요?` 퀵스타트 카드를 표시하고, `녹화 시작 / 화면 보고 클릭 추가 / 키/마우스 동작 추가 / 예제로 시작` 동선을 제공.
+  - 좌측 주요 버튼 라벨을 초보자 기준으로 정리(`이미지 클릭`, `키/마우스`, `화면 캡처`, `예제 시작`, `조건 분기`, `경로 확인`).
+  - 옵션 바를 기본/고급으로 분리해 기본 상태에서는 `항상 위`, `입력 후 Enter`만 노출하고 고급 토글에서 `그룹 이동 보호`, `테스트 실행`, `녹화 시 최소화`, `실패 화면 저장`, `사람처럼 이동`, `디버그 표시`를 펼치도록 조정.
+- Validation:
+  - `set QT_QPA_PLATFORM=offscreen&& python -m pytest -q tests/test_excel_toolbar_responsive.py tests/test_ui_integration.py` -> PASS
+
 ## Session 117 - Action Step 좌표 선택 정규화
 - Date: 2026-03-10
 - Summary:

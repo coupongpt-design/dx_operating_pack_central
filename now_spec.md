@@ -20,6 +20,19 @@
 - `safe_select_point()` returns normalized `(x, y)` integer coordinates.
 - `NotImageDialog` click/drag pickers accept both tuple and `QPoint` style values without losing the selected coordinates.
 - `ConditionalActionWizardDialog` uses the same normalization path for click target picking.
+
+## Beginner Entry UX (2026-03-10)
+- When the scenario is empty, the main panel shows a quick-start card instead of an empty step list.
+- Quick-start actions:
+  - `녹화 시작`
+  - `화면 보고 클릭 추가`
+  - `키/마우스 동작 추가`
+  - `예제로 시작`
+- Left action buttons use clearer beginner-facing labels:
+  - `이미지 클릭`, `키/마우스`, `화면 캡처`, `예제 시작`, `조건 분기`, `경로 확인`
+- The options toolbar is split into:
+  - default controls: `항상 위`, `입력 후 Enter`
+  - advanced controls behind toggle: `그룹 이동 보호`, `테스트 실행`, `녹화 시 최소화`, `실패 화면 저장`, `사람처럼 이동`, `디버그 표시`
 # Project Technical Specification (now_spec)
 
 ## 1. Project Overview

@@ -576,6 +576,28 @@ def test_record_hotkey_stops_session_started_from_button(monkeypatch, qapp, qtbo
     win.close()
 
 
+def test_mainwindow_quick_start_card_hides_after_first_step(monkeypatch, qapp, qtbot):
+    from app.main import MainWindow
+
+    monkeypatch.setattr(MainWindow, "_setup_global_hotkey_engine", lambda self: None, raising=False)
+
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.show()
+    qapp.processEvents()
+
+    assert win.quick_start_card.isVisible() is True
+    assert win.list.isVisible() is False
+
+    win.add_comment_step()
+    qapp.processEvents()
+
+    assert win.quick_start_card.isVisible() is False
+    assert win.list.isVisible() is True
+    assert len(win.steps) == 1
+    win.close()
+
+
 def test_record_done_inserts_recorded_steps_with_addstepscommand(monkeypatch, qapp, qtbot):
     from app.main import MainWindow
     from app.core.models import StepData
