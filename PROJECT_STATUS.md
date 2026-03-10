@@ -478,3 +478,8 @@
 
 - Fixed `Capture Target` / relative search-area ROI flows so the image-step dialog stays visible after the ROI selector closes.
 - Added UI regression coverage to keep `OK/Cancel` reachable after relative target capture.
+
+## 2026-03-11 - Plain JSON Relative Target Persistence
+
+- Fixed plain `.json` save so captured image bytes, including relative target captures, remain embedded instead of being rewritten to missing sidecar asset paths.
+- Added roundtrip coverage for captured relative targets and runner coverage for bytes-only relative target clicks.

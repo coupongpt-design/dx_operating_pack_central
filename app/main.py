@@ -880,6 +880,34 @@ class MainWindow(QMainWindow):
             return self._encode_bytes(obj.__dict__)
         return str(obj)
 
+    def _serialize_step_for_json_save(self, step):
+        payload = step
+        if hasattr(step, "to_dict"):
+            try:
+                payload = step.to_dict()
+            except Exception:
+                payload = step
+        elif hasattr(step, "__dict__"):
+            payload = dict(step.__dict__)
+
+        if isinstance(step, StepData):
+            if not isinstance(payload, dict):
+                payload = dict(getattr(step, "__dict__", {}))
+            payload["png_bytes"] = step.png_bytes
+            payload["anchor_image_path"] = step.anchor_image_path
+            payload["image_path"] = step.image_path
+            payload["relative_target_png_bytes"] = step.relative_target_png_bytes
+            payload["relative_target_image_path"] = step.relative_target_image_path
+            payload.pop("_tpl_cache", None)
+            payload.pop("_tpl_bgr", None)
+            payload.pop("_tpl_mask", None)
+            payload.pop("_last_match_xy", None)
+
+        try:
+            return self._encode_bytes(payload)
+        except Exception:
+            return self._encode_bytes(dict(payload))
+
     def _get_step_fields(self):
         if not hasattr(self, "_step_field_names"):
             self._step_field_names = {f.name for f in fields(StepData)}
@@ -935,20 +963,7 @@ class MainWindow(QMainWindow):
             else:
                 serialized_steps = []
                 for step in self.steps:
-                    payload = step
-                    if hasattr(step, "to_dict"):
-                        try:
-                            payload = step.to_dict()
-                        except Exception:
-                            payload = step
-                    elif hasattr(step, "__dict__"):
-                        payload = dict(step.__dict__)
-                    # Fallback: ensure no non-string keys
-                    try:
-                        payload = self._encode_bytes(payload)
-                    except Exception:
-                        payload = self._encode_bytes(dict(payload))
-                    serialized_steps.append(payload)
+                    serialized_steps.append(self._serialize_step_for_json_save(step))
 
                 save_data = {
                     "meta": meta,

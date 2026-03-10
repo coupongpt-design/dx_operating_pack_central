@@ -591,6 +591,53 @@ def test_image_click_relative_target_search_clicks_target(monkeypatch, patched_r
     assert clicked.get("xy") == (80, 27)
 
 
+def test_image_click_relative_target_search_clicks_target_from_embedded_bytes(monkeypatch, patched_runner):
+    _runner_mod, _pg = patched_runner
+    step = StepData(
+        id="img-relative-bytes",
+        name="Relative Bytes",
+        type="image_click",
+        timeout_ms=100,
+        poll_ms=1,
+        relative_target_enabled=True,
+        relative_target_png_bytes=b"target-bytes-only",
+        relative_search_right=100,
+        relative_search_bottom=30,
+    )
+    runner = MacroRunner([step], repeat=RepeatConfig(), dry_run=False)
+    clicked: dict[str, tuple[int, int]] = {}
+
+    def fake_match(frame, current_step):
+        if getattr(current_step, "png_bytes", None) == b"target-bytes-only":
+            return SimpleNamespace(ok=True, x=60, y=10, score=0.97, w=12, h=8)
+        return SimpleNamespace(ok=True, x=25, y=20, score=0.99, w=10, h=6)
+
+    monkeypatch.setattr(runner._matcher, "find_best_optimized", fake_match)
+    monkeypatch.setattr(runner, "_perform_click", lambda x, y, s: clicked.setdefault("xy", (x, y)))
+
+    class _Grab:
+        def __init__(self, width, height):
+            self.width = width
+            self.height = height
+            self.rgb = b"\x00" * (width * height * 3)
+
+    class _MSS:
+        def __init__(self):
+            self.monitors = [{"left": 0, "top": 0, "width": 200, "height": 100}]
+
+        def grab(self, region):
+            return _Grab(int(region["width"]), int(region["height"]))
+
+    sct = _MSS()
+    mon = sct.monitors[0]
+    ok, goto_id, consumed = runner._image_click(sct, mon, step, 0)
+
+    assert ok is True
+    assert goto_id is None
+    assert consumed == 0
+    assert clicked.get("xy") == (80, 27)
+
+
 def test_text_paste_auto_enter_enabled(monkeypatch, patched_runner):
     runner_mod, pg = patched_runner
     step = StepData(id="t1", name="Text", type="text", key_string="hello")

@@ -56,6 +56,40 @@ def test_save_macro_extension_writes_zip_package(monkeypatch, tmp_path, qtbot):
 
 
 @pytest.mark.usefixtures("qtbot")
+def test_save_json_roundtrip_preserves_captured_relative_target(monkeypatch, tmp_path, qtbot):
+    from app.main import MainWindow
+    from app.core.models import StepData
+
+    out_path = tmp_path / "plain.json"
+    monkeypatch.setattr("app.main.QFileDialog.getSaveFileName", lambda *a, **k: (str(out_path), None))
+
+    mw = MainWindow()
+    qtbot.addWidget(mw)
+    mw.steps = [
+        StepData(
+            id="img1",
+            name="Relative",
+            type="image_click",
+            relative_target_enabled=True,
+            relative_target_png_bytes=b"target-bytes",
+            relative_search_right=50,
+            relative_search_bottom=20,
+        )
+    ]
+    mw.save_macro()
+
+    mw2 = MainWindow()
+    qtbot.addWidget(mw2)
+    ok = mw2._load_macro_from_path(str(out_path))
+
+    assert ok is True
+    assert len(mw2.steps) == 1
+    assert mw2.steps[0].relative_target_enabled is True
+    assert mw2.steps[0].relative_target_png_bytes == b"target-bytes"
+    assert mw2.steps[0].relative_target_image_path in {None, ""}
+
+
+@pytest.mark.usefixtures("qtbot")
 def test_load_macro_zip_restores_meta_target_window(tmp_path, qtbot):
     from app.main import MainWindow
     from app.core.models import StepData, RepeatConfig

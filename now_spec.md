@@ -662,3 +662,8 @@
 
 - In the image-step editor, `Capture Target` and relative search-area picking now reuse the main ROI capture flow and return to the same dialog immediately after selection.
 - The image-step editor must remain visible after ROI capture so users can finish editing with `OK/Cancel`.
+
+## 2026-03-11 - Relative Target Save Contract
+
+- For plain `.json` saves, captured anchor/relative-target images must stay embedded in the JSON payload via byte encoding; they must not be rewritten to generated `images/...` paths unless packaging as `.macro`.
+- Runner relative-target matching must work when the target exists only as embedded bytes with no file path.

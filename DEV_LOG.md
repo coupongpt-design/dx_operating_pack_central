@@ -2203,3 +2203,9 @@
 - Symptom: clicking `Capture Target` in the image-step dialog opened ROI selection, but after capture the editor did not return, leaving `OK` inaccessible.
 - Fix: removed the relative-target hide/restore wrapper and routed the flow through the same parent-aware ROI selector path used by the primary image capture flow.
 - Validation: `tests/test_image_dialog_presets.py`
+
+## 2026-03-11 02:45 KST - Relative Target JSON Persistence Fix
+
+- Symptom: captured relative targets looked configured in-session, but plain `.json` save rewrote them to generated asset paths and dropped the embedded bytes, so later loads/runs could miss the target image.
+- Fix: added a dedicated plain-JSON step serializer in `MainWindow.save_macro()` that preserves captured `png_bytes` and `relative_target_png_bytes` inline while leaving `.macro` packaging unchanged.
+- Validation: `tests/test_macro_load_formats.py`, `tests/test_runner_logic.py`
