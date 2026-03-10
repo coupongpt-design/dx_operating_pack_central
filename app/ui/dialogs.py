@@ -675,6 +675,43 @@ class ImageStepDialog(BaseDialog):
         offRow.addWidget(QLabel("Offset Y")); offRow.addWidget(self.spOffsetY)
         formLayout2.addRow(offRow)
 
+        self.chkRelativeTarget = QCheckBox("Find target image near anchor")
+        self.chkRelativeTarget.setChecked(bool(getattr(step, "relative_target_enabled", False)))
+        formLayout2.addRow(self.chkRelativeTarget)
+
+        relativeTargetRow = QWidget()
+        relativeTargetLayout = QHBoxLayout(relativeTargetRow)
+        relativeTargetLayout.setContentsMargins(0, 0, 0, 0)
+        relativeTargetLayout.setSpacing(6)
+        self.edRelativeTargetPath = QLineEdit(str(getattr(step, "relative_target_image_path", "") or ""))
+        self.edRelativeTargetPath.setPlaceholderText("Target image path (.png/.jpg)")
+        self.btnLoadRelativeTarget = QPushButton("Load Target")
+        self.btnClearRelativeTarget = QPushButton("Clear")
+        relativeTargetLayout.addWidget(self.edRelativeTargetPath, 1)
+        relativeTargetLayout.addWidget(self.btnLoadRelativeTarget)
+        relativeTargetLayout.addWidget(self.btnClearRelativeTarget)
+        formLayout2.addRow("Target Image", relativeTargetRow)
+
+        self.spRelativeLeft = QSpinBox(); self.spRelativeLeft.setRange(0, 5000); self.spRelativeLeft.setValue(_ival(getattr(step, "relative_search_left", 0), 0))
+        self.spRelativeTop = QSpinBox(); self.spRelativeTop.setRange(0, 5000); self.spRelativeTop.setValue(_ival(getattr(step, "relative_search_top", 0), 0))
+        self.spRelativeRight = QSpinBox(); self.spRelativeRight.setRange(0, 5000); self.spRelativeRight.setValue(_ival(getattr(step, "relative_search_right", 0), 0))
+        self.spRelativeBottom = QSpinBox(); self.spRelativeBottom.setRange(0, 5000); self.spRelativeBottom.setValue(_ival(getattr(step, "relative_search_bottom", 0), 0))
+        relativeRow1 = QHBoxLayout()
+        relativeRow1.addWidget(QLabel("Left")); relativeRow1.addWidget(self.spRelativeLeft)
+        relativeRow1.addWidget(QLabel("Top")); relativeRow1.addWidget(self.spRelativeTop)
+        formLayout2.addRow("Search Margin", relativeRow1)
+        relativeRow2 = QHBoxLayout()
+        relativeRow2.addWidget(QLabel("Right")); relativeRow2.addWidget(self.spRelativeRight)
+        relativeRow2.addWidget(QLabel("Bottom")); relativeRow2.addWidget(self.spRelativeBottom)
+        formLayout2.addRow("", relativeRow2)
+
+        self.lblRelativeTargetHint = QLabel(
+            "First match this step's template, then search the target image inside the expanded area around that match."
+        )
+        self.lblRelativeTargetHint.setWordWrap(True)
+        self.lblRelativeTargetHint.setStyleSheet("color: #888; font-size: 11px;")
+        formLayout2.addRow("", self.lblRelativeTargetHint)
+
         self.cbClickBtn = QComboBox()
         self.cbClickBtn.addItems(["left", "right", "middle", "double"])
         idx = self.cbClickBtn.findText(step.click_btn)
@@ -886,9 +923,13 @@ class ImageStepDialog(BaseDialog):
         self._preset_applying = False
         self.btnCapture.clicked.connect(self._on_capture)
         self.btnLoad.clicked.connect(self._on_load)
+        self.btnLoadRelativeTarget.clicked.connect(self._on_load_relative_target)
+        self.btnClearRelativeTarget.clicked.connect(self._on_clear_relative_target)
+        self.chkRelativeTarget.toggled.connect(self._update_relative_target_controls)
         self.btnTest.clicked.connect(self._on_test_match)
         self.cbQuality.currentIndexChanged.connect(self._on_quality_changed)
         self.chkEnableScale.stateChanged.connect(self._on_matching_toggle_changed)
+        self._update_relative_target_controls()
         self.chkEnableRot.stateChanged.connect(self._on_matching_toggle_changed)
         self.chkFeatFallback.stateChanged.connect(self._on_matching_toggle_changed)
         self.cbAutoFgPreset.currentIndexChanged.connect(self._on_auto_fg_preset_changed)
@@ -1178,6 +1219,34 @@ class ImageStepDialog(BaseDialog):
                 pm = cvimg_to_qpixmap(self._step._tpl_bgr)
                 if pm: self.lblPreview.setPixmap(pm.scaled(200, 150, Qt.KeepAspectRatio))
 
+    def _on_load_relative_target(self):
+        fname, _ = QFileDialog.getOpenFileName(self, "Load Target Image", "", "Images (*.png *.jpg *.bmp)")
+        if fname:
+            with open(fname, "rb") as f:
+                self._step.relative_target_png_bytes = f.read()
+            self._step.relative_target_image_path = fname
+            self.edRelativeTargetPath.setText(fname)
+            self.chkRelativeTarget.setChecked(True)
+
+    def _on_clear_relative_target(self):
+        self._step.relative_target_png_bytes = None
+        self._step.relative_target_image_path = None
+        self.edRelativeTargetPath.clear()
+
+    def _update_relative_target_controls(self):
+        enabled = self.chkRelativeTarget.isChecked()
+        for widget in (
+            self.edRelativeTargetPath,
+            self.btnLoadRelativeTarget,
+            self.btnClearRelativeTarget,
+            self.spRelativeLeft,
+            self.spRelativeTop,
+            self.spRelativeRight,
+            self.spRelativeBottom,
+            self.lblRelativeTargetHint,
+        ):
+            widget.setEnabled(enabled)
+
     def _on_test_match(self):
         try:
             with mss.mss() as sct:
@@ -1285,6 +1354,18 @@ class ImageStepDialog(BaseDialog):
         self._step.jitter = self.spJitter.value()
         self._step.click_offset_x = self.spOffsetX.value()
         self._step.click_offset_y = self.spOffsetY.value()
+        relative_path = self.edRelativeTargetPath.text().strip()
+        current_relative_path = str(getattr(self._step, "relative_target_image_path", "") or "").strip()
+        if relative_path != current_relative_path:
+            self._step.relative_target_png_bytes = None
+        self._step.relative_target_enabled = self.chkRelativeTarget.isChecked()
+        self._step.relative_target_image_path = relative_path or None
+        self._step.relative_search_left = self.spRelativeLeft.value()
+        self._step.relative_search_top = self.spRelativeTop.value()
+        self._step.relative_search_right = self.spRelativeRight.value()
+        self._step.relative_search_bottom = self.spRelativeBottom.value()
+        if not self._step.relative_target_image_path and not getattr(self._step, "relative_target_png_bytes", None):
+            self._step.relative_target_enabled = False
         self._step.pre_move_sleep_ms = self.spPreMoveSleep.value()
         self._step.press_duration_ms = self.spPressDur.value()
         self._step.post_click_sleep_ms = self.spPostSleep.value()

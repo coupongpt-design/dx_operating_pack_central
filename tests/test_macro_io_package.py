@@ -18,7 +18,15 @@ def _tiny_png_bytes() -> bytes:
 def test_save_macro_writes_template_and_assets(tmp_path):
     png = _tiny_png_bytes()
     steps = [
-        StepData(id="img1", name="Img", type="image_click", png_bytes=png),
+        StepData(
+            id="img1",
+            name="Img",
+            type="image_click",
+            png_bytes=png,
+            relative_target_enabled=True,
+            relative_target_png_bytes=png,
+            relative_target_image_path="target.png",
+        ),
         StepData(
             id="br1",
             name="Branch",
@@ -33,13 +41,44 @@ def test_save_macro_writes_template_and_assets(tmp_path):
         names = set(z.namelist())
         assert "template.json" in names
         assert "assets/img1.png" in names
+        assert "assets/img1_relative_target.png" in names
         assert "assets/t1.png" in names
         payload = json.loads(z.read("template.json").decode("utf-8"))
 
     assert payload["repeat"]["repeat_count"] == 2
     assert payload["steps"][0]["image_path"] == "assets/img1.png"
+    assert payload["steps"][0]["relative_target_image_path"] == "assets/img1_relative_target.png"
     assert payload["steps"][1]["conditional_targets"][0]["image_path"] == "assets/t1.png"
     assert payload.get("meta", {}).get("target_window") == "Notepad"
+
+
+def test_load_macro_restores_relative_target_asset(tmp_path):
+    png = _tiny_png_bytes()
+    path = tmp_path / "relative.macro"
+    payload = {
+        "schema_version": 1,
+        "repeat": {},
+        "steps": [
+            {
+                "id": "i1",
+                "name": "Relative",
+                "type": "image_click",
+                "image_path": "assets/i1.png",
+                "relative_target_enabled": True,
+                "relative_target_image_path": "assets/i1_relative_target.png",
+            },
+        ],
+    }
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as z:
+        z.writestr("template.json", json.dumps(payload, ensure_ascii=False, indent=2))
+        z.writestr("assets/i1.png", png)
+        z.writestr("assets/i1_relative_target.png", png)
+
+    steps, _ = MacroIO.load_macro(str(path))
+
+    assert len(steps) == 1
+    assert steps[0].png_bytes == png
+    assert steps[0].relative_target_png_bytes == png
 
 
 def test_load_macro_supports_legacy_scenario_images(tmp_path):

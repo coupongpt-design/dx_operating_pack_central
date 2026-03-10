@@ -270,21 +270,32 @@ class MacroRunner(QThread):
         return str(getattr(step, "id", "") or "").strip()
 
     def _normalize_step_template_path(self, step: StepData) -> None:
-        path = str(getattr(step, "anchor_image_path", "") or getattr(step, "image_path", "") or "").strip()
-        if not path:
-            return
-        try:
-            resolved = os.path.expandvars(os.path.expanduser(path))
+        def _normalize(raw_path: str) -> str:
+            resolved = os.path.expandvars(os.path.expanduser(raw_path))
             if not os.path.isabs(resolved):
                 base = ""
                 if self.current_file_path:
                     base = os.path.dirname(os.path.abspath(self.current_file_path))
                 resolved = os.path.abspath(os.path.join(base or os.getcwd(), resolved))
-            step.anchor_image_path = resolved
-        except Exception as e:
-            if isinstance(e, MacroBaseError):
-                raise
-            self.logger.debug("Failed to normalize template path '%s': %s", path, e)
+            return resolved
+
+        path = str(getattr(step, "anchor_image_path", "") or getattr(step, "image_path", "") or "").strip()
+        if path:
+            try:
+                step.anchor_image_path = _normalize(path)
+            except Exception as e:
+                if isinstance(e, MacroBaseError):
+                    raise
+                self.logger.debug("Failed to normalize template path '%s': %s", path, e)
+
+        relative_path = str(getattr(step, "relative_target_image_path", "") or "").strip()
+        if relative_path:
+            try:
+                step.relative_target_image_path = _normalize(relative_path)
+            except Exception as e:
+                if isinstance(e, MacroBaseError):
+                    raise
+                self.logger.debug("Failed to normalize relative target path '%s': %s", relative_path, e)
 
     def _set_engine_state(self, state: str):
         self.engine_state = str(state or "IDLE").upper()
@@ -433,6 +444,17 @@ class MacroRunner(QThread):
                 resolved = self._resolve_path(raw)
                 if resolved and not os.path.exists(resolved):
                     raise ResourceError(f"template image not found: {resolved}")
+        if step_type in {"image_click", "wait_for_image"} and bool(getattr(step, "relative_target_enabled", False)):
+            raw = str(getattr(step, "relative_target_image_path", "") or "").strip()
+            has_relative_template = bool(getattr(step, "relative_target_png_bytes", None))
+            if not has_relative_template and not raw:
+                raise ResourceError("relative target image not configured")
+            if raw and not has_relative_template:
+                if _skip_precheck_for_dynamic_path(raw):
+                    return
+                resolved = self._resolve_path(raw)
+                if resolved and not os.path.exists(resolved):
+                    raise ResourceError(f"relative target image not found: {resolved}")
         if step_type == "compare_images":
             for field_name in ("image_a_path", "image_b_path"):
                 raw = str(getattr(step, field_name, "") or "").strip()
@@ -1067,7 +1089,7 @@ class MacroRunner(QThread):
             frame = np.frombuffer(raw.rgb, dtype=np.uint8).reshape(raw.height, raw.width, 3)
             
             # Find all targets if requested
-            if s.find_all_targets:
+            if s.find_all_targets and not bool(getattr(s, "relative_target_enabled", False)):
                 results = self._matcher.find_all(frame, s)
                 if results:
                     self.log.emit(f"  -> Found {len(results)} targets.")
@@ -1086,12 +1108,13 @@ class MacroRunner(QThread):
                     return (True, None, 0)
             
             # Single target
-            mr = self._matcher.find_best_optimized(frame, s)
-            if mr.ok:
-                cx = capture_region["left"] + int(mr.x)
-                cy = capture_region["top"] + int(mr.y)
+            match_result = self._match_image_target(sct, capture_region, frame, s)
+            if match_result is not None:
+                match_step, match_region, mr = match_result
+                cx = match_region["left"] + int(mr.x)
+                cy = match_region["top"] + int(mr.y)
                 click_x, click_y = self._resolve_click_anchor_xy(
-                    s,
+                    match_step,
                     cx,
                     cy,
                     int(getattr(mr, "w", 0) or 0),
@@ -1118,12 +1141,13 @@ class MacroRunner(QThread):
                         self.msleep(int(s.poll_ms))
                         raw2 = sct.grab(capture_region)
                         frame2 = np.frombuffer(raw2.rgb, dtype=np.uint8).reshape(raw2.height, raw2.width, 3)
-                        mr2 = self._matcher.find_best_optimized(frame2, s)
-                        if mr2.ok:
-                            cx2 = capture_region["left"] + int(mr2.x)
-                            cy2 = capture_region["top"] + int(mr2.y)
+                        match_result2 = self._match_image_target(sct, capture_region, frame2, s)
+                        if match_result2 is not None:
+                            match_step2, match_region2, mr2 = match_result2
+                            cx2 = match_region2["left"] + int(mr2.x)
+                            cy2 = match_region2["top"] + int(mr2.y)
                             click_x2, click_y2 = self._resolve_click_anchor_xy(
-                                s,
+                                match_step2,
                                 cx2,
                                 cy2,
                                 int(getattr(mr2, "w", 0) or 0),
@@ -1168,12 +1192,13 @@ class MacroRunner(QThread):
 
             raw = sct.grab(capture_region)
             frame = np.frombuffer(raw.rgb, dtype=np.uint8).reshape(raw.height, raw.width, 3)
-            mr = self._matcher.find_best_optimized(frame, s)
-            if mr.ok:
-                cx = capture_region["left"] + int(mr.x)
-                cy = capture_region["top"] + int(mr.y)
+            match_result = self._match_image_target(sct, capture_region, frame, s)
+            if match_result is not None:
+                match_step, match_region, mr = match_result
+                cx = match_region["left"] + int(mr.x)
+                cy = match_region["top"] + int(mr.y)
                 anchor_x, anchor_y = self._resolve_click_anchor_xy(
-                    s,
+                    match_step,
                     cx,
                     cy,
                     int(getattr(mr, "w", 0) or 0),
@@ -1194,6 +1219,111 @@ class MacroRunner(QThread):
 
         self.log.emit(f"  !! Timeout(wait_for_image): {s.name}")
         return (False, None, 0)
+
+    def _build_relative_target_step(self, step: StepData) -> StepData | None:
+        target_path = str(getattr(step, "relative_target_image_path", "") or "").strip()
+        target_bytes = getattr(step, "relative_target_png_bytes", None)
+        if not target_path and not target_bytes:
+            return None
+
+        temp_step = StepData(
+            id=f"{getattr(step, 'id', 'step')}_relative",
+            name=f"{getattr(step, 'name', 'Image')} (relative target)",
+            type="image_click",
+            png_bytes=target_bytes,
+            anchor_image_path=target_path or None,
+            image_path=target_path or None,
+        )
+        for field in BRANCH_TARGET_MATCH_FIELDS + BRANCH_TARGET_CLICK_FIELDS:
+            try:
+                setattr(temp_step, field, getattr(step, field, None))
+            except Exception as e:
+                self.logger.debug("Failed to copy field '%s' to relative target step: %s", field, e)
+        temp_step.search_roi_enabled = False
+        temp_step.search_roi_left = 0
+        temp_step.search_roi_top = 0
+        temp_step.search_roi_width = 0
+        temp_step.search_roi_height = 0
+        self._normalize_step_template_path(temp_step)
+        return temp_step
+
+    def _resolve_relative_target_region(
+        self,
+        capture_region: dict,
+        anchor_center_x: int,
+        anchor_center_y: int,
+        anchor_w: int,
+        anchor_h: int,
+        step: StepData,
+    ) -> dict | None:
+        w = int(anchor_w or 0)
+        h = int(anchor_h or 0)
+        if w <= 0 or h <= 0:
+            tpl = step.ensure_tpl()
+            if tpl is not None:
+                h, w = tpl.shape[:2]
+        if w <= 0 or h <= 0:
+            return None
+
+        anchor_left = int(anchor_center_x) - int(w // 2)
+        anchor_top = int(anchor_center_y) - int(h // 2)
+        search_left = anchor_left - int(getattr(step, "relative_search_left", 0) or 0)
+        search_top = anchor_top - int(getattr(step, "relative_search_top", 0) or 0)
+        search_right = anchor_left + w + int(getattr(step, "relative_search_right", 0) or 0)
+        search_bottom = anchor_top + h + int(getattr(step, "relative_search_bottom", 0) or 0)
+
+        cap_left = int(capture_region["left"])
+        cap_top = int(capture_region["top"])
+        cap_right = cap_left + int(capture_region["width"])
+        cap_bottom = cap_top + int(capture_region["height"])
+
+        search_left = max(cap_left, search_left)
+        search_top = max(cap_top, search_top)
+        search_right = min(cap_right, search_right)
+        search_bottom = min(cap_bottom, search_bottom)
+
+        width = max(0, search_right - search_left)
+        height = max(0, search_bottom - search_top)
+        if width <= 0 or height <= 0:
+            return None
+        return {
+            "left": int(search_left),
+            "top": int(search_top),
+            "width": int(width),
+            "height": int(height),
+        }
+
+    def _match_image_target(self, sct, capture_region: dict, frame: np.ndarray, step: StepData):
+        mr = self._matcher.find_best_optimized(frame, step)
+        if not mr.ok:
+            return None
+
+        if not bool(getattr(step, "relative_target_enabled", False)):
+            return (step, capture_region, mr)
+
+        target_step = self._build_relative_target_step(step)
+        if target_step is None:
+            return None
+
+        anchor_x = capture_region["left"] + int(mr.x)
+        anchor_y = capture_region["top"] + int(mr.y)
+        target_region = self._resolve_relative_target_region(
+            capture_region,
+            anchor_x,
+            anchor_y,
+            int(getattr(mr, "w", 0) or 0),
+            int(getattr(mr, "h", 0) or 0),
+            step,
+        )
+        if target_region is None:
+            return None
+
+        raw = sct.grab(target_region)
+        target_frame = np.frombuffer(raw.rgb, dtype=np.uint8).reshape(raw.height, raw.width, 3)
+        target_match = self._matcher.find_best_optimized(target_frame, target_step)
+        if not target_match.ok:
+            return None
+        return (target_step, target_region, target_match)
 
     def _image_branch(self, sct, mon, step: StepData) -> tuple[bool, str | None]:
         self._normalize_step_template_path(step)

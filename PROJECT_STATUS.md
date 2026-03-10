@@ -464,3 +464,7 @@
   - 스텝이 비어 있으면 Scenario 탭에 `무엇부터 만들까요?` 퀵스타트 카드가 먼저 표시됨.
   - 초보자용 시작 동선으로 `녹화 시작`, `화면 보고 클릭 추가`, `키/마우스 동작 추가`, `예제로 시작` 버튼을 제공.
   - 옵션 바는 기본/고급으로 분리되어 기본 상태에서는 핵심 설정만 노출됨.
+## Relative Target Image Search (2026-03-11)
+- `image_click` and `wait_for_image` can now match an anchor image first, then search a second target image inside a margin-expanded region around that anchor.
+- New `StepData` fields: `relative_target_enabled`, `relative_target_image_path`, `relative_target_png_bytes`, `relative_search_left`, `relative_search_top`, `relative_search_right`, `relative_search_bottom`.
+- `.macro` packaging/load now stores and restores the relative target asset with the primary image template.

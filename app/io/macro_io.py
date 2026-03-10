@@ -59,6 +59,8 @@ class MacroIO:
             item = s.to_serializable()
             if s.type in {"image_click", "wait_for_image"} and s.png_bytes:
                 item["image_path"] = f"{_ASSET_PREFIX_NEW}{s.id}.png"
+            if s.type in {"image_click", "wait_for_image"} and getattr(s, "relative_target_png_bytes", None):
+                item["relative_target_image_path"] = f"{_ASSET_PREFIX_NEW}{s.id}_relative_target.png"
             if s.type == "image_branch":
                 targets = []
                 for t in item.get("conditional_targets", []) or []:
@@ -84,6 +86,11 @@ class MacroIO:
             for s in steps:
                 if s.type in {"image_click", "wait_for_image"} and s.png_bytes:
                     z.writestr(f"{_ASSET_PREFIX_NEW}{s.id}.png", s.png_bytes)
+                if s.type in {"image_click", "wait_for_image"} and getattr(s, "relative_target_png_bytes", None):
+                    z.writestr(
+                        f"{_ASSET_PREFIX_NEW}{s.id}_relative_target.png",
+                        s.relative_target_png_bytes,
+                    )
                 if s.type == "image_branch":
                     for t in s.conditional_targets:
                         png_bytes = t.get("png_bytes")
@@ -122,6 +129,22 @@ class MacroIO:
                             LOGGER.warning("Missing image entry in macro archive: %s (%s)", d.get("image_path"), e)
                     else:
                         LOGGER.warning("Blocked unsafe image_path in macro archive: %s", d.get("image_path"))
+                if s.type in {"image_click", "wait_for_image"} and d.get("relative_target_image_path"):
+                    asset_name = _resolve_safe_asset_member(str(d.get("relative_target_image_path", "")), member_set)
+                    if asset_name:
+                        try:
+                            s.relative_target_png_bytes = z.read(asset_name)
+                        except KeyError as e:
+                            LOGGER.warning(
+                                "Missing relative target image in macro archive: %s (%s)",
+                                d.get("relative_target_image_path"),
+                                e,
+                            )
+                    else:
+                        LOGGER.warning(
+                            "Blocked unsafe relative target image in macro archive: %s",
+                            d.get("relative_target_image_path"),
+                        )
 
                 if s.type == "image_branch":
                     new_targets = []

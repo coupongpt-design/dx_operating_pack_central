@@ -37,6 +37,13 @@ class StepData:
     png_bytes: bytes | None = None
     anchor_image_path: str | None = None   # user-provided template path (Option B)
     image_path: str | None = None          # archive/legacy template path compatibility
+    relative_target_enabled: bool = False
+    relative_target_png_bytes: bytes | None = None
+    relative_target_image_path: str | None = None
+    relative_search_left: int = 0
+    relative_search_top: int = 0
+    relative_search_right: int = 0
+    relative_search_bottom: int = 0
     find_all_targets: bool = False
     find_all_sub_steps: int = 0     # <<< '모두 찾기' 시 반복할 하위 스텝 개수
     hold_until_next: bool = False   # <<< 다음 이미지가 나타날 때까지 현재 동작 반복
@@ -301,6 +308,9 @@ class StepData:
         if self.type in {"image_click", "wait_for_image"} and self.png_bytes:
             d['image_path'] = f"images/{self.id}.png"
             d.pop('png_bytes', None)
+        if self.type in {"image_click", "wait_for_image"} and self.relative_target_png_bytes:
+            d['relative_target_image_path'] = f"images/{self.id}_relative_target.png"
+            d.pop('relative_target_png_bytes', None)
             
         # Remove defaults to save space (optional optimization)
         return d

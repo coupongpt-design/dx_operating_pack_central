@@ -640,3 +640,13 @@
 ## DX Feedback Loop Path Policy 
 - Default lesson draft output path: `dx_operating_pack/docs/LESSONS_LEARNED_DRAFT.md` (primary). 
 - Root `docs/*` path remains as compatibility fallback, not as primary output target.
+## Relative Target Image Search
+- Applies to `image_click` and `wait_for_image`.
+- Runtime flow:
+  - match the step's main template first
+  - expand a search box around that anchor match using `relative_search_left/top/right/bottom`
+  - match `relative_target_image_path` / `relative_target_png_bytes` only inside that relative region
+  - resolve click anchor and click offsets from the secondary target match
+- Serialization/package rules:
+  - `relative_target_png_bytes` is stored as `relative_target_image_path`
+  - `.macro` save/load writes and restores the relative target asset alongside the main image asset

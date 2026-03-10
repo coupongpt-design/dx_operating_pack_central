@@ -2174,3 +2174,12 @@
   - `tests/test_global_hotkeys.py`: 등록 ID(6/7)와 dispatch 경로 회귀 테스트 추가.
 - Validation:
   - `set QT_QPA_PLATFORM=offscreen&& python -m pytest -q tests/test_global_hotkeys.py` -> `2 passed`
+## Session 117 - Relative Target Image Search
+- Date: 2026-03-11
+- Summary:
+  - `app/core/runner.py`: `image_click` / `wait_for_image` now support two-stage matching: anchor image first, then relative target image search inside an anchor-relative region.
+  - `app/core/models.py`, `app/io/macro_io.py`: added relative target fields and `.macro` asset save/load support for the secondary image.
+  - `app/ui/dialogs.py`: `ImageStepDialog` advanced settings now expose target image path and relative search margins.
+  - `tests/test_runner_logic.py`, `tests/test_macro_io_package.py`, `tests/test_image_dialog_presets.py`: added regression coverage for path normalization, runner matching, package restore, and dialog persistence.
+- Validation:
+  - `python -m pytest -q tests/test_runner_logic.py tests/test_macro_io_package.py tests/test_image_dialog_presets.py` -> `PASS`

@@ -153,3 +153,27 @@ def test_auto_fg_recommendation_details_returns_confidence(qapp, qtbot):
     assert std >= 0.0
     assert edge >= 0.0
     dlg.close()
+
+
+def test_relative_target_settings_persist_on_accept(qapp, qtbot):
+    from app.core.models import StepData
+
+    step = StepData(id="img-rel", name="Image", type="image_click")
+    dlg = _make_dialog(qtbot, step=step)
+
+    dlg.chkRelativeTarget.setChecked(True)
+    dlg.edRelativeTargetPath.setText("C:/tmp/target.png")
+    dlg._step.relative_target_png_bytes = b"png"
+    dlg.spRelativeLeft.setValue(12)
+    dlg.spRelativeTop.setValue(3)
+    dlg.spRelativeRight.setValue(44)
+    dlg.spRelativeBottom.setValue(8)
+    dlg.accept()
+    saved = dlg.get_step_data()
+
+    assert saved.relative_target_enabled is True
+    assert saved.relative_target_image_path == "C:/tmp/target.png"
+    assert saved.relative_search_left == 12
+    assert saved.relative_search_top == 3
+    assert saved.relative_search_right == 44
+    assert saved.relative_search_bottom == 8
