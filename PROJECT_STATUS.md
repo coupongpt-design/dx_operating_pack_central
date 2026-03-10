@@ -471,3 +471,6 @@
 ## Image Step Dialog Matching Scroll Fix (2026-03-11)
 - `ImageStepDialog` now wraps `Basic`, `Advanced`, and `Matching` tabs in scroll areas so long matching settings no longer push the OK/Cancel buttons off-screen.
 - Dialog sizing now clamps to the available screen height on open, keeping the button row reachable on smaller displays.
+## Relative Target UX Update (2026-03-11)
+- `ImageStepDialog` now supports `Capture Target` for the secondary image directly inside the image step editor.
+- Relative search setup now supports `Pick Search Area`, which converts a dragged screen box into anchor-relative margins so the user does not need to guess pixel values manually.

@@ -654,3 +654,7 @@
 - `ImageStepDialog` tabs use scrollable containers.
 - Long `Matching` settings must keep `OK/Cancel` visible within the dialog window instead of expanding past the screen height.
 - On open, the dialog height is constrained to the available screen space.
+## Relative Target UX
+- Secondary target images can be captured directly from the image step editor via `Capture Target`.
+- Relative search area can be defined by dragging a screen box via `Pick Search Area`.
+- The picked area is converted to `relative_search_left/top/right/bottom` around the currently matched anchor image.

@@ -2190,3 +2190,11 @@
   - `tests/test_image_dialog_presets.py`: added a regression that asserts the `Matching` tab is scrollable and the dialog keeps the button box inside the window bounds.
 - Validation:
   - `set QT_QPA_PLATFORM=offscreen&& python -m pytest -q tests/test_image_dialog_presets.py` -> `11 passed`
+## Session 119 - Relative Target Capture / Search Area UX
+- Date: 2026-03-11
+- Summary:
+  - `app/ui/dialogs.py`: added `Capture Target` for secondary image capture and `Pick Search Area` to convert a dragged screen box into anchor-relative margins.
+  - Added live source/area summary labels so the dialog reflects captured-vs-file target state and the computed search band immediately.
+  - `tests/test_image_dialog_presets.py`: added regression coverage for captured secondary targets and drag-selected relative search areas.
+- Validation:
+  - `set QT_QPA_PLATFORM=offscreen&& python -m pytest -q tests/test_image_dialog_presets.py` -> `13 passed`

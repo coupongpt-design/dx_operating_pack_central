@@ -694,11 +694,29 @@ class ImageStepDialog(BaseDialog):
         self.edRelativeTargetPath = QLineEdit(str(getattr(step, "relative_target_image_path", "") or ""))
         self.edRelativeTargetPath.setPlaceholderText("Target image path (.png/.jpg)")
         self.btnLoadRelativeTarget = QPushButton("Load Target")
+        self.btnCaptureRelativeTarget = QPushButton("Capture Target")
         self.btnClearRelativeTarget = QPushButton("Clear")
         relativeTargetLayout.addWidget(self.edRelativeTargetPath, 1)
         relativeTargetLayout.addWidget(self.btnLoadRelativeTarget)
+        relativeTargetLayout.addWidget(self.btnCaptureRelativeTarget)
         relativeTargetLayout.addWidget(self.btnClearRelativeTarget)
         formLayout2.addRow("Target Image", relativeTargetRow)
+        self.lblRelativeTargetSource = QLabel("")
+        self.lblRelativeTargetSource.setWordWrap(True)
+        self.lblRelativeTargetSource.setStyleSheet("color: #888; font-size: 11px;")
+        formLayout2.addRow("", self.lblRelativeTargetSource)
+
+        relativeAreaRow = QWidget()
+        relativeAreaLayout = QHBoxLayout(relativeAreaRow)
+        relativeAreaLayout.setContentsMargins(0, 0, 0, 0)
+        relativeAreaLayout.setSpacing(6)
+        self.btnPickRelativeSearchArea = QPushButton("Pick Search Area")
+        self.lblRelativeSearchSummary = QLabel("")
+        self.lblRelativeSearchSummary.setWordWrap(True)
+        self.lblRelativeSearchSummary.setStyleSheet("color: #888; font-size: 11px;")
+        relativeAreaLayout.addWidget(self.btnPickRelativeSearchArea)
+        relativeAreaLayout.addWidget(self.lblRelativeSearchSummary, 1)
+        formLayout2.addRow("Search Area", relativeAreaRow)
 
         self.spRelativeLeft = QSpinBox(); self.spRelativeLeft.setRange(0, 5000); self.spRelativeLeft.setValue(_ival(getattr(step, "relative_search_left", 0), 0))
         self.spRelativeTop = QSpinBox(); self.spRelativeTop.setRange(0, 5000); self.spRelativeTop.setValue(_ival(getattr(step, "relative_search_top", 0), 0))
@@ -707,7 +725,7 @@ class ImageStepDialog(BaseDialog):
         relativeRow1 = QHBoxLayout()
         relativeRow1.addWidget(QLabel("Left")); relativeRow1.addWidget(self.spRelativeLeft)
         relativeRow1.addWidget(QLabel("Top")); relativeRow1.addWidget(self.spRelativeTop)
-        formLayout2.addRow("Search Margin", relativeRow1)
+        formLayout2.addRow("Search Margin (Advanced)", relativeRow1)
         relativeRow2 = QHBoxLayout()
         relativeRow2.addWidget(QLabel("Right")); relativeRow2.addWidget(self.spRelativeRight)
         relativeRow2.addWidget(QLabel("Bottom")); relativeRow2.addWidget(self.spRelativeBottom)
@@ -934,7 +952,10 @@ class ImageStepDialog(BaseDialog):
         self.btnCapture.clicked.connect(self._on_capture)
         self.btnLoad.clicked.connect(self._on_load)
         self.btnLoadRelativeTarget.clicked.connect(self._on_load_relative_target)
+        self.btnCaptureRelativeTarget.clicked.connect(self._on_capture_relative_target)
         self.btnClearRelativeTarget.clicked.connect(self._on_clear_relative_target)
+        self.btnPickRelativeSearchArea.clicked.connect(self._on_pick_relative_search_area)
+        self.edRelativeTargetPath.textChanged.connect(self._update_relative_target_source_label)
         self.chkRelativeTarget.toggled.connect(self._update_relative_target_controls)
         self.btnTest.clicked.connect(self._on_test_match)
         self.cbQuality.currentIndexChanged.connect(self._on_quality_changed)
@@ -950,7 +971,13 @@ class ImageStepDialog(BaseDialog):
         self.spAutoFgStdHigh.valueChanged.connect(self._on_auto_fg_suggest_threshold_changed)
         self.spAutoFgEdgeLow.valueChanged.connect(self._on_auto_fg_suggest_threshold_changed)
         self.spAutoFgEdgeHigh.valueChanged.connect(self._on_auto_fg_suggest_threshold_changed)
+        self.spRelativeLeft.valueChanged.connect(self._update_relative_search_summary)
+        self.spRelativeTop.valueChanged.connect(self._update_relative_search_summary)
+        self.spRelativeRight.valueChanged.connect(self._update_relative_search_summary)
+        self.spRelativeBottom.valueChanged.connect(self._update_relative_search_summary)
         self.btnSuggestAutoFg.clicked.connect(self._on_suggest_auto_fg_preset)
+        self._update_relative_target_source_label()
+        self._update_relative_search_summary()
         self._update_auto_fg_preset_hint()
         self._quality_initing = False
         self.setMinimumSize(680, 480)
@@ -1245,6 +1272,14 @@ class ImageStepDialog(BaseDialog):
                 pm = cvimg_to_qpixmap(self._step._tpl_bgr)
                 if pm: self.lblPreview.setPixmap(pm.scaled(200, 150, Qt.KeepAspectRatio))
 
+    def _capture_roi_with_restore(self):
+        try:
+            self.hide()
+            QApplication.processEvents(QEventLoop.AllEvents, 50)
+            return ROISelector.select_from_screen()
+        finally:
+            self._robust_restore_self()
+
     def _on_load_relative_target(self):
         fname, _ = QFileDialog.getOpenFileName(self, "Load Target Image", "", "Images (*.png *.jpg *.bmp)")
         if fname:
@@ -1253,18 +1288,34 @@ class ImageStepDialog(BaseDialog):
             self._step.relative_target_image_path = fname
             self.edRelativeTargetPath.setText(fname)
             self.chkRelativeTarget.setChecked(True)
+            self._update_relative_target_source_label()
+
+    def _on_capture_relative_target(self):
+        rect, crop, _ = self._capture_roi_with_restore()
+        if crop is None or rect.isNull():
+            return
+        self._step.relative_target_png_bytes = encode_png_bytes(crop)
+        self._step.relative_target_image_path = None
+        self.edRelativeTargetPath.clear()
+        self.chkRelativeTarget.setChecked(True)
+        self._update_relative_target_source_label()
 
     def _on_clear_relative_target(self):
         self._step.relative_target_png_bytes = None
         self._step.relative_target_image_path = None
         self.edRelativeTargetPath.clear()
+        self._update_relative_target_source_label()
 
     def _update_relative_target_controls(self):
         enabled = self.chkRelativeTarget.isChecked()
         for widget in (
             self.edRelativeTargetPath,
             self.btnLoadRelativeTarget,
+            self.btnCaptureRelativeTarget,
             self.btnClearRelativeTarget,
+            self.btnPickRelativeSearchArea,
+            self.lblRelativeTargetSource,
+            self.lblRelativeSearchSummary,
             self.spRelativeLeft,
             self.spRelativeTop,
             self.spRelativeRight,
@@ -1273,55 +1324,128 @@ class ImageStepDialog(BaseDialog):
         ):
             widget.setEnabled(enabled)
 
+    def _update_relative_target_source_label(self):
+        path = self.edRelativeTargetPath.text().strip()
+        if not path:
+            path = str(getattr(self._step, "relative_target_image_path", "") or "").strip()
+        has_bytes = bool(getattr(self._step, "relative_target_png_bytes", None))
+        if path:
+            self.lblRelativeTargetSource.setText(f"Target source: {os.path.basename(path)}")
+        elif has_bytes:
+            self.lblRelativeTargetSource.setText("Target source: captured from screen")
+        else:
+            self.lblRelativeTargetSource.setText("Target source: not selected")
+
+    def _update_relative_search_summary(self):
+        self.lblRelativeSearchSummary.setText(
+            "Around anchor: "
+            f"L {self.spRelativeLeft.value()} / "
+            f"T {self.spRelativeTop.value()} / "
+            f"R {self.spRelativeRight.value()} / "
+            f"B {self.spRelativeBottom.value()} px"
+        )
+
+    def _build_preview_match_step(self) -> StepData:
+        fake = StepData(**asdict(self._step))
+        quality = self.cbQuality.currentData() or self.cbQuality.currentText().lower()
+        fake.match_quality = quality
+        fake.threshold = self.spThreshold.value()
+        fake.min_confidence = self.spMinConf.value()
+        fake.pre_gray = self.chkGray.isChecked()
+        fake.pre_blur_ksize = int(self.spBlur.value())
+        fake.pre_clahe = self.chkClahe.isChecked()
+        fake.pre_edge = self.chkEdge.isChecked()
+        fake.pre_sharpen = self.chkSharpen.isChecked()
+        fake.match_color = self.chkMatchColor.isChecked()
+        fake.color_match_tolerance = self.spColorTol.value()
+        fake.alpha_mask_enable = self.chkAlphaMask.isChecked()
+        fake.auto_fg_mask_enable = self.chkAutoFgMask.isChecked()
+        fake.auto_fg_mask_bg_percentile = self.spAutoFgPct.value()
+        fake.auto_fg_mask_dynamic_scale = self.spAutoFgScale.value()
+        fake.auto_fg_mask_min_distance = self.spAutoFgMinDist.value()
+        fake.auto_fg_suggest_std_low = self.spAutoFgStdLow.value()
+        fake.auto_fg_suggest_std_high = self.spAutoFgStdHigh.value()
+        fake.auto_fg_suggest_edge_low = self.spAutoFgEdgeLow.value()
+        fake.auto_fg_suggest_edge_high = self.spAutoFgEdgeHigh.value()
+        fake.hq_color_bg_robust = self.chkColorBgRobust.isChecked()
+        fake.top_k = self.spTopK.value()
+        fake.budget_ms = self.spBudget.value()
+        fake.tpl_cache_limit = self.spTplCache.value()
+        fake.search_roi_enabled = self.chkSearchRoi.isChecked()
+        fake.search_roi_left = self.spRoiX.value()
+        fake.search_roi_top = self.spRoiY.value()
+        fake.search_roi_width = self.spRoiW.value()
+        fake.search_roi_height = self.spRoiH.value()
+        fake.ms_min_scale = self.spMsMin.value()
+        fake.ms_max_scale = self.spMsMax.value()
+        fake.ms_step = self.spMsStep.value()
+        fake.rot_min_deg = self.spRotMin.value()
+        fake.rot_max_deg = self.spRotMax.value()
+        fake.rot_step_deg = self.spRotStep.value()
+        fake.max_scales = max(1, self._max_scales_default) if self.chkEnableScale.isChecked() else 0
+        fake.max_rotations = max(1, self._max_rotations_default) if self.chkEnableRot.isChecked() else 0
+        fake.feat_fallback_enable = self.chkFeatFallback.isChecked()
+        fake.feat_nfeatures = self.spFeatN.value()
+        fake.feat_match_ratio = self.spFeatRatio.value()
+        fake.feat_ransac_reproj_thresh = self.spFeatRansac.value()
+        return fake
+
+    def _find_anchor_bounds_on_screen(self):
+        fake = self._build_preview_match_step()
+        if not fake.png_bytes and not getattr(fake, "anchor_image_path", None):
+            raise ValueError("Capture or load the anchor image first.")
+        with mss.mss() as sct:
+            mon = sct.monitors[0]
+            frame = np.array(sct.grab(mon), dtype=np.uint8)[:, :, :3].copy()
+        matcher = Matcher()
+        mr = matcher.find_best_optimized(frame, fake)
+        if not mr or not mr.ok:
+            raise ValueError("Current anchor image was not found on screen.")
+        tpl = fake.ensure_tpl()
+        width = int(getattr(mr, "w", 0) or 0)
+        height = int(getattr(mr, "h", 0) or 0)
+        if tpl is not None and (width <= 0 or height <= 0):
+            height, width = tpl.shape[:2]
+        if width <= 0 or height <= 0:
+            raise ValueError("Anchor match size is unavailable.")
+        center_x = int(mon["left"]) + int(mr.x)
+        center_y = int(mon["top"]) + int(mr.y)
+        left = center_x - width // 2
+        top = center_y - height // 2
+        return {
+            "left": left,
+            "top": top,
+            "right": left + width,
+            "bottom": top + height,
+        }
+
+    def _on_pick_relative_search_area(self):
+        try:
+            anchor = self._find_anchor_bounds_on_screen()
+        except Exception as e:
+            QMessageBox.warning(self, "Pick Search Area", str(e))
+            return
+        rect, _crop, virt = self._capture_roi_with_restore()
+        if rect.isNull():
+            return
+        virt_left, virt_top, _virt_w, _virt_h = virt
+        sel_left = int(virt_left) + int(rect.x())
+        sel_top = int(virt_top) + int(rect.y())
+        sel_right = sel_left + int(rect.width())
+        sel_bottom = sel_top + int(rect.height())
+        self.spRelativeLeft.setValue(max(0, int(anchor["left"]) - sel_left))
+        self.spRelativeTop.setValue(max(0, int(anchor["top"]) - sel_top))
+        self.spRelativeRight.setValue(max(0, sel_right - int(anchor["right"])))
+        self.spRelativeBottom.setValue(max(0, sel_bottom - int(anchor["bottom"])))
+        self.chkRelativeTarget.setChecked(True)
+        self._update_relative_search_summary()
+
     def _on_test_match(self):
         try:
             with mss.mss() as sct:
                 mon = sct.monitors[0]
                 frame = np.array(sct.grab(mon), dtype=np.uint8)[:, :, :3].copy()
-            
-            fake = StepData(**asdict(self._step))
-            quality = self.cbQuality.currentData() or self.cbQuality.currentText().lower()
-            fake.match_quality = quality
-            fake.threshold = self.spThreshold.value()
-            fake.min_confidence = self.spMinConf.value()
-            fake.pre_gray = self.chkGray.isChecked()
-            fake.pre_blur_ksize = int(self.spBlur.value())
-            fake.pre_clahe = self.chkClahe.isChecked()
-            fake.pre_edge = self.chkEdge.isChecked()
-            fake.pre_sharpen = self.chkSharpen.isChecked()
-            fake.match_color = self.chkMatchColor.isChecked()
-            fake.color_match_tolerance = self.spColorTol.value()
-            fake.alpha_mask_enable = self.chkAlphaMask.isChecked()
-            fake.auto_fg_mask_enable = self.chkAutoFgMask.isChecked()
-            fake.auto_fg_mask_bg_percentile = self.spAutoFgPct.value()
-            fake.auto_fg_mask_dynamic_scale = self.spAutoFgScale.value()
-            fake.auto_fg_mask_min_distance = self.spAutoFgMinDist.value()
-            fake.auto_fg_suggest_std_low = self.spAutoFgStdLow.value()
-            fake.auto_fg_suggest_std_high = self.spAutoFgStdHigh.value()
-            fake.auto_fg_suggest_edge_low = self.spAutoFgEdgeLow.value()
-            fake.auto_fg_suggest_edge_high = self.spAutoFgEdgeHigh.value()
-            fake.hq_color_bg_robust = self.chkColorBgRobust.isChecked()
-            fake.top_k = self.spTopK.value()
-            fake.budget_ms = self.spBudget.value()
-            fake.tpl_cache_limit = self.spTplCache.value()
-            fake.search_roi_enabled = self.chkSearchRoi.isChecked()
-            fake.search_roi_left = self.spRoiX.value()
-            fake.search_roi_top = self.spRoiY.value()
-            fake.search_roi_width = self.spRoiW.value()
-            fake.search_roi_height = self.spRoiH.value()
-            fake.ms_min_scale = self.spMsMin.value()
-            fake.ms_max_scale = self.spMsMax.value()
-            fake.ms_step = self.spMsStep.value()
-            fake.rot_min_deg = self.spRotMin.value()
-            fake.rot_max_deg = self.spRotMax.value()
-            fake.rot_step_deg = self.spRotStep.value()
-            fake.max_scales = max(1, self._max_scales_default) if self.chkEnableScale.isChecked() else 0
-            fake.max_rotations = max(1, self._max_rotations_default) if self.chkEnableRot.isChecked() else 0
-            fake.feat_fallback_enable = self.chkFeatFallback.isChecked()
-            fake.feat_nfeatures = self.spFeatN.value()
-            fake.feat_match_ratio = self.spFeatRatio.value()
-            fake.feat_ransac_reproj_thresh = self.spFeatRansac.value()
-            
+            fake = self._build_preview_match_step()
             m = Matcher()
             mr = m.find_best_optimized(frame, fake)
             

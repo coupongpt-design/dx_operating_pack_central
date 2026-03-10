@@ -1,9 +1,11 @@
 import os
 import sys
+from types import SimpleNamespace
 
 import pytest
 import numpy as np
 pytest.importorskip("pytestqt")
+from PyQt5.QtCore import QRect
 from PyQt5.QtWidgets import QApplication, QScrollArea, QTabWidget
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -199,4 +201,64 @@ def test_matching_tab_is_scrollable_and_keeps_button_box_visible(qapp, qtbot):
     available = screen.availableGeometry()
     assert dlg.height() <= available.height()
     assert dlg.buttonBox.geometry().bottom() <= dlg.rect().bottom()
+    dlg.close()
+
+
+def test_capture_relative_target_updates_embedded_target(qapp, qtbot, monkeypatch):
+    import app.ui.dialogs as dialogs
+
+    dlg = _make_dialog(qtbot)
+    crop = np.zeros((6, 8, 3), dtype=np.uint8)
+    monkeypatch.setattr(
+        dialogs.ROISelector,
+        "select_from_screen",
+        staticmethod(lambda parent=None: (QRect(10, 12, 8, 6), crop, (0, 0, 100, 100))),
+    )
+
+    dlg._on_capture_relative_target()
+
+    assert dlg.chkRelativeTarget.isChecked() is True
+    assert dlg._step.relative_target_png_bytes is not None
+    assert dlg._step.relative_target_image_path is None
+    assert "captured from screen" in dlg.lblRelativeTargetSource.text().lower()
+    dlg.close()
+
+
+def test_pick_relative_search_area_updates_margins_from_selection(qapp, qtbot, monkeypatch):
+    import app.ui.dialogs as dialogs
+
+    dlg = _make_dialog(qtbot)
+    dlg._step.png_bytes = b"anchor"
+    dlg._step._tpl_bgr = np.zeros((6, 10, 3), dtype=np.uint8)
+
+    class _DummyMSS:
+        def __enter__(self):
+            self.monitors = [{"left": 0, "top": 0, "width": 100, "height": 80}]
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def grab(self, region):
+            return np.zeros((80, 100, 4), dtype=np.uint8)
+
+    monkeypatch.setattr(dialogs.mss, "mss", lambda: _DummyMSS())
+    monkeypatch.setattr(
+        dialogs.Matcher,
+        "find_best_optimized",
+        lambda self, frame, step: SimpleNamespace(ok=True, x=30, y=30, score=0.99, w=10, h=6),
+    )
+    monkeypatch.setattr(
+        dialogs.ROISelector,
+        "select_from_screen",
+        staticmethod(lambda parent=None: (QRect(10, 15, 50, 25), None, (0, 0, 100, 80))),
+    )
+
+    dlg._on_pick_relative_search_area()
+
+    assert dlg.spRelativeLeft.value() == 15
+    assert dlg.spRelativeTop.value() == 12
+    assert dlg.spRelativeRight.value() == 25
+    assert dlg.spRelativeBottom.value() == 7
+    assert "L 15" in dlg.lblRelativeSearchSummary.text()
     dlg.close()
