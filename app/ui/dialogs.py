@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
     QDoubleSpinBox, QCheckBox, QComboBox, QPushButton, QLabel, QWidget, 
     QTabWidget, QGroupBox, QDialogButtonBox, QFileDialog, QMessageBox, QInputDialog,
     QTableWidget, QTableWidgetItem, QHeaderView, QMenu, QGridLayout, QApplication, QShortcut,
-    QRadioButton, QStackedWidget
+    QRadioButton, QScrollArea, QStackedWidget
 )
 from PyQt5.QtCore import Qt, QTimer, QEventLoop, QSettings, QSize, QEvent
 from PyQt5.QtGui import QIcon, QPixmap, QKeySequence
@@ -595,7 +595,15 @@ class ImageStepDialog(BaseDialog):
 
         mainLayout = QVBoxLayout(self)
         tabWidget = QTabWidget()
+        self.tabWidget = tabWidget
         mainLayout.addWidget(tabWidget)
+
+        def _make_scroll_tab(content: QWidget) -> QScrollArea:
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            scroll.setWidget(content)
+            return scroll
 
         # --- 탭 1: 기본 설정 ---
         basicTab = QWidget()
@@ -661,7 +669,7 @@ class ImageStepDialog(BaseDialog):
         self.spMinConf.setValue(_fval(getattr(step, "min_confidence", getattr(step, "threshold", 0.85) or 0.85), 0.85))
         formLayout1.addRow("Min Confidence", self.spMinConf)
 
-        tabWidget.addTab(basicTab, "Basic")
+        tabWidget.addTab(_make_scroll_tab(basicTab), "Basic")
 
         # --- 탭 2: 고급 설정 ---
         advTab = QWidget()
@@ -733,7 +741,7 @@ class ImageStepDialog(BaseDialog):
         self.spTplCache = QSpinBox(); self.spTplCache.setRange(0, 10000); self.spTplCache.setValue(_ival(getattr(step, "tpl_cache_limit", 128), 128))
         formLayout2.addRow("Template Cache Limit", self.spTplCache)
 
-        tabWidget.addTab(advTab, "Advanced")
+        tabWidget.addTab(_make_scroll_tab(advTab), "Advanced")
 
         # --- 탭 3: 매칭 설정 ---
         matchingTab = QWidget()
@@ -911,10 +919,12 @@ class ImageStepDialog(BaseDialog):
         self.lblTest = QLabel("Result: -")
         formLayout3.addRow(self.btnTest, self.lblTest)
         
-        tabWidget.addTab(matchingTab, "Matching")
+        self.matchingTabScroll = _make_scroll_tab(matchingTab)
+        tabWidget.addTab(self.matchingTabScroll, "Matching")
 
         # Buttons
         btnBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttonBox = btnBox
         btnBox.accepted.connect(self.accept)
         btnBox.rejected.connect(self.reject)
         mainLayout.addWidget(btnBox)
@@ -943,6 +953,22 @@ class ImageStepDialog(BaseDialog):
         self.btnSuggestAutoFg.clicked.connect(self._on_suggest_auto_fg_preset)
         self._update_auto_fg_preset_hint()
         self._quality_initing = False
+        self.setMinimumSize(680, 480)
+        QTimer.singleShot(0, self._constrain_dialog_to_screen)
+
+    def _constrain_dialog_to_screen(self) -> None:
+        try:
+            screen = QApplication.primaryScreen()
+            if screen is None:
+                return
+            available = screen.availableGeometry()
+            max_width = max(560, int(available.width()) - 80)
+            max_height = max(420, int(available.height()) - 80)
+            target_width = min(max(760, self.sizeHint().width()), max_width)
+            target_height = min(720, max_height)
+            self.resize(target_width, target_height)
+        except Exception as e:
+            self._warn_once("image_step_dialog_screen_bounds", f"Image step dialog sizing fallback used: {e}")
 
     def _normalize_quality(self, quality: str) -> str:
         q = str(quality or "").lower()

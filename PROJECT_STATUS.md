@@ -468,3 +468,6 @@
 - `image_click` and `wait_for_image` can now match an anchor image first, then search a second target image inside a margin-expanded region around that anchor.
 - New `StepData` fields: `relative_target_enabled`, `relative_target_image_path`, `relative_target_png_bytes`, `relative_search_left`, `relative_search_top`, `relative_search_right`, `relative_search_bottom`.
 - `.macro` packaging/load now stores and restores the relative target asset with the primary image template.
+## Image Step Dialog Matching Scroll Fix (2026-03-11)
+- `ImageStepDialog` now wraps `Basic`, `Advanced`, and `Matching` tabs in scroll areas so long matching settings no longer push the OK/Cancel buttons off-screen.
+- Dialog sizing now clamps to the available screen height on open, keeping the button row reachable on smaller displays.

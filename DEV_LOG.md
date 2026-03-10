@@ -2183,3 +2183,10 @@
   - `tests/test_runner_logic.py`, `tests/test_macro_io_package.py`, `tests/test_image_dialog_presets.py`: added regression coverage for path normalization, runner matching, package restore, and dialog persistence.
 - Validation:
   - `python -m pytest -q tests/test_runner_logic.py tests/test_macro_io_package.py tests/test_image_dialog_presets.py` -> `PASS`
+## Session 118 - Image Step Dialog Matching Scroll Fix
+- Date: 2026-03-11
+- Summary:
+  - `app/ui/dialogs.py`: wrapped `ImageStepDialog` tab content in scroll areas and constrained dialog height to the available screen so the button row remains reachable.
+  - `tests/test_image_dialog_presets.py`: added a regression that asserts the `Matching` tab is scrollable and the dialog keeps the button box inside the window bounds.
+- Validation:
+  - `set QT_QPA_PLATFORM=offscreen&& python -m pytest -q tests/test_image_dialog_presets.py` -> `11 passed`

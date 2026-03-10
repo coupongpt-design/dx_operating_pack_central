@@ -650,3 +650,7 @@
 - Serialization/package rules:
   - `relative_target_png_bytes` is stored as `relative_target_image_path`
   - `.macro` save/load writes and restores the relative target asset alongside the main image asset
+## Image Step Dialog Scroll Behavior
+- `ImageStepDialog` tabs use scrollable containers.
+- Long `Matching` settings must keep `OK/Cancel` visible within the dialog window instead of expanding past the screen height.
+- On open, the dialog height is constrained to the available screen space.

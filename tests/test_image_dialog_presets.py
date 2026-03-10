@@ -4,7 +4,7 @@ import sys
 import pytest
 import numpy as np
 pytest.importorskip("pytestqt")
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QScrollArea, QTabWidget
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -177,3 +177,26 @@ def test_relative_target_settings_persist_on_accept(qapp, qtbot):
     assert saved.relative_search_top == 3
     assert saved.relative_search_right == 44
     assert saved.relative_search_bottom == 8
+
+
+def test_matching_tab_is_scrollable_and_keeps_button_box_visible(qapp, qtbot):
+    dlg = _make_dialog(qtbot)
+
+    dlg.show()
+    qtbot.wait(50)
+    tabs = dlg.findChild(QTabWidget)
+    assert tabs is not None
+    matching_index = next(i for i in range(tabs.count()) if tabs.tabText(i) == "Matching")
+    tabs.setCurrentIndex(matching_index)
+    qapp.processEvents()
+
+    matching_page = tabs.widget(matching_index)
+    assert isinstance(matching_page, QScrollArea)
+    assert matching_page.widget() is not None
+
+    screen = qapp.primaryScreen()
+    assert screen is not None
+    available = screen.availableGeometry()
+    assert dlg.height() <= available.height()
+    assert dlg.buttonBox.geometry().bottom() <= dlg.rect().bottom()
+    dlg.close()
