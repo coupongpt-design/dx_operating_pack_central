@@ -474,3 +474,7 @@
 ## Relative Target UX Update (2026-03-11)
 - `ImageStepDialog` now supports `Capture Target` for the secondary image directly inside the image step editor.
 - Relative search setup now supports `Pick Search Area`, which converts a dragged screen box into anchor-relative margins so the user does not need to guess pixel values manually.
+## 2026-03-11 - Image Dialog Relative Capture Restore
+
+- Fixed `Capture Target` / relative search-area ROI flows so the image-step dialog stays visible after the ROI selector closes.
+- Added UI regression coverage to keep `OK/Cancel` reachable after relative target capture.

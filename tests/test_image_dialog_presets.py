@@ -224,6 +224,32 @@ def test_capture_relative_target_updates_embedded_target(qapp, qtbot, monkeypatc
     dlg.close()
 
 
+def test_capture_relative_target_keeps_dialog_visible(qapp, qtbot, monkeypatch):
+    import app.ui.dialogs as dialogs
+
+    dlg = _make_dialog(qtbot)
+    dlg.show()
+    qapp.processEvents()
+
+    def _fake_select_from_screen(parent=None):
+        assert parent is dlg
+        crop = np.zeros((6, 8, 3), dtype=np.uint8)
+        return QRect(10, 12, 8, 6), crop, (0, 0, 100, 100)
+
+    monkeypatch.setattr(
+        dialogs.ROISelector,
+        "select_from_screen",
+        staticmethod(_fake_select_from_screen),
+    )
+
+    dlg._on_capture_relative_target()
+    qapp.processEvents()
+
+    assert dlg.isVisible() is True
+    assert dlg.buttonBox.isVisible() is True
+    dlg.close()
+
+
 def test_pick_relative_search_area_updates_margins_from_selection(qapp, qtbot, monkeypatch):
     import app.ui.dialogs as dialogs
 

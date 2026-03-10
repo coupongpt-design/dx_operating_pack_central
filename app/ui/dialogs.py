@@ -1273,12 +1273,9 @@ class ImageStepDialog(BaseDialog):
                 if pm: self.lblPreview.setPixmap(pm.scaled(200, 150, Qt.KeepAspectRatio))
 
     def _capture_roi_with_restore(self):
-        try:
-            self.hide()
-            QApplication.processEvents(QEventLoop.AllEvents, 50)
-            return ROISelector.select_from_screen()
-        finally:
-            self._robust_restore_self()
+        # Keep the editor alive through ROI selection, matching the primary
+        # image capture flow and avoiding lost dialog state after capture.
+        return ROISelector.select_from_screen(self)
 
     def _on_load_relative_target(self):
         fname, _ = QFileDialog.getOpenFileName(self, "Load Target Image", "", "Images (*.png *.jpg *.bmp)")

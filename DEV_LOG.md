@@ -2198,3 +2198,8 @@
   - `tests/test_image_dialog_presets.py`: added regression coverage for captured secondary targets and drag-selected relative search areas.
 - Validation:
   - `set QT_QPA_PLATFORM=offscreen&& python -m pytest -q tests/test_image_dialog_presets.py` -> `13 passed`
+## 2026-03-11 02:30 KST - Relative Target Capture Dialog Restore
+
+- Symptom: clicking `Capture Target` in the image-step dialog opened ROI selection, but after capture the editor did not return, leaving `OK` inaccessible.
+- Fix: removed the relative-target hide/restore wrapper and routed the flow through the same parent-aware ROI selector path used by the primary image capture flow.
+- Validation: `tests/test_image_dialog_presets.py`

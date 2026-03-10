@@ -658,3 +658,7 @@
 - Secondary target images can be captured directly from the image step editor via `Capture Target`.
 - Relative search area can be defined by dragging a screen box via `Pick Search Area`.
 - The picked area is converted to `relative_search_left/top/right/bottom` around the currently matched anchor image.
+## 2026-03-11 - Relative Target Capture Dialog Restore
+
+- In the image-step editor, `Capture Target` and relative search-area picking now reuse the main ROI capture flow and return to the same dialog immediately after selection.
+- The image-step editor must remain visible after ROI capture so users can finish editing with `OK/Cancel`.
