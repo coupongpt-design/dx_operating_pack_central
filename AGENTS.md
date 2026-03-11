@@ -8,18 +8,23 @@
 
 ## 🤖 Agent Rules
 - Before starting any task, read `PROJECT_STATUS.md` first.
+- Always load `docs_for_ai/CONTEXT_SNAPSHOT.md` as the baseline session snapshot.
 - Read `dx_operating_pack/AGENT_ONBOARDING.md` only for DX Pack governance/install/sync tasks.
 - Follow the `Task Cycle` defined in the manual (`Start -> Snapshot -> Implementation -> Gate`) when that DX scope is active.
 
 ## 1) Session Gate (Required)
 1. Read `PROJECT_STATUS.md` first.
-2. Load additional context based on task scope:
+2. Read `docs_for_ai/CONTEXT_SNAPSHOT.md` as the minimal bootstrap baseline.
+3. Load additional context based on task scope:
    - **DX Pack governance/install/sync** (`dx_operating_pack/**`, hooks/CI/rules) → read `dx_operating_pack/AGENT_ONBOARDING.md`
    - **UI layout/overlay work** (`app/main.py`, `app/ui/**`) → read `dx_operating_pack/docs_for_ai/CONTEXT_UI.md`
    - **Runner/StepData/serialization work** (`app/core/runner.py`, `StepData`, serialization paths) → read `dx_operating_pack/docs_for_ai/CONTEXT_CORE.md`
    - **Test additions** → read `dx_operating_pack/docs_for_ai/CONTEXT_CORE.md` (includes test list)
-3. Summarize current focus in 2 lines.
-4. Declare mode (`Compact` or `Precision`) before edits.
+   - **Behavior contract / real-world bug / usability review** → read `docs/dev/REAL_WORLD_QA.md` and `docs/dev/USER_JOURNEYS.md`
+   - **Docs inventory / rules / operations review** → read `docs/DOC_INDEX.md` and `docs/ASSET_MAP.md`
+4. If scope is still unclear or uncertainty remains after the minimal set, continue opening the most relevant docs until both the active runtime path and validation path are covered.
+5. Summarize current focus in 2 lines.
+6. Declare mode (`Compact` or `Precision`) before edits.
 
 ## 2) Mode Policy
 - Default: `Compact`.
@@ -169,8 +174,8 @@ For meaningful behavior changes, sync:
 ## 12) Synced Normative Block (for `.cursorrules`)
 <!-- SYNC_BLOCK_START -->
 Priority: system/dev/runtime > user > AGENTS.md > .cursorrules
-Agent rules: read PROJECT_STATUS.md first; load context by task scope (DX Pack→AGENT_ONBOARDING.md; UI work→CONTEXT_UI.md; Runner/StepData/serialization→CONTEXT_CORE.md; Test additions→CONTEXT_CORE.md); follow Task Cycle when DX scope is active
-Session Gate: read PROJECT_STATUS.md -> load scope-specific context docs -> 2-line current-focus summary -> declare mode
+Agent rules: read PROJECT_STATUS.md first; always load docs_for_ai/CONTEXT_SNAPSHOT.md as the baseline session snapshot; load context by task scope (DX Pack→AGENT_ONBOARDING.md; UI work→CONTEXT_UI.md; Runner/StepData/serialization→CONTEXT_CORE.md; Test additions→CONTEXT_CORE.md; behavior/real-world QA→REAL_WORLD_QA.md + USER_JOURNEYS.md; docs/rules/operations review→DOC_INDEX.md + ASSET_MAP.md); follow Task Cycle when DX scope is active
+Session Gate: read PROJECT_STATUS.md -> read docs_for_ai/CONTEXT_SNAPSHOT.md -> load scope-specific context docs -> if uncertainty remains continue opening docs until runtime path + validation path are covered -> 2-line current-focus summary -> declare mode
 Mode: compact by default; precision on high-risk triggers; keep precision through validation
 Precision triggers: files>=5, StepData change, serialization change, thread/signal change, runner flow change, unclear repro/scope
 Multi-Agent flow: default Executor->Guardian; precision trigger -> Planner->Executor->Guardian
