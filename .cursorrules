@@ -31,6 +31,7 @@ Search order: WRITES -> STATE TRANSITIONS -> CALLERS -> UI labels last
 No full dumps: no type/cat full files; use context windows only
 Output contract: 2-5 snippets + 3-line definition + exact change locations + targeted tests
 Markdown handoff integrity: when markdown-only delivery is requested, include all required handoff content in one outer block; keep required content outside that block at zero; verify fence integrity before send
+Session handoff trigger: if user says `세션 마감 패키징` or explicitly asks for next-conversation handoff prep, update PROJECT_STATUS.md + docs_for_ai/CONTEXT_SNAPSHOT.md first, sync other durable docs as needed, and include changes/decisions/open issues/tests/commit-git state plus next-session read sets
 Thread/UI safety: worker threads never touch UI directly; use pyqtSignal
 State ownership: MainWindow owns steps/UndoStack; dialogs return data only
 Command rule: no direct self.steps CRUD/reorder; use _push_command(...)

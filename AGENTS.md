@@ -82,6 +82,11 @@
    - If user asks for copy/paste markdown delivery, put all required handoff content inside one outer markdown block.
    - Do not place required diff/snippets/results outside that block.
    - Before sending, verify fences are not broken by nested backticks.
+5. Session handoff packaging trigger:
+   - If the user says `세션 마감 패키징` or clearly asks to prepare the next conversation handoff, treat it as a required closeout workflow.
+   - Update `PROJECT_STATUS.md` and `docs_for_ai/CONTEXT_SNAPSHOT.md` first.
+   - Sync any additional durable docs needed for continuity (`DEV_LOG.md`, `now_spec.md`, `docs/dev/REAL_WORLD_QA.md`, `docs/dev/USER_JOURNEYS.md`) when the session changed behavior, validation flow, or operating guidance.
+   - Include: session changes, decisions, unresolved issues, verification results, commit/git status, next-session minimal read set, and condition-based extra docs.
 
 ## 8) Documentation Sync
 For meaningful behavior changes, sync:
@@ -202,6 +207,7 @@ Search order: WRITES -> STATE TRANSITIONS -> CALLERS -> UI labels last
 No full dumps: no type/cat full files; use context windows only
 Output contract: 2-5 snippets + 3-line definition + exact change locations + targeted tests
 Markdown handoff integrity: when markdown-only delivery is requested, include all required handoff content in one outer block; keep required content outside that block at zero; verify fence integrity before send
+Session handoff trigger: if user says `세션 마감 패키징` or explicitly asks for next-conversation handoff prep, update PROJECT_STATUS.md + docs_for_ai/CONTEXT_SNAPSHOT.md first, sync other durable docs as needed, and include changes/decisions/open issues/tests/commit-git state plus next-session read sets
 Thread/UI safety: worker threads never touch UI directly; use pyqtSignal
 State ownership: MainWindow owns steps/UndoStack; dialogs return data only
 Command rule: no direct self.steps CRUD/reorder; use _push_command(...)
