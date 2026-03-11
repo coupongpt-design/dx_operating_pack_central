@@ -167,3 +167,26 @@ def test_record_delay_click_disabled():
     rec._handle_click(2.0, 10, 10, None, True)
     rec._handle_click(2.1, 10, 10, None, False)
     assert rec._steps[-1].pre_delay_ms == 0
+
+
+def test_recorded_scroll_keeps_pointer_position():
+    rec = InputRecorder(
+        ignore_rect=None,
+        record_delay_enabled=True,
+        scroll_scale_dx=1.0,
+        scroll_scale_dy=1.0,
+    )
+    rec._ignore_until = 0.0
+    rec._paused = False
+    rec._last_event_ts = 1.0
+
+    rec._handle_scroll(2.0, 111, 222, 3, -4)
+    rec._flush_scroll(True)
+
+    step = rec._steps[-1]
+    assert step.type == "scroll"
+    assert step.scroll_x == 111
+    assert step.scroll_y == 222
+    assert step.scroll_dx == 3
+    assert step.scroll_dy == -4
+    assert step.pre_delay_ms >= 1000

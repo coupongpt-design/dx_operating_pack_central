@@ -165,6 +165,8 @@ class StepData:
     
     scroll_dx: int = 0
     scroll_dy: int = 0
+    scroll_x: int | None = None
+    scroll_y: int | None = None
     scroll_times: int = 1
     scroll_interval_ms: int = 0
     wait_ms: int = 0

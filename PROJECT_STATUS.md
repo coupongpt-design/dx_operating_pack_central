@@ -489,3 +489,8 @@
 - Added `relative_search_mode` with `ratio` and `px` support for target-near-anchor image steps.
 - New image-step dialogs default fresh relative-search setups to ratio mode, while existing px-configured macros remain on legacy pixel mode.
 - `Pick Search Area` now stores both pixel margins and anchor-size ratios so runner can resolve search regions against scaled anchor matches.
+
+## 2026-03-11 - Recorded Scroll Position Replay
+
+- Standard recording now stores wheel cursor position on `scroll` steps and replays scrolls at the recorded coordinates.
+- This restores exact-replay behavior for scroll actions instead of replaying at whatever cursor position is active at runtime.

@@ -74,11 +74,13 @@ def test_runner_mouse_actions(patched_runner):
     pg.mouseDown.assert_called()
     pg.mouseUp.assert_called()
 
+    pg.moveTo.reset_mock()
     step_scroll = StepData(
-        id="s", name="scroll", type="scroll", scroll_dx=1, scroll_dy=2, scroll_times=2, scroll_interval_ms=0
+        id="s", name="scroll", type="scroll", scroll_dx=1, scroll_dy=2, scroll_x=30, scroll_y=40, scroll_times=2, scroll_interval_ms=0
     )
     ok, _ = r._scroll(step_scroll)
     assert ok
+    pg.moveTo.assert_called_with(30, 40)
     pg.hscroll.assert_called()
     pg.scroll.assert_called()
 

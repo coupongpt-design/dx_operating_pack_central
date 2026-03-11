@@ -2061,6 +2061,8 @@ class MacroRunner(QThread):
     def _scroll(self, s: StepData) -> tuple[bool, str | None]:
         try:
             with self._acquire_input_lock("scroll"):
+                if s.scroll_x is not None and s.scroll_y is not None:
+                    pyautogui.moveTo(int(s.scroll_x), int(s.scroll_y))
                 for _ in range(max(1, int(s.scroll_times))):
                     pyautogui.hscroll(int(s.scroll_dx))
                     pyautogui.scroll(int(s.scroll_dy))

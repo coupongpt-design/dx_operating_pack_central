@@ -69,6 +69,7 @@ class InputRecorder(QObject):
         self._drag_points = []
         
         self._scroll_acc = (0, 0)
+        self._scroll_pos = None
         self._scroll_last = 0.0
         
         self._ignore_until = 0.0
@@ -539,6 +540,7 @@ class InputRecorder(QObject):
         if self._in_ignore(x, y):
             return
         self._scroll_acc = (self._scroll_acc[0] + dx, self._scroll_acc[1] + dy)
+        self._scroll_pos = (x, y)
         self._scroll_last = ts
 
     # --- Helpers ---
@@ -581,10 +583,13 @@ class InputRecorder(QObject):
             id=str(uuid.uuid4())[:8], name=f"Scroll {sx},{sy}", type="scroll",
             scroll_dx=int(sx * self._scroll_scale_dx),
             scroll_dy=int(sy * self._scroll_scale_dy),
+            scroll_x=self._scroll_pos[0] if self._scroll_pos else None,
+            scroll_y=self._scroll_pos[1] if self._scroll_pos else None,
             scroll_times=1, scroll_interval_ms=0,
             pre_delay_ms=int(delay_ms)
         ))
         self._scroll_acc = (0, 0)
+        self._scroll_pos = None
         self._last_event_ts = now
 
     def _btn_name(self, b):

@@ -2215,3 +2215,9 @@
 - Added StepData fields for `relative_search_mode` and ratio margins so target-near-anchor searches can scale with the matched anchor size instead of relying only on absolute pixels.
 - Updated the image-step dialog to expose `Ratio (Recommended)` vs `Pixels (Legacy)`, keep fresh setups on ratio mode, and let `Pick Search Area` backfill both px and ratio values from the selected band.
 - Updated runner resolution so ratio mode expands search bounds by matched anchor width/height multipliers; validated with dialog persistence, JSON roundtrip, and runtime click tests.
+
+## 2026-03-11 03:35 KST - Recorded Scroll Position Replay
+
+- Symptom: recorded scroll steps only kept wheel delta, so playback scrolled wherever the cursor happened to be instead of the original wheel position.
+- Fix: added `scroll_x/scroll_y` to StepData, captured the last wheel coordinates in recorder flush, and updated runner scroll playback to move to that recorded location before scrolling.
+- Validation: `tests/test_recorder_logic.py`, `tests/test_signal_and_logic.py`

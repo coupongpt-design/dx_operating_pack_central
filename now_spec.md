@@ -673,3 +673,9 @@
 - Relative target search areas support `relative_search_mode = "px" | "ratio"`.
 - In `ratio` mode, left/right margins are multiplied by matched anchor width and top/bottom margins are multiplied by matched anchor height at runtime.
 - `Pick Search Area` must populate both px and ratio representations; runner uses the active mode while old macros without ratio config stay backward-safe on `px`.
+
+## 2026-03-11 - Scroll Recording Contract
+
+- Recorded `scroll` steps persist `scroll_x` and `scroll_y` from the wheel event location.
+- Scroll replay moves the pointer to the recorded position before issuing horizontal/vertical wheel input.
+- Older macros without stored scroll coordinates remain valid and continue scrolling at the current pointer position.
