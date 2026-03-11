@@ -66,6 +66,7 @@
 
 ## 4) Real-World QA and Multi-Agent
 - Real-World QA
+  - `docs/dev/CROSS_PROJECT_QA_PLAYBOOK.md`
   - `docs/dev/REAL_WORLD_QA.md`
   - `docs/dev/USER_JOURNEYS.md`
   - `docs/dev/BUG_LOOP_PROTOCOL.md`

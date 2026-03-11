@@ -45,6 +45,8 @@
   - 사용자 요청 문구와 세션 동작 트리거 메모
 
 ## 5) 운영/QA 문서
+- `docs/dev/CROSS_PROJECT_QA_PLAYBOOK.md`
+  - 다른 프로젝트에도 바로 이식 가능한 실사용 QA 운영 플레이북
 - `docs/dev/REAL_WORLD_QA.md`
 - `docs/dev/USER_JOURNEYS.md`
 - `docs/dev/BUG_LOOP_PROTOCOL.md`
