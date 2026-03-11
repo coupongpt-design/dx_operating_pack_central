@@ -679,3 +679,15 @@
 - Recorded `scroll` steps persist `scroll_x` and `scroll_y` from the wheel event location.
 - Scroll replay moves the pointer to the recorded position before issuing horizontal/vertical wheel input.
 - Older macros without stored scroll coordinates remain valid and continue scrolling at the current pointer position.
+
+## 2026-03-11 - Runtime Health Check Contract
+
+- `run_health_check.py` default smoke coverage is a runtime-sensitive subset, not a full-suite replacement.
+- The default smoke set must cover:
+  - runtime orchestration / scheduler / trigger basics
+  - image dialog + matcher + StepData serialization basics
+  - standard `Record` separation from Smart Recorder proposal state
+  - recorded scroll position capture + replay
+  - relative-target runtime matching from embedded bytes and ratio-mode search
+  - plain JSON roundtrip persistence for captured relative targets
+- `HEALTHCHECK_FULL=1` still upgrades the check to full `tests -q`.

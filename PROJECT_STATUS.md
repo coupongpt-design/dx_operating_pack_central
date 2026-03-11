@@ -494,3 +494,25 @@
 
 - Standard recording now stores wheel cursor position on `scroll` steps and replays scrolls at the recorded coordinates.
 - This restores exact-replay behavior for scroll actions instead of replaying at whatever cursor position is active at runtime.
+
+## 2026-03-11 - Record Status Clarification
+
+- Earlier Stage 3-3 Smart Recorder notes in this file are historical implementation notes, not the current standard `Record` contract.
+- Current standard `Record` uses exact-replay `InputRecorder` output and does not materialize `SmartTransformer` / proposal state into the final recorded steps.
+- Smart proposal logic remains separated from the standard `Record` path.
+
+## 2026-03-11 - Health Check Runtime Profile Expansion
+
+- `run_health_check.py` default smoke coverage now also includes:
+  - exact-replay record path state separation
+  - recorded scroll position persistence + replay
+  - relative target runtime matching from embedded bytes
+  - ratio-based relative target search
+  - plain JSON relative-target roundtrip persistence
+- Added smoke entries:
+  - `tests/test_ui_integration.py::test_mainwindow_record_path_has_no_smart_record_state`
+  - `tests/test_recorder_logic.py::test_recorded_scroll_keeps_pointer_position`
+  - `tests/test_signal_and_logic.py::test_runner_mouse_actions`
+  - `tests/test_runner_logic.py::test_image_click_relative_target_search_clicks_target_from_embedded_bytes`
+  - `tests/test_runner_logic.py::test_image_click_relative_target_search_clicks_target_with_ratio_area`
+  - `tests/test_macro_load_formats.py::test_save_json_roundtrip_preserves_captured_relative_target`

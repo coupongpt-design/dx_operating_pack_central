@@ -15,6 +15,12 @@ DEFAULT_SMOKE_TESTS = [
     "tests/test_image_dialog_presets.py",
     "tests/test_matcher_quality.py",
     "tests/test_stepdata_serialization.py",
+    "tests/test_ui_integration.py::test_mainwindow_record_path_has_no_smart_record_state",
+    "tests/test_recorder_logic.py::test_recorded_scroll_keeps_pointer_position",
+    "tests/test_signal_and_logic.py::test_runner_mouse_actions",
+    "tests/test_runner_logic.py::test_image_click_relative_target_search_clicks_target_from_embedded_bytes",
+    "tests/test_runner_logic.py::test_image_click_relative_target_search_clicks_target_with_ratio_area",
+    "tests/test_macro_load_formats.py::test_save_json_roundtrip_preserves_captured_relative_target",
 ]
 
 

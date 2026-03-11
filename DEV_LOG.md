@@ -2221,3 +2221,21 @@
 - Symptom: recorded scroll steps only kept wheel delta, so playback scrolled wherever the cursor happened to be instead of the original wheel position.
 - Fix: added `scroll_x/scroll_y` to StepData, captured the last wheel coordinates in recorder flush, and updated runner scroll playback to move to that recorded location before scrolling.
 - Validation: `tests/test_recorder_logic.py`, `tests/test_signal_and_logic.py`
+
+## 2026-03-11 04:20 KST - Health Check / Record Doc Consistency
+
+- Symptom: active docs still contained older Smart Recorder stage notes that could be read as the current standard `Record` behavior, while `run_health_check.py` default smoke coverage did not directly exercise the recent exact-replay / relative-target seams that produced real user-facing issues.
+- Fix:
+  - clarified current `Record` status in `PROJECT_STATUS.md` so Stage 3-3 Smart Recorder notes are treated as historical implementation context
+  - expanded `run_health_check.py` default smoke set with:
+    - `tests/test_ui_integration.py::test_mainwindow_record_path_has_no_smart_record_state`
+    - `tests/test_recorder_logic.py::test_recorded_scroll_keeps_pointer_position`
+    - `tests/test_signal_and_logic.py::test_runner_mouse_actions`
+    - `tests/test_runner_logic.py::test_image_click_relative_target_search_clicks_target_from_embedded_bytes`
+    - `tests/test_runner_logic.py::test_image_click_relative_target_search_clicks_target_with_ratio_area`
+    - `tests/test_macro_load_formats.py::test_save_json_roundtrip_preserves_captured_relative_target`
+  - updated runtime-smoke expectations in `tests/test_run_health_check_runtime_smoke.py`
+- Validation:
+  - `python -m pytest -q tests/test_run_health_check_runtime_smoke.py`
+  - `python run_health_check.py`
+  - `python -m pytest -q`
