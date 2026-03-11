@@ -15,6 +15,9 @@
 ## 보조 문서 (`docs/`)
 - `docs/NEWBIE_GUIDE.md` — 신규 멤버 퀵 가이드
 - `docs/dev/CONSULT_TOKEN_TEMPLATE.md` — 외부 자문 요청 토큰 절약 템플릿
+- `docs/dev/REAL_WORLD_QA.md` — 실사용 기준 QA 원칙과 운영 방법
+- `docs/dev/USER_JOURNEYS.md` — 핵심 사용자 여정과 릴리즈 전 체크 기준
+- `docs/dev/BUG_LOOP_PROTOCOL.md` — 버그 재현 -> 회귀테스트 -> 문서반영 처리 루프
 - `docs/dev/UI_RELEAYOUT_PLAN.md` — UI 컴팩트 재배치 계획 (완료됨)
 - `docs/dev/MULTI_AGENT_PROTOCOL.md` — 멀티 에이전트 운영 프로토콜
 - `docs/reports/project_audit_latest.md` — 최신 프로젝트 감사 리포트
@@ -32,4 +35,4 @@
 - 문서 업데이트 시 7개 기준 문서 간 내용 불일치가 없도록 동기화한다.
 - 백업 폴더(`backups/`) 문서는 수정/정리 대상에서 제외한다.
 - 운영 감사 리포트: `python tools/project_audit.py`
-
+- Multi-Agent 문서는 역할 분담 기준이고, 실사용 검증 기준은 `docs/dev/REAL_WORLD_QA.md`와 `docs/dev/USER_JOURNEYS.md`를 따른다.

@@ -32,6 +32,16 @@
   - `tools/project_audit.py` (전수 자산 감사)
   - `tools/check_tool_integrity.py` (루트 tools <-> dx tools 정합성 검사)
 - DX Pack Governance/Sync
+
+## 운영 메모
+- Multi-Agent Orchestration
+  - `docs/dev/MULTI_AGENT_PROTOCOL.md`
+  - 역할 분담과 작업 흐름을 정의한다
+- Real-World QA
+  - `docs/dev/REAL_WORLD_QA.md`
+  - `docs/dev/USER_JOURNEYS.md`
+  - `docs/dev/BUG_LOOP_PROTOCOL.md`
+  - 실제 사용자 흐름 검증, 수동 스모크, 버그 고정 루프를 정의한다
   - `dx_operating_pack/tools/setup_dx.py` (신규 프로젝트 설치/적용)
   - `dx_operating_pack/tools/sync_dx_pack.py` (중앙 DX 레포 동기화 + 로컬 보호/백업)
   - `dx_operating_pack/tools/post_task_gate.py` (DX Pack 로컬 게이트)
