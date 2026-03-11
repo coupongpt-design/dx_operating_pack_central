@@ -7,6 +7,15 @@
 - file_count: 343
 - python_file_count: 152
 
+## Session Bootstrap
+- Read `PROJECT_STATUS.md` first, then use this snapshot as the baseline session map.
+- Default next reads:
+  - UI/layout/overlay -> `dx_operating_pack/docs_for_ai/CONTEXT_UI.md`
+  - runner/StepData/serialization/tests -> `dx_operating_pack/docs_for_ai/CONTEXT_CORE.md`
+  - real-world bug / QA / usability -> `docs/dev/REAL_WORLD_QA.md`, `docs/dev/USER_JOURNEYS.md`
+  - docs / rules / operations review -> `docs/DOC_INDEX.md`, `docs/ASSET_MAP.md`
+- If uncertainty remains after the minimal set, continue opening the most relevant docs until both the runtime path and validation path are covered.
+
 ## Directory Summary
 - `app/core`: 81 files
 - `app/ui`: 40 files
