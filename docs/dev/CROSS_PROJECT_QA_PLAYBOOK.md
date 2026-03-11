@@ -19,6 +19,18 @@
 - 기능은 늘어나는데 "무엇을 검증해야 하는지" 팀 안에서 기준이 없다.
 - 버그를 고쳐도 비슷한 문제가 다시 나온다.
 
+## 이 문서를 읽는 시점
+
+- 새 프로젝트에 실사용 QA 운영 모델을 이식할 때
+- 기존 프로젝트의 QA 체계를 재정비할 때
+- 프로젝트별 QA 문서 역할을 다시 나눌 때
+
+주의:
+
+- 이 문서는 상위 운영 원칙 문서다.
+- 일상적인 제품 기능 수정마다 항상 읽는 baseline 문서로 쓰지 않는다.
+- 프로젝트 내부의 실제 체크 항목은 별도 `USER_JOURNEYS`, `BUG_LOOP_PROTOCOL`, `SMOKE_TEST_CHECKLIST`로 내려가야 한다.
+
 ## 핵심 운영 원칙
 
 ### 1. 행동 계약을 먼저 적는다
@@ -132,6 +144,13 @@ Multi-Agent를 쓴다면 이렇게만 쓴다.
 - `docs/dev/USER_JOURNEYS.md`
 - `docs/dev/BUG_LOOP_PROTOCOL.md`
 - `docs/dev/SMOKE_TEST_CHECKLIST.md`
+
+권장 역할 분리:
+
+- 이 문서: 상위 QA 운영 원칙
+- `USER_JOURNEYS`: 실제 점검할 대표 흐름
+- `BUG_LOOP_PROTOCOL`: 버그 닫는 절차
+- `SMOKE_TEST_CHECKLIST`: 릴리즈 직전 짧은 실행 목록
 
 ## 새 프로젝트 도입 순서
 

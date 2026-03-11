@@ -70,6 +70,12 @@
   - `docs/dev/REAL_WORLD_QA.md`
   - `docs/dev/USER_JOURNEYS.md`
   - `docs/dev/BUG_LOOP_PROTOCOL.md`
+  - Read when:
+    - 실사용 버그 재현/수정
+    - 릴리즈 전 스모크
+    - 사용성 검토
+    - 포커스/모달/저장-로드/해상도/단축키 같은 런타임 이슈
+  - Do not load by default for trivial or localized changes
 - Multi-Agent Orchestration
   - `docs/dev/MULTI_AGENT_PROTOCOL.md`
   - `app/core/multi_role_ai.py`
@@ -117,6 +123,11 @@
   - `dx_operating_pack/docs/CENTRAL_PACK_OPERATING_MODEL.md`
   - `dx_operating_pack/docs/**`
   - `dx_operating_pack/docs_for_ai/**`
+  - Read when:
+    - DX Pack 설치/동기화
+    - 중앙 PACK 피드백 상신/승격
+    - 로컬 PACK과 중앙 PACK 관계 정리
+  - Do not treat as default product-task context
 
 ## 8) Active Operating Loop
 1. Start: read `PROJECT_STATUS.md`

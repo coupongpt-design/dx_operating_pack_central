@@ -14,6 +14,8 @@
   - runner/StepData/serialization/tests -> `dx_operating_pack/docs_for_ai/CONTEXT_CORE.md`
   - real-world bug / QA / usability -> `docs/dev/REAL_WORLD_QA.md`, `docs/dev/USER_JOURNEYS.md`
   - docs / rules / operations review -> `docs/DOC_INDEX.md`, `docs/ASSET_MAP.md`
+- QA docs are conditional, not baseline: load them for real-world failures, release smoke, usability review, or runtime issues such as focus/modal/save-load/hotkey/resolution problems.
+- Central DX Pack operating docs are also conditional: load them only for pack install/sync, harvest, promotion, or central/local pack governance work.
 - If uncertainty remains after the minimal set, continue opening the most relevant docs until both the runtime path and validation path are covered.
 
 ## Directory Summary

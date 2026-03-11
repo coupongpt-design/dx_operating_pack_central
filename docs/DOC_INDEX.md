@@ -48,8 +48,11 @@
 - `docs/dev/CROSS_PROJECT_QA_PLAYBOOK.md`
   - 다른 프로젝트에도 바로 이식 가능한 실사용 QA 운영 플레이북
 - `docs/dev/REAL_WORLD_QA.md`
+  - 이 프로젝트용 실사용 QA 기준. 실사용 버그, 릴리즈 전 스모크, 사용성/런타임 이슈 검토 때 읽는다.
 - `docs/dev/USER_JOURNEYS.md`
+  - 고정 점검할 대표 사용자 흐름 목록. 수동 스모크 또는 실사용 회귀 점검 때 읽는다.
 - `docs/dev/BUG_LOOP_PROTOCOL.md`
+  - 버그를 `재현 -> 회귀 테스트 -> 문서 반영`으로 닫는 절차. 버그 처리 시에만 읽는다.
 - `docs/dev/SMOKE_TEST_CHECKLIST.md`
 - `docs/dev/BUTTON_CHECK.md`
 - `docs/dev/MULTI_AGENT_PROTOCOL.md`
@@ -67,6 +70,8 @@
 - `dx_operating_pack/docs/**`
 - `dx_operating_pack/docs_for_ai/**`
 - `dx_operating_pack/prompt_recipes/**`
+
+일반 제품 기능 작업에서는 기본으로 읽지 않고, PACK 설치/동기화/피드백 상신/중앙 승격 작업일 때만 연다.
 
 이 영역은 프로젝트 앱 문서가 아니라 DX Pack 자체의 운영/배포/재사용 문서다.
 

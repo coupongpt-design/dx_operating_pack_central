@@ -91,6 +91,8 @@ Pre-flight/Troubleshooting:
    - 적용 시 `feedback/inbox/*` 번들의 reusable 변경이 반영되고 `feedback/processed/`로 이동됩니다.
    - 운영 원칙 정리:
      - `docs/CENTRAL_PACK_OPERATING_MODEL.md`
+   - 참고:
+     - 이 문서는 PACK 운영용이며, 일반 제품 기능 작업의 기본 읽기 문서는 아닙니다.
 
 4. 산출물 위치
    - `feedback/outbox/<timestamp>_<head>/feedback_manifest.json`
