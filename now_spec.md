@@ -76,6 +76,7 @@
   - `dx_operating_pack/tools/check_tool_integrity.py`가 루트/팩 도구 정합성(정확 복사 또는 위임 래퍼)을 검사한다.
   - `dx_operating_pack/tools/setup_dx.py`는 설치 후 정합성 검사기를 자동 실행해 불일치 경고를 즉시 노출한다.
   - `dx_operating_pack/tools/task_finish.py --auto-push`는 게이트 성공 직후 `push_dx_feedback.py`를 자동 호출한다.
+  - 중앙 DX remote가 `.dx_cache/dx_operating_pack_remote`, `.dx_cache/dx_feedback_remote`, 또는 `DX_PACK_CENTRAL_REMOTE_URL`/`CENTRAL_REPO_URL` env에서 해석되면 `--remote-url ... --push`를 자동 추가한다.
   - `capture_lesson_draft.py`는 최신 `logs/ai_sessions/` JSON/Markdown 로그에서 `Decision/Reason/Warning` 신호를 수집해 `LATEST_INSIGHT.yaml`에 기록한다.
 - Multi-Manager pending 자동 복구: `SessionManager`가 `runner_provider(sess)`를 통해 pending 세션의 runner 재생성을 시도하고, 세션별 backoff로 재시도 간격을 제어한다. recovery가 최대 시도/최대 대기 임계치를 넘기면 `pending -> error`로 승격한다.
 - Global Input Lock: `app/core/input_lock.py`의 `GlobalInputManager`를 통해 물리 입력 구간을 전역 직렬화한다. `MacroRunner`는 lock wait/acquire/release/timeout을 JSONL 이벤트로 기록하고, timeout은 step failure로 전파된다.

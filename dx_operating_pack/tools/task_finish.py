@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -25,10 +26,25 @@ TEMPLATE_PATH = Path(".git") / "TASK_COMMIT_TEMPLATE.md"
 ALLOWED_SCOPES = ("feature", "rule", "cleanup", "docs", "test")
 DOC_SYNC_FILES = ("PROJECT_STATUS.md", "now_spec.md", "DEV_LOG.md")
 DOC_MTIME_MAX_DRIFT_SEC = 5 * 60
+CENTRAL_REMOTE_ENV_KEYS = ("DX_PACK_CENTRAL_REMOTE_URL", "CENTRAL_REPO_URL")
+CENTRAL_REMOTE_CACHE_DIRS = (
+    Path(".dx_cache") / "dx_operating_pack_remote",
+    Path(".dx_cache") / "dx_feedback_remote",
+)
 
 
 def _git(*args: str) -> str:
     return subprocess.check_output(["git", *args], text=True, encoding="utf-8", errors="replace")
+
+
+def _git_try(*args: str, cwd: Path | None = None) -> tuple[int, str]:
+    cmd = ["git"]
+    if cwd is not None:
+        cmd.extend(["-C", str(cwd)])
+    cmd.extend(args)
+    proc = subprocess.run(cmd, text=True, encoding="utf-8", errors="replace", capture_output=True)
+    text = (proc.stdout or proc.stderr or "").strip()
+    return proc.returncode, text
 
 
 def _staged_exists() -> bool:
@@ -196,8 +212,30 @@ def parse_args(argv: Sequence[str]) -> tuple[str, str, str, bool]:
     return subject, targeted, scope, auto_push
 
 
-def _run_auto_push() -> int:
+def _resolve_central_remote_url() -> str:
+    for key in CENTRAL_REMOTE_ENV_KEYS:
+        value = os.environ.get(key, "").strip()
+        if value:
+            return value
+    for cache_dir in CENTRAL_REMOTE_CACHE_DIRS:
+        if not (cache_dir / ".git").exists():
+            continue
+        rc, out = _git_try("remote", "get-url", "origin", cwd=cache_dir)
+        if rc == 0 and out:
+            return out
+    return ""
+
+
+def _build_auto_push_cmd(remote_url: str = "") -> list[str]:
     cmd = [sys.executable, "tools/push_dx_feedback.py", "--base", "HEAD~1", "--head", "HEAD"]
+    resolved_remote = remote_url.strip() or _resolve_central_remote_url()
+    if resolved_remote:
+        cmd.extend(["--remote-url", resolved_remote, "--push"])
+    return cmd
+
+
+def _run_auto_push(remote_url: str = "") -> int:
+    cmd = _build_auto_push_cmd(remote_url)
     print(f"auto-push: {' '.join(cmd)}")
     return subprocess.call(cmd)
 
@@ -241,9 +279,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     TEMPLATE_PATH.write_text(template, encoding="utf-8")
     print(f"commit template written: {TEMPLATE_PATH}")
     print(f"scope suggestion: {suggested_scope} (allowed: {'|'.join(ALLOWED_SCOPES)})")
-    print("feedback hint: python tools/push_dx_feedback.py --base HEAD~1 --head HEAD")
+    central_remote = _resolve_central_remote_url()
+    if central_remote:
+        print(
+            "feedback hint: python tools/push_dx_feedback.py --base HEAD~1 --head HEAD "
+            f"--remote-url {central_remote} --push"
+        )
+    else:
+        print("feedback hint: python tools/push_dx_feedback.py --base HEAD~1 --head HEAD")
     if auto_push:
-        push_rc = _run_auto_push()
+        push_rc = _run_auto_push(central_remote)
         if push_rc != 0:
             print(f"auto-push failed with exit code {push_rc}")
             return push_rc

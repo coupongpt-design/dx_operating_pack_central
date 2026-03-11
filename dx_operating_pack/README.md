@@ -82,6 +82,9 @@ Pre-flight/Troubleshooting:
      - `python tools/push_dx_feedback.py --base HEAD~1 --head HEAD`
    - 중앙 레포 inbox 반영(+push):
      - `python tools/push_dx_feedback.py --base HEAD~1 --head HEAD --remote-url <CENTRAL_REPO_URL> --push`
+   - `python tools/task_finish.py --subject "<msg>" --auto-push` 사용 시:
+     - 중앙 DX remote가 cache origin 또는 `DX_PACK_CENTRAL_REMOTE_URL`/`CENTRAL_REPO_URL` env에서 해석되면 inbox publish까지 자동 수행
+     - 중앙 remote를 못 찾으면 기존처럼 로컬 outbox 번들만 생성
 
 3. 중앙 승격/확산(central repo)
    - dry-run:

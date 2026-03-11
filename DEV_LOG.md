@@ -145,7 +145,8 @@
   - `capture_lesson_draft.py`에 최신 AI 세션 로그(JSON/Markdown) 어댑터를 추가해 Decision/Reason/Warning 신호 수집 강화.
   - `dx_operating_pack/tools/check_tool_integrity.py` 신규 추가, 루트 래퍼 `tools/check_tool_integrity.py` 신규 추가.
   - `setup_dx.py`에 설치 후 도구 정합성 자동 점검 통합.
-  - `task_finish.py`에 `--auto-push` 옵션 추가(게이트 성공 후 `push_dx_feedback.py` 자동 호출).
+- `task_finish.py`에 `--auto-push` 옵션 추가(게이트 성공 후 `push_dx_feedback.py` 자동 호출).
+- `task_finish.py --auto-push`가 중앙 DX remote를 감지하면 `--remote-url ... --push`를 자동 추가하고, 감지하지 못하면 기존처럼 로컬 outbox 번들만 생성하도록 보강.
   - `AGENT_ONBOARDING.md`, `MANIFEST_AI.yaml`에 자동 환류/정합성 경로 반영.
   - 루트 래퍼 로더의 `sys.modules` 등록을 보완해 dataclass/테스트 monkeypatch 호환성 복구.
 - Validation:

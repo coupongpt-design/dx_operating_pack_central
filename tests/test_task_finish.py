@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import time
 
 from tools.task_finish import build_template_text
+from tools.task_finish import _build_auto_push_cmd
 from tools.task_finish import _confirm_doc_sync
 from tools.task_finish import _doc_mtime_gap_seconds
 from tools.task_finish import _enforce_doc_mtime_drift
 from tools.task_finish import _needs_doc_sync_confirmation
+from tools.task_finish import _resolve_central_remote_url
 from tools.task_finish import parse_args
 
 
@@ -71,6 +74,39 @@ def test_parse_args_rejects_removed_flags() -> None:
 def test_parse_args_auto_push_flag() -> None:
     _, _, _, auto_push = parse_args(["--auto-push"])
     assert auto_push is True
+
+
+def test_resolve_central_remote_url_prefers_env(monkeypatch) -> None:
+    monkeypatch.setenv("DX_PACK_CENTRAL_REMOTE_URL", "git@github.com:owner/central.git")
+    assert _resolve_central_remote_url() == "git@github.com:owner/central.git"
+
+
+def test_resolve_central_remote_url_uses_cached_pack_remote(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    remote_cache = tmp_path / ".dx_cache" / "dx_operating_pack_remote"
+    remote_cache.mkdir(parents=True)
+    subprocess.check_call(["git", "-C", str(remote_cache), "init", "-q"])
+    subprocess.check_call(
+        ["git", "-C", str(remote_cache), "remote", "add", "origin", "git@github.com:owner/dx-pack-central.git"]
+    )
+    assert _resolve_central_remote_url() == "git@github.com:owner/dx-pack-central.git"
+
+
+def test_build_auto_push_cmd_adds_remote_push_when_available(monkeypatch) -> None:
+    monkeypatch.setenv("DX_PACK_CENTRAL_REMOTE_URL", "git@github.com:owner/central.git")
+    cmd = _build_auto_push_cmd()
+    assert "--remote-url" in cmd
+    assert "git@github.com:owner/central.git" in cmd
+    assert "--push" in cmd
+
+
+def test_build_auto_push_cmd_keeps_local_only_when_remote_missing(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("DX_PACK_CENTRAL_REMOTE_URL", raising=False)
+    monkeypatch.delenv("CENTRAL_REPO_URL", raising=False)
+    cmd = _build_auto_push_cmd(remote_url="")
+    assert "--remote-url" not in cmd
+    assert "--push" not in cmd
 
 
 def test_needs_doc_sync_confirmation_when_partial_docs_touched() -> None:

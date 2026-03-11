@@ -40,6 +40,7 @@ git init && wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remo
    - `python tools/post_task_gate.py`
    - `python tools/check_ai_security.py`
    - 자동 상신이 필요하면 `python tools/task_finish.py --subject "<msg>" --scope <scope> --auto-push` 사용
+   - `--auto-push`는 중앙 DX remote가 캐시 clone origin 또는 `DX_PACK_CENTRAL_REMOTE_URL`/`CENTRAL_REPO_URL` env로 해석될 때 중앙 inbox publish까지 수행하고, 아니면 로컬 outbox 생성까지만 수행
 5. 커밋 전:
    - 테스트/게이트/문서 동기화 상태 확인 후 커밋
 6. 지식 환류:

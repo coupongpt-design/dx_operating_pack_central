@@ -55,6 +55,7 @@
   - 자동 상신 옵션:
     - `dx_operating_pack/tools/task_finish.py`에 `--auto-push` 추가
     - 게이트 통과 직후 `tools/push_dx_feedback.py --base HEAD~1 --head HEAD` 자동 호출
+    - `.dx_cache/dx_operating_pack_remote`/`.dx_cache/dx_feedback_remote` origin 또는 `DX_PACK_CENTRAL_REMOTE_URL`/`CENTRAL_REPO_URL` env가 있으면 `--remote-url ... --push`까지 자동 확장
   - 문서/매니페스트 갱신:
     - `dx_operating_pack/AGENT_ONBOARDING.md`, `dx_operating_pack/MANIFEST_AI.yaml` 동기화
   - 검증:
