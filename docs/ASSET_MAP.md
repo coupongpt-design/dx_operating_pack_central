@@ -114,6 +114,7 @@
 - DX Pack Docs
   - `dx_operating_pack/README.md`
   - `dx_operating_pack/AGENT_ONBOARDING.md`
+  - `dx_operating_pack/docs/CENTRAL_PACK_OPERATING_MODEL.md`
   - `dx_operating_pack/docs/**`
   - `dx_operating_pack/docs_for_ai/**`
 

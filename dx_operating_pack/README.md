@@ -89,6 +89,8 @@ Pre-flight/Troubleshooting:
    - apply:
      - `python tools/promote_dx_feedback.py --apply`
    - 적용 시 `feedback/inbox/*` 번들의 reusable 변경이 반영되고 `feedback/processed/`로 이동됩니다.
+   - 운영 원칙 정리:
+     - `docs/CENTRAL_PACK_OPERATING_MODEL.md`
 
 4. 산출물 위치
    - `feedback/outbox/<timestamp>_<head>/feedback_manifest.json`

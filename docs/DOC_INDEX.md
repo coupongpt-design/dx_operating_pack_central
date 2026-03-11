@@ -62,6 +62,8 @@
 - `dx_operating_pack/INSTALL_IN_NEW_PROJECT.md`
 - `dx_operating_pack/MANIFEST.md`
 - `dx_operating_pack/PACK_COVERAGE.md`
+- `dx_operating_pack/docs/CENTRAL_PACK_OPERATING_MODEL.md`
+  - 여러 프로젝트의 로컬 PACK 수확물을 중앙 PACK으로 승격/재배포하는 운영 모델
 - `dx_operating_pack/docs/**`
 - `dx_operating_pack/docs_for_ai/**`
 - `dx_operating_pack/prompt_recipes/**`
