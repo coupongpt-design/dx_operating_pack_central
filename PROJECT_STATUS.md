@@ -323,6 +323,7 @@
 - Multi-Agent 운영 프로토콜 도입:
   - 기본: `Executor -> Guardian` (2-Agent)
   - 승격: Precision 트리거 시 `Planner -> Executor -> Guardian` (3-Agent)
+  - 외부 보조 backend로 `dx_operating_pack/tools/run_multi_role_ai.py --backend gemini-cli` 경로 추가(기본 fallback은 heuristic 유지)
   - 규칙 파일 변경(`AGENTS.md/.cursorrules/규칙 가드 테스트`)은 단독 변경 세트 원칙.
 - 복붙용 운영 문서: `MULTI_AGENT_PROTOCOL.md` 추가(Planner/Executor/Guardian 프롬프트 포함).
 - Git 운영 체계 도입:

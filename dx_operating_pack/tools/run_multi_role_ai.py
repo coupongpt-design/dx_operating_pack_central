@@ -16,6 +16,7 @@ if ROOT not in sys.path:
 
 
 from app.core.multi_role_ai import (  # noqa: E402
+    GeminiCliRoleBackend,
     MultiRoleAIOrchestrator,
     load_roles_from_json,
     render_result_markdown,
@@ -53,6 +54,34 @@ def parse_args() -> argparse.Namespace:
         action="append",
         default=[],
         help="Changed file path hint for mode decision. Can be repeated.",
+    )
+    parser.add_argument(
+        "--backend",
+        default="heuristic",
+        choices=["heuristic", "gemini-cli"],
+        help="Role generation backend.",
+    )
+    parser.add_argument(
+        "--gemini-command",
+        default=os.environ.get("GEMINI_CLI_COMMAND", "gemini"),
+        help="Gemini CLI command path when --backend gemini-cli is used.",
+    )
+    parser.add_argument(
+        "--gemini-model",
+        default=os.environ.get("GEMINI_CLI_MODEL", ""),
+        help="Optional Gemini model name passed to the CLI backend.",
+    )
+    parser.add_argument(
+        "--gemini-extra-arg",
+        action="append",
+        default=[],
+        help="Extra Gemini CLI arg. Can be repeated.",
+    )
+    parser.add_argument(
+        "--gemini-timeout-sec",
+        type=int,
+        default=180,
+        help="Gemini CLI timeout in seconds.",
     )
     return parser.parse_args()
 
@@ -242,7 +271,16 @@ def main() -> int:
     if args.roles_file:
         roles = load_roles_from_json(args.roles_file)
 
-    orchestrator = MultiRoleAIOrchestrator(roles=roles)
+    backend = None
+    if args.backend == "gemini-cli":
+        backend = GeminiCliRoleBackend(
+            command=args.gemini_command,
+            model=args.gemini_model,
+            extra_args=args.gemini_extra_arg,
+            timeout_sec=args.gemini_timeout_sec,
+        )
+
+    orchestrator = MultiRoleAIOrchestrator(backend=backend, roles=roles)
     role_ids = [row.strip() for row in args.roles.split(",") if row.strip()] or None
     changed_files = [str(row or "").strip() for row in (args.changed_file or []) if str(row or "").strip()]
     baseline_state = _collect_git_state()

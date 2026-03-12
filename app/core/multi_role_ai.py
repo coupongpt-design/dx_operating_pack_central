@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, Sequence
 import json
+import subprocess
 
 
 DEFAULT_SCHEMA_VERSION = 1
@@ -205,6 +206,56 @@ class HeuristicRoleBackend:
             if hit >= 0:
                 end = min(end, hit)
         return tail[:end].strip()
+
+
+class GeminiCliRoleBackend:
+    """Gemini CLI backed role generator for planner/reviewer-style assistance."""
+
+    def __init__(
+        self,
+        *,
+        command: str = "gemini",
+        model: str = "",
+        extra_args: Sequence[str] | None = None,
+        timeout_sec: int = 180,
+    ) -> None:
+        self.command = _clean_text(command) or "gemini"
+        self.model = _clean_text(model)
+        self.extra_args = [str(row).strip() for row in (extra_args or []) if _clean_text(row)]
+        self.timeout_sec = max(10, int(timeout_sec))
+
+    def generate(self, role: RoleDefinition, prompt: str, *, max_output_chars: int) -> str:
+        cmd = [self.command]
+        if self.model:
+            cmd.extend(["-m", self.model])
+        cmd.extend(self.extra_args)
+        # `-p` is explicit for script mode and works with current Gemini CLI.
+        cmd.extend(["-p", prompt])
+        try:
+            proc = subprocess.run(
+                cmd,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                check=False,
+                timeout=self.timeout_sec,
+            )
+        except FileNotFoundError as exc:
+            raise RuntimeError(
+                f"gemini cli not found: {self.command}. install Gemini CLI and login first."
+            ) from exc
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(
+                f"gemini cli timed out after {self.timeout_sec}s for role={role.role_id}"
+            ) from exc
+
+        if proc.returncode != 0:
+            detail = _clean_text(proc.stderr) or _clean_text(proc.stdout) or f"exit={proc.returncode}"
+            raise RuntimeError(f"gemini cli failed for role={role.role_id}: {detail}")
+
+        output = _clean_text(proc.stdout) or _clean_text(proc.stderr)
+        return _clip_tail(output, max_output_chars, "response")
 
 
 class MultiRoleAIOrchestrator:

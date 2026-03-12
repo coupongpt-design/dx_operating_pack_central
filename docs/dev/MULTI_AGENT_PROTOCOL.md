@@ -103,3 +103,10 @@ Output:
 - Guardian FAIL rate trend
 - Rework count on runner/signal modifications
 - PR lead time (plan to merge)
+
+## Optional External Backend
+- `tools/run_multi_role_ai.py` supports `--backend gemini-cli`.
+- Recommended usage:
+  - Gemini CLI as `Planner` / `Reviewer` / `Tester`
+  - primary coding agent as `Executor`
+- Do not let multiple coding agents edit the same worktree concurrently.

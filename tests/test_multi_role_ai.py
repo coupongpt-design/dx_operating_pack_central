@@ -1,9 +1,12 @@
 import json
+import json
 from argparse import Namespace
+import subprocess
 
 import pytest
 
 from app.core.multi_role_ai import (
+    GeminiCliRoleBackend,
     MultiRoleAIOrchestrator,
     OrchestrationResult,
     RoleDefinition,
@@ -186,7 +189,8 @@ def test_run_multi_role_ai_hard_gate_blocks_on_guardian_fail(monkeypatch, tmp_pa
     ctx = cli.main.__globals__
 
     class FakeOrchestrator:
-        def __init__(self, roles=None):
+        def __init__(self, backend=None, roles=None):
+            self.backend = backend
             self.roles = roles
 
         def run(self, **kwargs):
@@ -219,6 +223,11 @@ def test_run_multi_role_ai_hard_gate_blocks_on_guardian_fail(monkeypatch, tmp_pa
         roles_file="",
         format="json",
         changed_file=[],
+        backend="heuristic",
+        gemini_command="gemini",
+        gemini_model="",
+        gemini_extra_arg=[],
+        gemini_timeout_sec=180,
     ))
     monkeypatch.setitem(ctx, "_collect_git_state", lambda: {"tracked": set(), "untracked": set()})
     monkeypatch.setitem(ctx, "_safe_git_diff", lambda: "")
@@ -235,3 +244,85 @@ def test_run_multi_role_ai_hard_gate_blocks_on_guardian_fail(monkeypatch, tmp_pa
     assert (artifact_dir / "planner_plan.md").exists()
     assert (artifact_dir / "executor_diff.json").exists()
     assert (artifact_dir / "guardian_report.json").exists()
+
+
+def test_gemini_cli_backend_returns_stdout(monkeypatch):
+    def fake_run(cmd, **kwargs):
+        assert cmd[:2] == ["gemini", "-p"]
+        return subprocess.CompletedProcess(cmd, 0, stdout="planner answer", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    backend = GeminiCliRoleBackend()
+    text = backend.generate(
+        RoleDefinition("planner", "Planner", "plan", "guidance"),
+        "TASK:\nhello",
+        max_output_chars=400,
+    )
+    assert text == "planner answer"
+
+
+def test_gemini_cli_backend_raises_when_missing():
+    backend = GeminiCliRoleBackend(command="missing-gemini")
+    with pytest.raises(RuntimeError):
+        backend.generate(
+            RoleDefinition("planner", "Planner", "plan", "guidance"),
+            "TASK:\nhello",
+            max_output_chars=400,
+        )
+
+
+def test_run_multi_role_ai_builds_gemini_backend(monkeypatch, tmp_path):
+    import tools.run_multi_role_ai as cli
+    ctx = cli.main.__globals__
+
+    captured = {}
+
+    class FakeGeminiBackend:
+        def __init__(self, **kwargs):
+            captured["backend_kwargs"] = kwargs
+
+    class FakeOrchestrator:
+        def __init__(self, backend=None, roles=None):
+            captured["backend_type"] = type(backend).__name__
+            self.backend = backend
+            self.roles = roles
+
+        def run(self, **kwargs):
+            return OrchestrationResult(
+                task="t",
+                context="",
+                mode="compact",
+                role_ids=["planner"],
+                turns=[RoleTurn(role_id="planner", title="Planner", prompt="p", response="plan")],
+                summary="s",
+            )
+
+    monkeypatch.setitem(ctx, "ROOT", str(tmp_path))
+    monkeypatch.setitem(ctx, "GeminiCliRoleBackend", FakeGeminiBackend)
+    monkeypatch.setitem(ctx, "MultiRoleAIOrchestrator", FakeOrchestrator)
+    monkeypatch.setitem(ctx, "parse_args", lambda: Namespace(
+        task="task",
+        context="ctx",
+        mode="compact",
+        roles="",
+        roles_file="",
+        format="json",
+        changed_file=[],
+        backend="gemini-cli",
+        gemini_command="gemini",
+        gemini_model="gemini-2.5-pro",
+        gemini_extra_arg=["--yolo"],
+        gemini_timeout_sec=90,
+    ))
+    monkeypatch.setitem(ctx, "_collect_git_state", lambda: {"tracked": set(), "untracked": set()})
+    monkeypatch.setitem(ctx, "_safe_git_diff", lambda: "")
+
+    rc = cli.main()
+    assert rc == 0
+    assert captured["backend_type"] == "FakeGeminiBackend"
+    assert captured["backend_kwargs"] == {
+        "command": "gemini",
+        "model": "gemini-2.5-pro",
+        "extra_args": ["--yolo"],
+        "timeout_sec": 90,
+    }

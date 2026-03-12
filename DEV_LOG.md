@@ -147,6 +147,8 @@
   - `setup_dx.py`에 설치 후 도구 정합성 자동 점검 통합.
 - `task_finish.py`에 `--auto-push` 옵션 추가(게이트 성공 후 `push_dx_feedback.py` 자동 호출).
 - `task_finish.py --auto-push`가 중앙 DX remote를 감지하면 `--remote-url ... --push`를 자동 추가하고, 감지하지 못하면 기존처럼 로컬 outbox 번들만 생성하도록 보강.
+- `app/core/multi_role_ai.py`에 `GeminiCliRoleBackend` 추가.
+- `dx_operating_pack/tools/run_multi_role_ai.py`에 `--backend gemini-cli`, `--gemini-command`, `--gemini-model`, `--gemini-extra-arg`, `--gemini-timeout-sec` 옵션 연결.
   - `AGENT_ONBOARDING.md`, `MANIFEST_AI.yaml`에 자동 환류/정합성 경로 반영.
   - 루트 래퍼 로더의 `sys.modules` 등록을 보완해 dataclass/테스트 monkeypatch 호환성 복구.
 - Validation:
