@@ -10,9 +10,9 @@ import sys
 from typing import Any
 
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if ROOT not in sys.path:
-    sys.path.insert(0, ROOT)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 
 from app.core.multi_role_ai import (  # noqa: E402
@@ -89,8 +89,10 @@ def parse_args() -> argparse.Namespace:
 def _run_git(args: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["git", *args],
-        cwd=ROOT,
+        cwd=PROJECT_ROOT,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         capture_output=True,
         check=False,
     )
@@ -216,7 +218,7 @@ def _find_turn(result, role_ids: set[str]):
 
 def _make_session_dir() -> str:
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    base = os.path.join(ROOT, "logs", "ai_sessions", stamp)
+    base = os.path.join(PROJECT_ROOT, "logs", "ai_sessions", stamp)
     os.makedirs(base, exist_ok=True)
     return base
 

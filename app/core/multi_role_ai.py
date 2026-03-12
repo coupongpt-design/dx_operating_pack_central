@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, Sequence
 import json
+import os
+import shutil
 import subprocess
 
 
@@ -224,8 +226,23 @@ class GeminiCliRoleBackend:
         self.extra_args = [str(row).strip() for row in (extra_args or []) if _clean_text(row)]
         self.timeout_sec = max(10, int(timeout_sec))
 
+    def _resolve_command(self) -> str:
+        raw = self.command
+        if os.path.sep in raw or (os.path.altsep and os.path.altsep in raw):
+            return raw
+        hits = [
+            shutil.which(raw),
+            shutil.which(f"{raw}.cmd"),
+            shutil.which(f"{raw}.exe"),
+            shutil.which(f"{raw}.bat"),
+        ]
+        for hit in hits:
+            if hit:
+                return hit
+        return raw
+
     def generate(self, role: RoleDefinition, prompt: str, *, max_output_chars: int) -> str:
-        cmd = [self.command]
+        cmd = [self._resolve_command()]
         if self.model:
             cmd.extend(["-m", self.model])
         cmd.extend(self.extra_args)

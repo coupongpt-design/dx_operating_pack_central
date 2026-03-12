@@ -1,6 +1,7 @@
 import json
 import json
 from argparse import Namespace
+from pathlib import Path
 import subprocess
 
 import pytest
@@ -213,7 +214,7 @@ def test_run_multi_role_ai_hard_gate_blocks_on_guardian_fail(monkeypatch, tmp_pa
         rollback_called["called"] = True
         return {"attempted": True, "targets": ["x.py"], "rolled_back": ["x.py"], "failed": []}
 
-    monkeypatch.setitem(ctx, "ROOT", str(tmp_path))
+    monkeypatch.setitem(ctx, "PROJECT_ROOT", str(tmp_path))
     monkeypatch.setitem(ctx, "MultiRoleAIOrchestrator", FakeOrchestrator)
     monkeypatch.setitem(ctx, "parse_args", lambda: Namespace(
         task="task",
@@ -248,7 +249,8 @@ def test_run_multi_role_ai_hard_gate_blocks_on_guardian_fail(monkeypatch, tmp_pa
 
 def test_gemini_cli_backend_returns_stdout(monkeypatch):
     def fake_run(cmd, **kwargs):
-        assert cmd[:2] == ["gemini", "-p"]
+        assert Path(cmd[0]).name.lower() in {"gemini", "gemini.cmd", "gemini.exe", "gemini.bat"}
+        assert cmd[1] == "-p"
         return subprocess.CompletedProcess(cmd, 0, stdout="planner answer", stderr="")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -297,7 +299,7 @@ def test_run_multi_role_ai_builds_gemini_backend(monkeypatch, tmp_path):
                 summary="s",
             )
 
-    monkeypatch.setitem(ctx, "ROOT", str(tmp_path))
+    monkeypatch.setitem(ctx, "PROJECT_ROOT", str(tmp_path))
     monkeypatch.setitem(ctx, "GeminiCliRoleBackend", FakeGeminiBackend)
     monkeypatch.setitem(ctx, "MultiRoleAIOrchestrator", FakeOrchestrator)
     monkeypatch.setitem(ctx, "parse_args", lambda: Namespace(
@@ -326,3 +328,28 @@ def test_run_multi_role_ai_builds_gemini_backend(monkeypatch, tmp_path):
         "extra_args": ["--yolo"],
         "timeout_sec": 90,
     }
+
+
+def test_run_multi_role_ai_root_points_to_project_root():
+    import tools.run_multi_role_ai as cli
+
+    root = cli.main.__globals__["PROJECT_ROOT"]
+    assert (Path(root) / "app" / "core" / "multi_role_ai.py").exists()
+
+
+def test_run_multi_role_ai_git_calls_use_utf8(monkeypatch):
+    import tools.run_multi_role_ai as cli
+
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["kwargs"] = kwargs
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(cli.main.__globals__["subprocess"], "run", fake_run)
+    cli.main.__globals__["_run_git"](["status", "--porcelain"])
+
+    assert captured["cmd"][:2] == ["git", "status"]
+    assert captured["kwargs"]["encoding"] == "utf-8"
+    assert captured["kwargs"]["errors"] == "replace"
