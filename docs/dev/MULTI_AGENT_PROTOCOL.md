@@ -106,6 +106,7 @@ Output:
 
 ## Optional External Backend
 - `tools/run_multi_role_ai.py` supports `--backend gemini-cli`.
+- `tools/run_multi_role_ai.py --backend semi-auto` uses heuristic by default and only upgrades `Planner` / `Reviewer` / `Tester` style turns to Gemini on precision-triggered runs.
 - Recommended usage:
   - Gemini CLI as `Planner` / `Reviewer` / `Tester`
   - primary coding agent as `Executor`

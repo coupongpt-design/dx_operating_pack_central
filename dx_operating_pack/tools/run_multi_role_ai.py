@@ -17,10 +17,15 @@ if PROJECT_ROOT not in sys.path:
 
 from app.core.multi_role_ai import (  # noqa: E402
     GeminiCliRoleBackend,
+    HeuristicRoleBackend,
     MultiRoleAIOrchestrator,
+    SelectiveRoleBackend,
     load_roles_from_json,
     render_result_markdown,
 )
+
+SEMI_AUTO_GEMINI_ROLE_IDS = ("planner", "reviewer", "guardian", "tester")
+SEMI_AUTO_REQUIRED_ROLE_IDS = ("planner", "reviewer")
 
 
 def parse_args() -> argparse.Namespace:
@@ -58,7 +63,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--backend",
         default="heuristic",
-        choices=["heuristic", "gemini-cli"],
+        choices=["heuristic", "gemini-cli", "semi-auto"],
         help="Role generation backend.",
     )
     parser.add_argument(
@@ -266,6 +271,94 @@ def _write_session_artifacts(
         json.dump(guardian_payload, fp, ensure_ascii=False, indent=2)
 
 
+def _resolve_mode_value(
+    args: argparse.Namespace,
+    *,
+    roles,
+    changed_files: list[str],
+) -> str:
+    if args.mode in ("compact", "precision"):
+        return args.mode
+    probe = MultiRoleAIOrchestrator(roles=roles)
+    return probe.select_mode(args.task, args.context, changed_files=changed_files)
+
+
+def _resolve_requested_role_ids(raw_roles: str) -> list[str] | None:
+    cleaned = [row.strip() for row in str(raw_roles or "").split(",") if row.strip()]
+    return cleaned or None
+
+
+def _augment_role_ids_for_semi_auto(
+    role_ids: list[str] | None,
+    *,
+    resolved_mode: str,
+    available_role_ids: set[str],
+) -> list[str] | None:
+    if role_ids is None or resolved_mode != "precision":
+        return role_ids
+    merged = list(role_ids)
+    for role_id in reversed(SEMI_AUTO_REQUIRED_ROLE_IDS[:1]):
+        if role_id in available_role_ids and role_id not in merged:
+            merged.insert(0, role_id)
+    for role_id in SEMI_AUTO_REQUIRED_ROLE_IDS[1:]:
+        if role_id in available_role_ids and role_id not in merged:
+            merged.append(role_id)
+    return merged
+
+
+def _build_backend(
+    args: argparse.Namespace,
+    *,
+    resolved_mode: str,
+):
+    if args.backend == "heuristic":
+        return HeuristicRoleBackend(), False
+    if args.backend == "gemini-cli":
+        return (
+            GeminiCliRoleBackend(
+                command=args.gemini_command,
+                model=args.gemini_model,
+                extra_args=args.gemini_extra_arg,
+                timeout_sec=args.gemini_timeout_sec,
+            ),
+            True,
+        )
+
+    default_backend = HeuristicRoleBackend()
+    if resolved_mode != "precision":
+        return default_backend, False
+    gemini_backend = GeminiCliRoleBackend(
+        command=args.gemini_command,
+        model=args.gemini_model,
+        extra_args=args.gemini_extra_arg,
+        timeout_sec=args.gemini_timeout_sec,
+    )
+    routed_backends = {role_id: gemini_backend for role_id in SEMI_AUTO_GEMINI_ROLE_IDS}
+    return (
+        SelectiveRoleBackend(
+            default_backend=default_backend,
+            routed_backends=routed_backends,
+            fallback_backend=default_backend,
+        ),
+        True,
+    )
+
+
+def _emit_backend_note(args: argparse.Namespace, *, resolved_mode: str, gemini_enabled: bool) -> None:
+    if args.backend != "semi-auto":
+        return
+    if gemini_enabled:
+        print(
+            "[multi-role] semi-auto enabled: Gemini handles planner/reviewer/tester on precision runs.",
+            file=sys.stderr,
+        )
+        return
+    print(
+        f"[multi-role] semi-auto kept heuristic-only execution (mode={resolved_mode}).",
+        file=sys.stderr,
+    )
+
+
 def main() -> int:
     args = parse_args()
 
@@ -273,18 +366,26 @@ def main() -> int:
     if args.roles_file:
         roles = load_roles_from_json(args.roles_file)
 
-    backend = None
-    if args.backend == "gemini-cli":
-        backend = GeminiCliRoleBackend(
-            command=args.gemini_command,
-            model=args.gemini_model,
-            extra_args=args.gemini_extra_arg,
-            timeout_sec=args.gemini_timeout_sec,
+    changed_files = [str(row or "").strip() for row in (args.changed_file or []) if str(row or "").strip()]
+    resolved_mode = _resolve_mode_value(args, roles=roles, changed_files=changed_files)
+    role_ids = _resolve_requested_role_ids(args.roles)
+    available_role_ids = {role.role_id for role in (roles or [])} or {
+        "planner",
+        "implementer",
+        "reviewer",
+        "tester",
+        "documenter",
+    }
+    if args.backend == "semi-auto":
+        role_ids = _augment_role_ids_for_semi_auto(
+            role_ids,
+            resolved_mode=resolved_mode,
+            available_role_ids=available_role_ids,
         )
+    backend, gemini_enabled = _build_backend(args, resolved_mode=resolved_mode)
+    _emit_backend_note(args, resolved_mode=resolved_mode, gemini_enabled=gemini_enabled)
 
     orchestrator = MultiRoleAIOrchestrator(backend=backend, roles=roles)
-    role_ids = [row.strip() for row in args.roles.split(",") if row.strip()] or None
-    changed_files = [str(row or "").strip() for row in (args.changed_file or []) if str(row or "").strip()]
     baseline_state = _collect_git_state()
 
     result = orchestrator.run(

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol, Sequence
+from typing import Any, Mapping, Protocol, Sequence
 import json
 import os
 import shutil
@@ -273,6 +273,35 @@ class GeminiCliRoleBackend:
 
         output = _clean_text(proc.stdout) or _clean_text(proc.stderr)
         return _clip_tail(output, max_output_chars, "response")
+
+
+class SelectiveRoleBackend:
+    """Route selected roles to a primary backend while keeping a safe default backend."""
+
+    def __init__(
+        self,
+        *,
+        default_backend: RoleBackend,
+        routed_backends: Mapping[str, RoleBackend],
+        fallback_backend: RoleBackend | None = None,
+    ) -> None:
+        self.default_backend = default_backend
+        self.routed_backends = {
+            _clean_text(role_id).lower(): backend
+            for role_id, backend in routed_backends.items()
+            if _clean_text(role_id)
+        }
+        self.fallback_backend = fallback_backend
+
+    def generate(self, role: RoleDefinition, prompt: str, *, max_output_chars: int) -> str:
+        role_id = _clean_text(role.role_id).lower()
+        backend = self.routed_backends.get(role_id, self.default_backend)
+        try:
+            return backend.generate(role, prompt, max_output_chars=max_output_chars)
+        except RuntimeError:
+            if self.fallback_backend is None or backend is self.default_backend:
+                raise
+            return self.fallback_backend.generate(role, prompt, max_output_chars=max_output_chars)
 
 
 class MultiRoleAIOrchestrator:

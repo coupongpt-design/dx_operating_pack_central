@@ -12,6 +12,7 @@ from app.core.multi_role_ai import (
     OrchestrationResult,
     RoleDefinition,
     RoleTurn,
+    SelectiveRoleBackend,
     load_roles_from_json,
     render_result_markdown,
 )
@@ -194,6 +195,9 @@ def test_run_multi_role_ai_hard_gate_blocks_on_guardian_fail(monkeypatch, tmp_pa
             self.backend = backend
             self.roles = roles
 
+        def select_mode(self, task, context="", changed_files=None):
+            return "precision"
+
         def run(self, **kwargs):
             return OrchestrationResult(
                 task="t",
@@ -273,6 +277,74 @@ def test_gemini_cli_backend_raises_when_missing():
         )
 
 
+def test_selective_role_backend_routes_selected_roles():
+    calls = []
+
+    class RecordingBackend:
+        def __init__(self, name):
+            self.name = name
+
+        def generate(self, role, prompt, *, max_output_chars):
+            calls.append((self.name, role.role_id, max_output_chars))
+            return f"{self.name}:{role.role_id}"
+
+    default_backend = RecordingBackend("heuristic")
+    gemini_backend = RecordingBackend("gemini")
+    backend = SelectiveRoleBackend(
+        default_backend=default_backend,
+        routed_backends={"planner": gemini_backend},
+        fallback_backend=default_backend,
+    )
+
+    planner_text = backend.generate(
+        RoleDefinition("planner", "Planner", "plan", "guidance"),
+        "TASK:\nhello",
+        max_output_chars=300,
+    )
+    implementer_text = backend.generate(
+        RoleDefinition("implementer", "Implementer", "do", "guidance"),
+        "TASK:\nhello",
+        max_output_chars=300,
+    )
+
+    assert planner_text == "gemini:planner"
+    assert implementer_text == "heuristic:implementer"
+    assert calls == [
+        ("gemini", "planner", 300),
+        ("heuristic", "implementer", 300),
+    ]
+
+
+def test_selective_role_backend_falls_back_on_runtime_error():
+    calls = []
+
+    class FailingBackend:
+        def generate(self, role, prompt, *, max_output_chars):
+            calls.append(("gemini", role.role_id))
+            raise RuntimeError("gemini unavailable")
+
+    class RecordingBackend:
+        def generate(self, role, prompt, *, max_output_chars):
+            calls.append(("heuristic", role.role_id))
+            return f"fallback:{role.role_id}"
+
+    default_backend = RecordingBackend()
+    backend = SelectiveRoleBackend(
+        default_backend=default_backend,
+        routed_backends={"planner": FailingBackend()},
+        fallback_backend=default_backend,
+    )
+
+    planner_text = backend.generate(
+        RoleDefinition("planner", "Planner", "plan", "guidance"),
+        "TASK:\nhello",
+        max_output_chars=300,
+    )
+
+    assert planner_text == "fallback:planner"
+    assert calls == [("gemini", "planner"), ("heuristic", "planner")]
+
+
 def test_run_multi_role_ai_builds_gemini_backend(monkeypatch, tmp_path):
     import tools.run_multi_role_ai as cli
     ctx = cli.main.__globals__
@@ -328,6 +400,149 @@ def test_run_multi_role_ai_builds_gemini_backend(monkeypatch, tmp_path):
         "extra_args": ["--yolo"],
         "timeout_sec": 90,
     }
+
+
+def test_run_multi_role_ai_builds_semi_auto_backend_for_precision(monkeypatch, tmp_path):
+    import tools.run_multi_role_ai as cli
+
+    ctx = cli.main.__globals__
+    captured = {}
+
+    class FakeGeminiBackend:
+        def __init__(self, **kwargs):
+            captured["gemini_kwargs"] = kwargs
+
+    class FakeHeuristicBackend:
+        pass
+
+    class FakeSelectiveBackend:
+        def __init__(self, **kwargs):
+            captured["selective_kwargs"] = kwargs
+
+    class FakeOrchestrator:
+        def __init__(self, backend=None, roles=None):
+            captured.setdefault("backend_types", []).append(type(backend).__name__)
+            self.backend = backend
+            self.roles = roles
+
+        def select_mode(self, task, context="", changed_files=None):
+            captured["select_mode_changed_files"] = list(changed_files or [])
+            return "precision"
+
+        def run(self, **kwargs):
+            captured["run_kwargs"] = kwargs
+            return OrchestrationResult(
+                task="t",
+                context="",
+                mode="precision",
+                role_ids=["planner", "implementer", "reviewer"],
+                turns=[RoleTurn(role_id="planner", title="Planner", prompt="p", response="plan")],
+                summary="s",
+            )
+
+    monkeypatch.setitem(ctx, "PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setitem(ctx, "GeminiCliRoleBackend", FakeGeminiBackend)
+    monkeypatch.setitem(ctx, "HeuristicRoleBackend", FakeHeuristicBackend)
+    monkeypatch.setitem(ctx, "SelectiveRoleBackend", FakeSelectiveBackend)
+    monkeypatch.setitem(ctx, "MultiRoleAIOrchestrator", FakeOrchestrator)
+    monkeypatch.setitem(
+        ctx,
+        "parse_args",
+        lambda: Namespace(
+            task="task",
+            context="ctx",
+            mode="auto",
+            roles="implementer",
+            roles_file="",
+            format="json",
+            changed_file=["a.py", "b.py", "c.py", "d.py", "e.py"],
+            backend="semi-auto",
+            gemini_command="gemini",
+            gemini_model="gemini-2.5-pro",
+            gemini_extra_arg=["--yolo"],
+            gemini_timeout_sec=90,
+        ),
+    )
+    monkeypatch.setitem(ctx, "_collect_git_state", lambda: {"tracked": set(), "untracked": set()})
+    monkeypatch.setitem(ctx, "_safe_git_diff", lambda: "")
+
+    rc = cli.main()
+
+    assert rc == 0
+    assert captured["backend_types"][-1] == "FakeSelectiveBackend"
+    assert captured["run_kwargs"]["role_ids"] == ["planner", "implementer", "reviewer"]
+    assert captured["gemini_kwargs"] == {
+        "command": "gemini",
+        "model": "gemini-2.5-pro",
+        "extra_args": ["--yolo"],
+        "timeout_sec": 90,
+    }
+    assert sorted(captured["selective_kwargs"]["routed_backends"]) == [
+        "guardian",
+        "planner",
+        "reviewer",
+        "tester",
+    ]
+
+
+def test_run_multi_role_ai_semi_auto_stays_heuristic_in_compact_mode(monkeypatch, tmp_path):
+    import tools.run_multi_role_ai as cli
+
+    ctx = cli.main.__globals__
+    captured = {}
+
+    class FakeHeuristicBackend:
+        pass
+
+    class FakeOrchestrator:
+        def __init__(self, backend=None, roles=None):
+            captured.setdefault("backend_types", []).append(type(backend).__name__)
+            self.backend = backend
+            self.roles = roles
+
+        def select_mode(self, task, context="", changed_files=None):
+            return "compact"
+
+        def run(self, **kwargs):
+            captured["run_kwargs"] = kwargs
+            return OrchestrationResult(
+                task="t",
+                context="",
+                mode="compact",
+                role_ids=["implementer"],
+                turns=[RoleTurn(role_id="implementer", title="Implementer", prompt="p", response="impl")],
+                summary="s",
+            )
+
+    monkeypatch.setitem(ctx, "PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setitem(ctx, "HeuristicRoleBackend", FakeHeuristicBackend)
+    monkeypatch.setitem(ctx, "MultiRoleAIOrchestrator", FakeOrchestrator)
+    monkeypatch.setitem(
+        ctx,
+        "parse_args",
+        lambda: Namespace(
+            task="task",
+            context="ctx",
+            mode="auto",
+            roles="implementer",
+            roles_file="",
+            format="json",
+            changed_file=["app/ui/main.py"],
+            backend="semi-auto",
+            gemini_command="gemini",
+            gemini_model="",
+            gemini_extra_arg=[],
+            gemini_timeout_sec=90,
+        ),
+    )
+    monkeypatch.setitem(ctx, "_collect_git_state", lambda: {"tracked": set(), "untracked": set()})
+    monkeypatch.setitem(ctx, "_safe_git_diff", lambda: "")
+
+    rc = cli.main()
+
+    assert rc == 0
+    assert captured["backend_types"][-1] == "FakeHeuristicBackend"
+    assert captured["run_kwargs"]["role_ids"] == ["implementer"]
 
 
 def test_run_multi_role_ai_root_points_to_project_root():

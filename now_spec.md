@@ -76,7 +76,8 @@
   - `dx_operating_pack/tools/check_tool_integrity.py`가 루트/팩 도구 정합성(정확 복사 또는 위임 래퍼)을 검사한다.
   - `dx_operating_pack/tools/setup_dx.py`는 설치 후 정합성 검사기를 자동 실행해 불일치 경고를 즉시 노출한다.
   - `dx_operating_pack/tools/task_finish.py --auto-push`는 게이트 성공 직후 `push_dx_feedback.py`를 자동 호출한다.
-  - `dx_operating_pack/tools/run_multi_role_ai.py`는 기본 heuristic backend 외에 `--backend gemini-cli`를 지원한다.
+  - `dx_operating_pack/tools/run_multi_role_ai.py`는 기본 heuristic backend 외에 `--backend gemini-cli`, `--backend semi-auto`를 지원한다.
+  - `semi-auto`는 Precision으로 해석된 작업에서만 Gemini를 `planner/reviewer/tester` 계열에 자동 라우팅하고, explicit role 요청 시 누락된 `planner/reviewer`를 자동 보강한다. compact로 남는 작업은 heuristic-only로 유지한다.
   - DX 실행기는 프로젝트 루트를 기준으로 `app/` import와 `logs/ai_sessions/` 기록을 처리한다.
   - 중앙 DX remote가 `.dx_cache/dx_operating_pack_remote`, `.dx_cache/dx_feedback_remote`, 또는 `DX_PACK_CENTRAL_REMOTE_URL`/`CENTRAL_REPO_URL` env에서 해석되면 `--remote-url ... --push`를 자동 추가한다.
   - `capture_lesson_draft.py`는 최신 `logs/ai_sessions/` JSON/Markdown 로그에서 `Decision/Reason/Warning` 신호를 수집해 `LATEST_INSIGHT.yaml`에 기록한다.
