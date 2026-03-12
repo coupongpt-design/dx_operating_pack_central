@@ -87,6 +87,7 @@
 - 여러 프로젝트에서 반복 검증된 AI 협업 패턴
   - 예: `tools/run_multi_role_ai.py --backend semi-auto`
   - 규칙: precision에서만 Gemini를 `planner/reviewer/tester` 계열에 붙이고, compact와 구현 기본 경로는 heuristic-only 유지
+  - 배포 형태: PACK 내부 `reusable/core/multi_role_ai.py`와 함께 self-contained로 제공되어야 다른 프로젝트 sync만으로 재사용 가능
 - 반복 재발을 줄이는 QA/가드 운영 규칙
 - 여러 프로젝트에 그대로 이식 가능한 DX 도구/래퍼/검증 스크립트
 

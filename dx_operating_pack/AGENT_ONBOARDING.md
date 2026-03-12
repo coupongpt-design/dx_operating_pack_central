@@ -55,6 +55,7 @@ git init && wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remo
 ## 3) 동기화/업데이트 운영
 권장 명령:
 - `python dx_operating_pack/tools/sync_dx_pack.py --remote-url <CENTRAL_REPO_URL_OR_PATH> --project-root . --mode copy --overwrite`
+- `tools/run_multi_role_ai.py`는 PACK 내부 `reusable/core/multi_role_ai.py`를 사용하므로, 중앙 PACK sync만으로 Gemini/semi-auto 경로도 같이 최신화됩니다.
 
 동기화 안전장치:
 - Sync 직전 팩 전체를 `.dx_cache/backups/pack_<timestamp>/dx_operating_pack`로 자동 백업

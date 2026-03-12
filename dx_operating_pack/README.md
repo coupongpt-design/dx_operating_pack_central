@@ -21,6 +21,7 @@ DX Operating Pack은 규칙/가드/테스트/동기화를 표준화해, 새 프�
 
 업데이트(지속 운영):
 - `python dx_operating_pack/tools/sync_dx_pack.py --remote-url <CENTRAL_REPO_URL_OR_PATH> --project-root . --mode copy --overwrite`
+- `tools/run_multi_role_ai.py`는 PACK 내부 `dx_operating_pack/reusable/core/multi_role_ai.py`를 사용하므로, 다른 프로젝트는 DX Pack 최신화만으로 Gemini/semi-auto 경로를 함께 받습니다.
 
 ## 3) Safe Sync 데이터 보호 정책
 `sync_dx_pack.py --overwrite` 실행 시에도 아래 로컬 파일은 보호됩니다.

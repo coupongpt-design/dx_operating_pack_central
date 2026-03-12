@@ -15,7 +15,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 
-from app.core.multi_role_ai import (  # noqa: E402
+from dx_operating_pack.reusable.core.multi_role_ai import (  # noqa: E402
     GeminiCliRoleBackend,
     HeuristicRoleBackend,
     MultiRoleAIOrchestrator,

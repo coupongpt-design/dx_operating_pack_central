@@ -326,6 +326,7 @@
   - 외부 보조 backend로 `dx_operating_pack/tools/run_multi_role_ai.py --backend gemini-cli` 경로 추가(기본 fallback은 heuristic 유지)
   - `--backend semi-auto` 추가: Precision으로 판정된 실행에서만 Gemini를 `Planner/Reviewer/Tester` 계열에 자동 라우팅하고, `Implementer/Documenter` 및 compact 실행은 heuristic-only 유지
   - `dx_operating_pack/tools/run_multi_role_ai.py`의 루트 해석을 프로젝트 기준으로 고정해 실제 Gemini CLI 실행 경로 복구
+  - `dx_operating_pack/tools/run_multi_role_ai.py`가 PACK 내부 `dx_operating_pack/reusable/core/multi_role_ai.py`를 직접 사용하도록 바꿔, 다른 프로젝트가 DX Pack sync만으로 Gemini/semi-auto 경로를 함께 받도록 self-contained화
   - 규칙 파일 변경(`AGENTS.md/.cursorrules/규칙 가드 테스트`)은 단독 변경 세트 원칙.
 - 복붙용 운영 문서: `MULTI_AGENT_PROTOCOL.md` 추가(Planner/Executor/Guardian 프롬프트 포함).
 - Git 운영 체계 도입:

@@ -550,6 +550,7 @@ def test_run_multi_role_ai_root_points_to_project_root():
 
     root = cli.main.__globals__["PROJECT_ROOT"]
     assert (Path(root) / "app" / "core" / "multi_role_ai.py").exists()
+    assert (Path(root) / "dx_operating_pack" / "reusable" / "core" / "multi_role_ai.py").exists()
 
 
 def test_run_multi_role_ai_git_calls_use_utf8(monkeypatch):
