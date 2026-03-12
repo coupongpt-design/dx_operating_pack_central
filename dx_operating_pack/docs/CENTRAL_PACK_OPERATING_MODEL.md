@@ -82,6 +82,14 @@
 이 산출물은 곧바로 중앙 canonical이 아니다.
 중앙 승격 전까지는 로컬 project-context가 섞인 draft로 본다.
 
+대표적인 승격 후보 예시:
+
+- 여러 프로젝트에서 반복 검증된 AI 협업 패턴
+  - 예: `tools/run_multi_role_ai.py --backend semi-auto`
+  - 규칙: precision에서만 Gemini를 `planner/reviewer/tester` 계열에 붙이고, compact와 구현 기본 경로는 heuristic-only 유지
+- 반복 재발을 줄이는 QA/가드 운영 규칙
+- 여러 프로젝트에 그대로 이식 가능한 DX 도구/래퍼/검증 스크립트
+
 ## 4) 중앙 승격 규칙
 
 중앙 repo에서는 inbox에 모인 번들을 바로 PACK 본체에 섞지 않는다.

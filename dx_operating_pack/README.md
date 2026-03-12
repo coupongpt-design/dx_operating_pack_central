@@ -85,6 +85,10 @@ Pre-flight/Troubleshooting:
    - `python tools/task_finish.py --subject "<msg>" --auto-push` 사용 시:
      - 중앙 DX remote가 cache origin 또는 `DX_PACK_CENTRAL_REMOTE_URL`/`CENTRAL_REPO_URL` env에서 해석되면 inbox publish까지 자동 수행
      - 중앙 remote를 못 찾으면 기존처럼 로컬 outbox 번들만 생성
+   - Multi-role / AI 협업 패턴도 수확 대상이다.
+     - 예: `tools/run_multi_role_ai.py --backend semi-auto`
+     - 재사용 규칙: precision 작업에서만 Gemini를 `planner/reviewer/tester` 계열에 붙이고, compact 실행과 구현 기본 경로는 heuristic-only 유지
+     - 이런 패턴은 `logs/ai_sessions/` + 테스트 근거가 있으면 중앙 PACK 승격 후보로 본다.
 
 3. 중앙 승격/확산(central repo)
    - dry-run:

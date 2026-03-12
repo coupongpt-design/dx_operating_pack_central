@@ -48,6 +48,9 @@ git init && wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remo
    - 중앙 반영 시: `--remote-url <CENTRAL_REPO_URL> --push`
    - 중앙 운영자라면: `python tools/promote_dx_feedback.py --apply`
    - 참고: `capture_lesson_draft.py`는 `logs/ai_sessions/` 최신 JSON/Markdown 로그에서 Decision/Reason/Warning 신호를 추출해 `feedback/LATEST_INSIGHT.yaml`에 반영합니다.
+   - `tools/run_multi_role_ai.py` 기반 협업 실험도 환류 대상입니다.
+     - 현재 PACK의 재사용 규칙 예시: `--backend semi-auto`는 precision에서만 Gemini를 `planner/reviewer/tester` 계열에 붙이고, compact와 기본 구현 경로는 heuristic-only로 유지
+     - 이런 패턴은 다른 프로젝트에서도 재현되면 중앙 PACK 승격 후보로 다룹니다.
 
 ## 3) 동기화/업데이트 운영
 권장 명령:
