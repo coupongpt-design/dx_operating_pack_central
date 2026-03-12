@@ -28,6 +28,29 @@ def _auth_help_lines() -> list[str]:
     ]
 
 
+def _sync_repo_branch(repo_path: Path, branch: str, *, remote_name: str = "origin") -> bool:
+    branch_name = str(branch or "").strip()
+    if not branch_name:
+        return True
+    rc = _run(["git", "-C", str(repo_path), "fetch", remote_name, branch_name])
+    if rc != 0:
+        print(f"[fail] git fetch failed for branch={branch_name}")
+        return False
+    rc = _run(["git", "-C", str(repo_path), "checkout", branch_name])
+    if rc != 0:
+        rc = _run(
+            ["git", "-C", str(repo_path), "checkout", "-B", branch_name, f"{remote_name}/{branch_name}"]
+        )
+    if rc != 0:
+        print(f"[fail] git checkout failed for branch={branch_name}")
+        return False
+    rc = _run(["git", "-C", str(repo_path), "pull", "--ff-only", remote_name, branch_name])
+    if rc != 0:
+        print(f"[fail] git pull failed for branch={branch_name}")
+        return False
+    return True
+
+
 def _git_env_check(project_root: Path) -> bool:
     rc = _run(["git", "--version"])
     if rc != 0:
@@ -109,20 +132,32 @@ def _warn_protected_files(project_root: Path, files: list[Path]) -> None:
     print("[warn] these files will be restored after sync even in --overwrite mode.")
 
 
-def _acquire_remote(remote_url: str, cache_dir: Path) -> Path | None:
+def _acquire_remote(remote_url: str, cache_dir: Path, *, remote_branch: str = "") -> Path | None:
     git_dir = cache_dir / ".git"
     if git_dir.exists():
         _run(["git", "-C", str(cache_dir), "remote", "set-url", "origin", remote_url])
-        rc = _run(["git", "-C", str(cache_dir), "pull", "--ff-only"])
-        if rc != 0:
-            print(f"[fail] remote pull failed (exit={rc})")
-            for line in _auth_help_lines():
-                print(line)
-            return None
+        if remote_branch:
+            ok = _sync_repo_branch(cache_dir, remote_branch, remote_name="origin")
+            if not ok:
+                for line in _auth_help_lines():
+                    print(line)
+                return None
+        else:
+            rc = _run(["git", "-C", str(cache_dir), "pull", "--ff-only"])
+            if rc != 0:
+                print(f"[fail] remote pull failed (exit={rc})")
+                for line in _auth_help_lines():
+                    print(line)
+                return None
         return cache_dir
 
     cache_dir.parent.mkdir(parents=True, exist_ok=True)
-    rc = _run(["git", "clone", remote_url, str(cache_dir)])
+    clone_cmd = ["git", "clone"]
+    branch_name = str(remote_branch or "").strip()
+    if branch_name:
+        clone_cmd.extend(["--branch", branch_name, "--single-branch"])
+    clone_cmd.extend([remote_url, str(cache_dir)])
+    rc = _run(clone_cmd)
     if rc != 0:
         print(f"[fail] remote clone failed (exit={rc})")
         for line in _auth_help_lines():
@@ -136,17 +171,26 @@ def _resolve_pack_repo(args: argparse.Namespace, project_root: Path) -> Path | N
         cache_dir = Path(args.cache_dir)
         if not cache_dir.is_absolute():
             cache_dir = project_root / cache_dir
-        return _acquire_remote(remote_url=args.remote_url, cache_dir=cache_dir.resolve())
+        return _acquire_remote(
+            remote_url=args.remote_url,
+            cache_dir=cache_dir.resolve(),
+            remote_branch=args.remote_branch,
+        )
 
     if args.pack_repo:
         pack_repo = Path(args.pack_repo).resolve()
         if not pack_repo.exists():
             print(f"[fail] pack repo not found: {pack_repo}")
             return None
-        rc = _run(["git", "pull", "--ff-only"], cwd=pack_repo)
-        if rc != 0:
-            print("[fail] git pull failed")
-            return None
+        branch_name = str(args.remote_branch or "").strip()
+        if branch_name:
+            if not _sync_repo_branch(pack_repo, branch_name, remote_name="origin"):
+                return None
+        else:
+            rc = _run(["git", "pull", "--ff-only"], cwd=pack_repo)
+            if rc != 0:
+                print("[fail] git pull failed")
+                return None
         return pack_repo
     return None
 
@@ -162,6 +206,11 @@ def main() -> int:
         "--cache-dir",
         default=".dx_cache/dx_operating_pack_remote",
         help="Local cache dir used when --remote-url is set.",
+    )
+    parser.add_argument(
+        "--remote-branch",
+        default="",
+        help="Optional branch to clone/pull from the central dx pack repo.",
     )
     parser.add_argument(
         "--pack-repo",

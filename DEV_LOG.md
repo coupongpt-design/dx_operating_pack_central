@@ -152,6 +152,7 @@
 - `app/core/multi_role_ai.py`에 `SelectiveRoleBackend`를 추가하고, `dx_operating_pack/tools/run_multi_role_ai.py --backend semi-auto`가 Precision 작업에서만 Gemini를 planner/reviewer/tester 계열로 자동 라우팅하도록 확장.
 - `dx_operating_pack/tools/run_multi_role_ai.py`의 import/log root를 프로젝트 루트 기준으로 수정해 `app.core.multi_role_ai` import 실패를 제거.
 - `dx_operating_pack/reusable/core/multi_role_ai.py`를 추가하고, `dx_operating_pack/tools/run_multi_role_ai.py`가 PACK 내부 모듈을 직접 import하도록 변경해 다른 프로젝트가 DX Pack sync만으로 Gemini/semi-auto 경로를 받을 수 있게 보강.
+- `dx_operating_pack/tools/sync_dx_pack.py`에 `--remote-branch`를 추가해 중앙 최신 PACK이 기본 브랜치가 아니어도 지정 브랜치 기준 clone/pull 동기화를 지원.
   - `AGENT_ONBOARDING.md`, `MANIFEST_AI.yaml`에 자동 환류/정합성 경로 반영.
   - 루트 래퍼 로더의 `sys.modules` 등록을 보완해 dataclass/테스트 monkeypatch 호환성 복구.
 - Validation:
