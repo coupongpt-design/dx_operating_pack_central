@@ -27,6 +27,8 @@
   - `dx_operating_pack/AGENT_ONBOARDING.md`
 
 ## 3) 상태/사양/이력 문서
+- `PROJECT_BRIEF.md`
+  - 에이전트가 프로젝트 성격, 핵심 시스템, 주의점, 다음 읽을 문서를 빠르게 판단하기 위한 루트 소개 문서
 - `now_spec.md`
   - 현재 동작 계약과 사양
 - `DEV_LOG.md`
