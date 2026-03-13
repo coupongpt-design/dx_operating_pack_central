@@ -80,3 +80,45 @@
 [메모]
 - 이 파일은 "자주 쓰는 말" 모음이 아니라 "잊기 쉬운 트리거" 모음이다.
 - 너무 당연한 요청(`리뷰해줘`, `ㄱㄱ`, `구현해줘`)은 일부러 적지 않는다.
+
+8. 최신 dx pack 받게하는 프롬프트
+DX 팩 최신화해.
+중앙 DX PACK 원격에서 최신 내용을 바로 받아서 이 프로젝트에 적용해줘.
+
+기준:
+- remote url: git@github.com:coupongpt-design/dx_operating_pack_central.git
+- branch: feature/ui-modernization-v1
+- sync 방식: copy
+- overwrite 적용
+- 현재 프로젝트 루트를 target으로 사용
+
+실행 기준:
+python dx_operating_pack/tools/sync_dx_pack.py --remote-url git@github.com:coupongpt-design/dx_operating_pack_central.git --remote-branch feature/ui-modernization-v1 --project-root . --mode copy --overwrite
+
+추가 조건:
+- sync 전에 현재 로컬 변경과 보호 파일 상태를 먼저 확인
+- sync 후 어떤 파일이 갱신됐는지 짧게 요약
+- 문제가 생기면 중단하고 원인만 짧게 설명
+
+9. dx pack이 안 깔린 프로젝트에 설치하는 프롬프트
+이 프로젝트에 DX 팩 설치해.
+중앙 원격은 git@github.com:coupongpt-design/dx_operating_pack_central.git 이고,
+설치 후 최신 브랜치 feature/ui-modernization-v1 기준으로 한 번 더 sync해서
+Gemini CLI / semi-auto 경로까지 바로 쓰게 세팅해줘.
+
+순서:
+1. git init 필요 여부 확인
+2. setup_dx.py bootstrap
+3. python setup_dx.py --remote git@github.com:coupongpt-design/dx_operating_pack_central.git --target-root . --mode copy --overwrite
+4. python dx_operating_pack/tools/sync_dx_pack.py --remote-url git@github.com:coupongpt-design/dx_operating_pack_central.git --remote-branch feature/ui-modernization-v1 --project-root . --mode copy --overwrite
+5. 설치/동기화 결과와 바로 쓸 명령 요약
+
+추가 조건:
+- SSH 인증 가능 상태인지 먼저 확인
+- 기존 파일은 함부로 삭제하지 말 것
+- 설치 후 hooksPath, task_finish, sync_dx_pack.py 사용 가능 여부까지 짧게 확인
+
+설치 후 작업 마감 규칙:
+- 작업 종료 시 가능하면 `python tools/task_finish.py --subject "<커밋 제목>" --auto-push` 사용
+- 이 경로를 타면 수확물 생성과 중앙 DX inbox 업로드를 함께 시도함
+- 단, 중앙 승격과 타 프로젝트 반영은 별도 sync 단계가 필요함
