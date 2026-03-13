@@ -1,3 +1,7 @@
+## DX Pack QA Packaging Update (2026-03-12)
+- DX Pack는 신규 프로젝트 설치/최신화 시 공용 QA 운영 플레이북 `dx_operating_pack/docs/CROSS_PROJECT_QA_PLAYBOOK.md`를 함께 제공해야 한다.
+- `docs/dev/CROSS_PROJECT_QA_PLAYBOOK.md`는 canonical이 아니라 bridge 경로이며, 공용 QA 기준의 정본은 DX Pack 쪽 문서를 따른다.
+
 ## Recording Behavior Update (2026-03-09)
 - Standard `Record` mode is exact-replay oriented.
 - Final recorded steps are taken from `InputRecorder` output directly, preserving recorded click/drag/scroll behavior and `pre_delay_ms`.

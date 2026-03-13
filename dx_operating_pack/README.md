@@ -24,6 +24,7 @@ DX Operating Pack은 규칙/가드/테스트/동기화를 표준화해, 새 프�
 - 특정 중앙 브랜치를 따라가야 하면:
   - `python dx_operating_pack/tools/sync_dx_pack.py --remote-url <CENTRAL_REPO_URL_OR_PATH> --remote-branch feature/ui-modernization-v1 --project-root . --mode copy --overwrite`
 - `tools/run_multi_role_ai.py`는 PACK 내부 `dx_operating_pack/reusable/core/multi_role_ai.py`를 사용하므로, 다른 프로젝트는 DX Pack 최신화만으로 Gemini/semi-auto 경로를 함께 받습니다.
+- `docs/CROSS_PROJECT_QA_PLAYBOOK.md`도 PACK에 포함되므로, 신규 프로젝트는 DX Pack 설치/최신화만으로 공용 QA 운영 플레이북을 함께 받습니다.
 
 ## 3) Safe Sync 데이터 보호 정책
 `sync_dx_pack.py --overwrite` 실행 시에도 아래 로컬 파일은 보호됩니다.
@@ -70,6 +71,7 @@ Pre-flight/Troubleshooting:
 ## 6) 문서 인덱스
 - 상세 설치 절차: `INSTALL_IN_NEW_PROJECT.md`
 - 에이전트 온보딩 규칙: `AGENT_ONBOARDING.md`
+- 공용 QA 운영 플레이북: `docs/CROSS_PROJECT_QA_PLAYBOOK.md`
 
 ## 7) 지식 환류(Feedback Loop)
 작업 지식을 일회성으로 버리지 않고 DX Pack으로 상신하려면 아래 루프를 사용합니다.

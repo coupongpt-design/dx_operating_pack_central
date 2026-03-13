@@ -33,6 +33,8 @@
   - 세션별 변경 이력과 검증 메모
 - `PROJECT_STATUS.md`
   - 현재 기준 상태와 최신 확인 결과
+- `docs/SYSTEM_INVENTORY.md`
+  - 현재 프로젝트에 구현된 시스템 전체를 문서 기준 + 코드 대조 기준으로 한 번에 정리한 인벤토리
 
 ## 4) 사용자 문서
 - `README.md`
@@ -45,8 +47,8 @@
   - 사용자 요청 문구와 세션 동작 트리거 메모
 
 ## 5) 운영/QA 문서
-- `docs/dev/CROSS_PROJECT_QA_PLAYBOOK.md`
-  - 다른 프로젝트에도 바로 이식 가능한 실사용 QA 운영 플레이북
+- `dx_operating_pack/docs/CROSS_PROJECT_QA_PLAYBOOK.md`
+  - DX Pack 설치/최신화만으로 같이 배포되는 공용 실사용 QA 운영 플레이북. 새 프로젝트 이식이나 QA 체계 재정비 때 읽는다.
 - `docs/dev/REAL_WORLD_QA.md`
   - 이 프로젝트용 실사용 QA 기준. 실사용 버그, 릴리즈 전 스모크, 사용성/런타임 이슈 검토 때 읽는다.
 - `docs/dev/USER_JOURNEYS.md`
@@ -65,6 +67,9 @@
 - `dx_operating_pack/INSTALL_IN_NEW_PROJECT.md`
 - `dx_operating_pack/MANIFEST.md`
 - `dx_operating_pack/PACK_COVERAGE.md`
+- `dx_operating_pack/docs/CROSS_PROJECT_QA_PLAYBOOK.md`
+- `docs/dev/CROSS_PROJECT_QA_PLAYBOOK.md`
+  - 기존 프로젝트 내부 참조용 브리지. canonical은 DX Pack 쪽 문서를 따른다.
 - `dx_operating_pack/docs/CENTRAL_PACK_OPERATING_MODEL.md`
   - 여러 프로젝트의 로컬 PACK 수확물을 중앙 PACK으로 승격/재배포하는 운영 모델
 - `dx_operating_pack/docs/**`

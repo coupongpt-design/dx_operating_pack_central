@@ -66,11 +66,13 @@
 
 ## 4) Real-World QA and Multi-Agent
 - Real-World QA
-  - `docs/dev/CROSS_PROJECT_QA_PLAYBOOK.md`
+  - `dx_operating_pack/docs/CROSS_PROJECT_QA_PLAYBOOK.md`
   - `docs/dev/REAL_WORLD_QA.md`
   - `docs/dev/USER_JOURNEYS.md`
   - `docs/dev/BUG_LOOP_PROTOCOL.md`
+  - `docs/dev/CROSS_PROJECT_QA_PLAYBOOK.md` (bridge)
   - Read when:
+    - 새 프로젝트에 공용 QA 운영 모델을 이식할 때
     - 실사용 버그 재현/수정
     - 릴리즈 전 스모크
     - 사용성 검토
@@ -109,6 +111,7 @@
   - `now_spec.md`
   - `DEV_LOG.md`
   - `PROJECT_STATUS.md`
+  - `docs/SYSTEM_INVENTORY.md`
 - User-Facing Docs
   - `README.md`
   - `docs/USER_GUIDE.md`
@@ -120,6 +123,7 @@
 - DX Pack Docs
   - `dx_operating_pack/README.md`
   - `dx_operating_pack/AGENT_ONBOARDING.md`
+  - `dx_operating_pack/docs/CROSS_PROJECT_QA_PLAYBOOK.md`
   - `dx_operating_pack/docs/CENTRAL_PACK_OPERATING_MODEL.md`
   - `dx_operating_pack/docs/**`
   - `dx_operating_pack/docs_for_ai/**`

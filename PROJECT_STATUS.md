@@ -1,6 +1,11 @@
 # 프로젝트 상태
 
 ## 최근 업데이트
+- **DX Pack QA 온보딩 self-contained화 (2026-03-12)**:
+  - 공용 QA 운영 플레이북 canonical을 `docs/dev/CROSS_PROJECT_QA_PLAYBOOK.md`에서 `dx_operating_pack/docs/CROSS_PROJECT_QA_PLAYBOOK.md`로 승격.
+  - 기존 `docs/dev/CROSS_PROJECT_QA_PLAYBOOK.md`는 브리지로 유지해 프로젝트 내부 참조는 깨지지 않게 함.
+  - 효과: 신규 프로젝트는 DX Pack 설치/최신화만으로 Gemini/semi-auto 경로뿐 아니라 공용 QA 운영 기준도 함께 받음.
+
 - **run_health_check 안정화 (2026-03-04)**:
   - `run_health_check.py` 실행 방식을 인프로세스 `pytest.main()`에서 서브프로세스 실행으로 전환.
   - 기본 헬스체크를 전체 테스트가 아닌 런타임 스모크 테스트 세트로 조정해 access violation 재발 가능성을 낮춤.

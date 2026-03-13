@@ -12,6 +12,7 @@
 - Default next reads:
   - UI/layout/overlay -> `dx_operating_pack/docs_for_ai/CONTEXT_UI.md`
   - runner/StepData/serialization/tests -> `dx_operating_pack/docs_for_ai/CONTEXT_CORE.md`
+  - cross-project QA adoption / QA model reset -> `dx_operating_pack/docs/CROSS_PROJECT_QA_PLAYBOOK.md`
   - real-world bug / QA / usability -> `docs/dev/REAL_WORLD_QA.md`, `docs/dev/USER_JOURNEYS.md`
   - docs / rules / operations review -> `docs/DOC_INDEX.md`, `docs/ASSET_MAP.md`
 - QA docs are conditional, not baseline: load them for real-world failures, release smoke, usability review, or runtime issues such as focus/modal/save-load/hotkey/resolution problems.

@@ -2246,3 +2246,7 @@
   - `python -m pytest -q tests/test_run_health_check_runtime_smoke.py`
   - `python run_health_check.py`
   - `python -m pytest -q`
+# 2026-03-12 16:20: DX Pack QA onboarding self-contained
+- 공용 QA 운영 플레이북 canonical을 `dx_operating_pack/docs/CROSS_PROJECT_QA_PLAYBOOK.md`로 승격했다.
+- 기존 `docs/dev/CROSS_PROJECT_QA_PLAYBOOK.md`는 브리지 문서로 축소해 기존 프로젝트 내부 참조를 유지했다.
+- `dx_operating_pack/README.md`, `dx_operating_pack/AGENT_ONBOARDING.md`, `docs/DOC_INDEX.md`, `docs/ASSET_MAP.md`, `docs_for_ai/CONTEXT_SNAPSHOT.md`를 업데이트해 DX Pack 설치/최신화만으로 공용 QA 운영 기준까지 받는 흐름을 명시했다.

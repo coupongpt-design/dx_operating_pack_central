@@ -19,6 +19,7 @@ git init && wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remo
 2. DX Pack 설치/적용:
    - `python dx_operating_pack/tools/setup_dx.py --remote <CENTRAL_REPO_URL_OR_PATH> --target-root . --mode copy --overwrite`
    - 설치 직후 `tools/check_tool_integrity.py`가 자동 실행되어 루트 `tools/` 위임 상태를 점검합니다.
+   - 공용 QA 운영 기준은 `dx_operating_pack/docs/CROSS_PROJECT_QA_PLAYBOOK.md`로 함께 설치됩니다.
 3. 훅 설치:
    - `python tools/install_git_hooks.py`
 4. 규칙/도구 맵 로드:
@@ -99,6 +100,7 @@ git init && wget -qO setup_dx.py <RAW_SETUP_DX_URL> && python setup_dx.py --remo
 - setup 실행 여부 확인
 - 가드/훅 정상 동작 확인
 - 규칙/도구 맵 로드 완료 확인
+- 공용 QA 플레이북(`dx_operating_pack/docs/CROSS_PROJECT_QA_PLAYBOOK.md`) 확인
 - Feedback Loop 동작 확인(`feedback/LATEST_INSIGHT.yaml` 생성 확인)
 
 ## 9) Sandbox Policy (파괴적 검증 정책)
